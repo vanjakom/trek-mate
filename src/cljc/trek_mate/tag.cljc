@@ -1,5 +1,13 @@
 (ns trek-mate.tag
-  (:use clj-common.test))
+  #_(:use clj-common.test)
+  (:require
+   [clojure.string :as string]
+   #?@(:clj []
+       :cljs [
+              cljs.reader])))
+
+(defn test [& args]
+  (println "skipping test"))
 
 ;;; application tags, sometimes not shown to user 
 ;;; |<TAG>
@@ -27,6 +35,9 @@
 (def tag-prefix-add "|+")
 (def tag-prefix-remove "|-")
 (def tag-prefix-url "|url")
+;; will think about this more
+;;; (def tag-prefix-source "|source|")
+;;; (def tag-prefix-source-tag "|source-tag|")
 
 (def tag-prefix-defined "#")
 
@@ -35,13 +46,14 @@
 ;;; will be used by user to mark tags useful to himself and for checkings
 (def tag-prefix-personal "@")
 
+;;; using system tags now
 ;;; used during system import of datasets to be able to filter and partially
 ;;; update them later
 ;;; source represents domain from which dataset is coming
-(def tag-prefix-source "source:")
+;;;(def tag-prefix-source "source:")
 ;;; dataset represents internal name assigned to dataset, should be changed
 ;;; when major changes are done in importing procedure or dataset updated
-(def tag-prefix-dataset "dataset:")
+;;;(def tag-prefix-dataset "dataset:")
 
 ;;; will be used by user to mark locations visited ( without time notion )
 (def tag-check-in-personal "@check-in")
@@ -62,7 +74,8 @@
 ;;; to be used by user to specify that track or location if private to him, will not
 ;;; be shared from device
 ;;; currently not used
-(def tag-private "$private")
+;;; depricated
+;;;(def tag-private "$private")
 
 (def tag-island "island")
 (def tag-beach "#beach")
@@ -88,6 +101,7 @@
 (def tag-river "#river")
 (def tag-canyon "#canyon")
 (def tag-cave "#cave")
+(def tag-bath "#bath")
 (def tag-lighthouse "#lighthouse")
 (def tag-restaurant "#restaurant")
 (def tag-sleep "#sleep")
@@ -97,21 +111,26 @@
 (def tag-drink "#drink")
 (def tag-venue "#venue")
 (def tag-border "#border")
+(def tag-highway "#highway")
 (def tag-airport "#airport")
-  (def tag-weekend "#weekend")
+(def tag-weekend "#weekend")
 (def tag-museum "#museum")
 (def tag-art "#art")
 (def tag-church "#church")
+(def tag-parking "#parking")
 
 (def tag-geocache "#geocache")
 (def tag-geocache-personal "@geocache")
 (def tag-geocache-dnf "@dnf")
 (def tag-geocache-puzzle "#puzzle")
+(def tag-geocache-stage "#stage")
+(def tag-geocache-stage-personal "@stage")
 ;;; to be used to represent geocaches uploaded by user
 (def tag-my-cache "@my-cache")
 
 (def tag-penny-press "#penny-press")
 (def tag-brompton "#brompton")
+(def tag-brompton-personal "@brompton")
 
 ;;; should not be added by user, added by device to confirm location coordinates are taken
 ;;; on device
@@ -143,10 +162,8 @@
 (def tag-sign "#sign")
 (def tag-water "#water")
 
-
 (def tag-gas-station "#gas")
 (def tag-toll-station "#toll")
-
 
 ;;; tag to be used to tag all of life wonders and adventures
 (def tag-life "#life")
@@ -185,38 +202,45 @@
     :else nil))
 
 (defn personal-tag? [tag]
-  (.startsWith tag tag-prefix-personal))
+  (string/starts-with? tag tag-prefix-personal))
 
 (defn personal-tag [name]
   (str tag-prefix-personal name))
 
+;;; to be used for non searchable tags ...
+;;; notes for geocaches ...
+#_(defn personal-note [note]
+  (str tag-prefix-personal note))
+
 (defn personal-tag->title [tag]
-  (.substring tag 1))
+  (subs tag 1))
 
 (defn date-tag [date]
   (personal-tag date))
 
 (defn parse-date [tag]
   (try
-    (Integer/parseInt tag)
-    (catch Exception e nil)))
+    (let [date (#?(:clj clojure.core/read-string :cljs cljs.reader/read-string) tag)]
+      (if (number? date) date nil))
+    (catch #?(:clj Exception :cljs :default) e nil)))
 
 (defn date-tag? [tag]
   (and
    (personal-tag? tag)
    (= (count tag) 9)
-   (some? (parse-date (.substring tag 1)))))
+   (some? (parse-date (subs tag 1)))))
 
-(defn private? [tags]
+;;; depricated
+#_(defn private? [tags]
   (contains? tags tag-private))
 
 (declare name-tag->title)
 (declare name-tag?)
 
-(defn source-tag [source]
+#_(defn source-tag [source]
   (str tag-prefix-source source))
 
-(defn dataset-tag [dataset]
+#_(defn dataset-tag [dataset]
   (str tag-prefix-dataset dataset))
 
 (defn force-activity [tags activity]
@@ -225,41 +249,37 @@
    activity))
 
 (defn add-tag? [tag]
-  (.startsWith tag tag-prefix-add))
+  (string/starts-with? tag tag-prefix-add))
 
 (defn add-tag->title [tag]
-  (if (add-tag? tag)
-    (.substring tag 2)))
+  (if (add-tag? tag) (subs tag 2)))
 
 (defn remove-tag? [tag]
-  (.startsWith tag tag-prefix-remove))
+  (string/starts-with? tag tag-prefix-remove))
 
 (defn remove-tag->title [tag]
-  (if (remove-tag? tag)
-    (.substring tag 2)))
+  (if (remove-tag? tag) (subs tag 2)))
 
 (defn system-tag? [tag]
-  (.startsWith tag tag-prefix-system))
+  (string/starts-with? tag tag-prefix-system))
 
 (defn system-tag->title [tag]
-  (if (system-tag? tag)
-    (.substring tag 1)))
-
+  (if (system-tag? tag) (subs tag 1)))
 
 (defn url-tag? [tag]
-  (.startsWith tag tag-prefix-url))
+  (string/starts-with? tag tag-prefix-url))
 
 (defn url-tag [title website]
   (str tag-prefix-url "|" title "|" website))
 
 (defn url-tag->title [tag]
   (if (url-tag? tag)
-    (get (.split tag "\\|") 2)
+    (get (string/split tag (re-pattern "\\|")) 2)
     nil))
 
 (defn url-tag->url [tag]
   (if (url-tag? tag)
-    (get (.split tag "\\|") 3)
+    (get (string/split tag (re-pattern "\\|")) 3)
     nil))
 
 ;;; test for url tag
@@ -272,21 +292,22 @@
    (url-tag? tag)))
 
 (defn defined-tag? [tag]
-  (.startsWith tag tag-prefix-defined))
+  (string/starts-with? tag tag-prefix-defined))
 
 (defn defined-tag->title [tag]
-  (if (defined-tag? tag)
-    (.substring tag 1)))
+  (if (defined-tag? tag) (subs tag 1)))
 
 (defn pending-tag? [tag]
   (= tag tag-pending))
 
+(defn name-tag [tag]
+  (str tag-prefix-name tag))
+
 (defn name-tag? [tag]
-  (.startsWith tag tag-prefix-name))
+  (string/starts-with? tag tag-prefix-name))
 
 (defn name-tag->title [tag]
-  (if (name-tag? tag)
-    (.substring tag 1)))
+  (if (name-tag? tag) (subs tag 1)))
 
 (defn tag->title [tag]
   (cond
@@ -324,11 +345,6 @@
   (= (cleanup-tags #{"#trekmate-original"}) #{})
   (= (cleanup-tags #{"#pending" "#trekmate-original" "test"}) #{"test" "#trekmate-original"}))
 
-(defn skip-analytics? [tags]
-  (contains?
-   tags
-   tag-skip-analytics))
-
 (defn remove-name-tag [tags]
   (into
    #{}
@@ -336,10 +352,10 @@
     (complement name-tag?)
     tags)))
 
-(defn contains? [location tag]
+#_(defn contains? [location tag]
   (clojure.core/contains? (:tags location) tag))
 
-(defn match? [reqired-tags-seq tags]
+#_(defn match? [reqired-tags-seq tags]
   (= (count reqired-tags-seq)
      (count (clojure.set/intersection
              tags
@@ -347,3 +363,5 @@
 
 (defn has-tags? [entity]
   (> (count (:tags entity)) 0))
+
+

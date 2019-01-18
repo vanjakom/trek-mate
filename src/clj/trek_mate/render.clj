@@ -84,79 +84,89 @@
     (doseq [y (range (- point-y radius) (+ point-y radius 1))]
       (set-point-fn [x y]))))
 
-
-(defn create-java-context [zoom x-min x-max y-min y-max]
-  (let [x-span (inc (Math/abs (- x-max x-min)))
-        y-span (inc (Math/abs (- y-max y-min)))
-        tile-context-vec (vec
-                          (mapcat
-                           (fn [x]                     
-                             (map
-                              (fn [y]
-                                (let [context (draw/create-image-context 256 256)]
-                                  (draw/write-background
-                                   context
-                                   (:background-color *context-configuration*))
-                                  {
-                                   :tile {:zoom zoom :x x :y y}
-                                   :set-point-fn (fn [color [x y]]
-                                                   (draw/set-point context color x y))
-                                   :to-png-fn (fn []
-                                                (with-open [output-stream (io/create-byte-output-stream)]
-                                                  (draw/write-png-to-stream context output-stream)
-                                                  (io/byte-output-stream->bytes output-stream)))
-                                   :from-png-fn (fn []
-                                                  (with-open [input-stream (io/bytes->input-stream)]
-                                                    (draw/input-stream->image input-stream)))}))
-                              (range y-min (inc y-max))))
-                           (range x-min (inc x-max))))
-        ;; given x and y should be local to context
-        set-point-fn (fn [color [x y]]
-                       (if (and
-                            (>= x 0)
-                            (< x (* x-span 256))
-                            (>= y 0)
-                            (< y (* y-span 256)))
-                         (let [x-index (quot x 256)
-                               x-offset (rem x 256)
-                               y-index (quot y 256)
-                               y-offset (rem y 256)
-                               index (+ (* x-index y-span) y-index)]
-                           (try
-                             (if (and (>= index 0)
-                                      (< index (count tile-context-vec))
-                                      (>= x-offset 0)
-                                      (< x-offset 256)
-                                      (>= y-offset 0)
-                                      (< y-offset 256))
-                               ((:set-point-fn (get tile-context-vec index))
-                                color
-                                [x-offset y-offset]))
-                             (catch Exception ex (throw
-                                                  (ex-info
-                                                   "point set failure"
-                                                   {
-                                                    :x x :y y :x-index x-index :x-offset x-offset
-                                                    :y-index y-index :y-offset y-offset
-                                                    :index index
-                                                    :tile-vec-count (count tile-context-vec)}
-                                                   ex)))))))
-        location-convert-fn (fn [location]
-                              (let [[x y] ((tile-math/zoom->location->point zoom) location)]
-                                [
-                                 (- x (* x-min 256))
-                                 (- y (* y-min 256))]))]
+(defn create-tile-context [zoom x y]
+  (let [context (draw/create-image-context 256 256)]
+    (draw/write-background
+     context
+     (:background-color *context-configuration*))
     {
-     :zoom zoom
-     :x-min x-min
-     :x-max x-max
-     :y-min y-min
-     :y-max y-max
-     :x-span x-span
-     :y-span y-span
-     :tile-context-vec tile-context-vec
-     :location-convert-fn location-convert-fn
-     :set-point-fn set-point-fn}))
+     :tile {:zoom zoom :x x :y y}
+     :set-point-fn (fn [color [x y]]
+                     (draw/set-point context color x y))
+     :to-png-fn (fn []
+                  (with-open [output-stream (io/create-byte-output-stream)]
+                    (draw/write-png-to-stream context output-stream)
+                    (io/byte-output-stream->bytes output-stream)))
+     :from-png-fn (fn []
+                    (with-open [input-stream (io/bytes->input-stream)]
+                      (draw/input-stream->image input-stream)))}))
+
+(defn create-context-set-point-fn [tile-context-vec x-span y-span]
+  (fn [color [x y]]
+    (if (and (>= x 0) (< x (* x-span 256)) (>= y 0) (< y (* y-span 256)))
+      (let [x-index (quot x 256)
+            x-offset (rem x 256)
+            y-index (quot y 256)
+            y-offset (rem y 256)
+            index (+ (* x-index y-span) y-index)]
+        (try
+          (if (and (>= index 0) (< index (count tile-context-vec))
+                   (>= x-offset 0) (< x-offset 256)
+                   (>= y-offset 0) (< y-offset 256))
+            ((:set-point-fn (get tile-context-vec index))
+             color
+             [x-offset y-offset]))
+          (catch Exception ex
+            (throw
+             (ex-info
+              "point set failure"
+              {
+               :x x :y y :x-index x-index :x-offset x-offset
+               :y-index y-index :y-offset y-offset
+               :index index
+               :tile-vec-count (count tile-context-vec)}
+              ex))))))))
+
+(defn create-java-context
+  "Creates Java rendering context for specified tile offsets"
+  [zoom x-min x-max y-min y-max]
+  (let [x-span (inc (Math/abs (- x-max x-min)))
+        y-span (inc (Math/abs (- y-max y-min)))]
+    (try
+      (let [tile-context-vec (vec
+                              (mapcat
+                               (fn [x]                     
+                                 (map
+                                  (fn [y]
+                                    (create-tile-context zoom x y))
+                                  (range y-min (inc y-max))))
+                               (range x-min (inc x-max))))
+            ;; given x and y should be local to context
+            set-point-fn (create-context-set-point-fn tile-context-vec x-span y-span)
+            location-convert-fn (fn [location]
+                                  (let [[x y] ((tile-math/zoom->location->point zoom) location)]
+                                    [
+                                     (- x (* x-min 256))
+                                     (- y (* y-min 256))]))]
+        {
+         :zoom zoom
+         :x-min x-min
+         :x-max x-max
+         :y-min y-min
+         :y-max y-max
+         :x-span x-span
+         :y-span y-span
+         :tile-context-vec tile-context-vec
+         :location-convert-fn location-convert-fn
+         :set-point-fn set-point-fn})
+      (catch Exception ex (throw (ex-info
+                                  "unable to create Java rendering context"
+                                  {
+                                   :zoom zoom
+                                   :x-min x-min :x-max x-max
+                                   :y-min y-min :y-max y-max
+                                   :x-span x-span :y-span y-span
+                                   :tile-count (* x-span y-span)}))))))
 
 (defn create-context-from-tile-bounds
   [zoom x-min x-max y-min y-max]
