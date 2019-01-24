@@ -13,6 +13,8 @@ function setStatus (status) {
     document.getElementById ("status").innerHTML = status
 }
 
+function noOp () {}
+
 function retrieve (url, callback, error) {
     var xhr = new XMLHttpRequest()
     xhr.open("GET", url, true);
@@ -37,7 +39,7 @@ function retrieveLocations (map, callback) {
 function addLocationsToMap (map, locations) {
     locations.forEach (function (location) {
 	var icon = L.icon ({
-	    iconUrl: "/pin/" + location.pin,
+	    iconUrl: "/pin/" + location.pin[0] + "/" + location.pin[1],
 	    iconSize: [25,25],
 	    iconAnchor: [12.5,12.5]})
 	L

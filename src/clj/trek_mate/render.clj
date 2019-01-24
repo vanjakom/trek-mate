@@ -8,7 +8,9 @@
    [clj-common.io :as io]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
-   [clj-geo.math.tile :as tile-math]))
+   [clj-common.pipeline :as pipeline]
+   [clj-geo.math.tile :as tile-math]
+   [trek-mate.env :as env]))
 
 (def color [:keyword :black :red :white :green :blue])
 
@@ -173,22 +175,22 @@
   ;; todo support both java and javascript
   (let [context (create-java-context zoom x-min x-max y-min y-max)
         location-convert-fn (:location-convert-fn context)
+        draw-point-fn (fn [radius color point]
+                        (if (> radius 1)
+                          (raw-draw-point (partial (:set-point-fn context) color) radius point)
+                          ((:set-point-fn context) color point)))
         draw-line-fn (fn [radius color point-seq]
-                       (let [set-point-fn (if (> radius 1)
-                                            (partial
-                                             raw-draw-point
-                                             (partial (:set-point-fn context) color)
-                                             radius)
-                                            (partial (:set-point-fn context) color))]
-                         (raw-draw-line set-point-fn point-seq)))
+                       (raw-draw-line (partial draw-point-fn radius color) point-seq))
         draw-route-fn (fn [route]
                         (let [[radius color] ((:route-style-fn *context-configuration*) route)]
-                          (draw-line-fn
-                           radius
-                           color
-                           (map
-                            location-convert-fn
-                            (:locations route)))))
+                          (doseq [point (map location-convert-fn (:locations route))]
+                            (draw-point-fn radius color point))
+                          #_(draw-line-fn
+                             radius
+                             color
+                             (map
+                              location-convert-fn
+                              (:locations route)))))
         draw-tile-fn (fn [tile-data]
                        (todo "implement this"))]
     (assoc
@@ -254,3 +256,32 @@
               y-offset (+ (* (- (:y (:tile tile-context)) (:y-max context)) 256) 128)]
           (draw/draw-image image-context [x-offset y-offset] tile-image))))
     (draw/write-png-to-stream image-context output-stream)))
+
+(defn render-tile-at-zoom [zoom bounds locations routes]
+  (let [context (apply
+                 (partial create-context-from-location-bounds zoom)
+                 bounds)]
+    (doseq [route routes]
+      (draw-route context route))
+    (save-context-to-tile-path context (path/child env/*data-path* "tile-cache"))))
+
+(defn render-tile-go
+  "Creates rendering context for tiles described with zoom and bounds and renders routes
+  sent to in chan"
+  [context render-configuration zoom location-bounds in]
+  (pipeline/side-effect-reducing-go
+   context
+   in
+   (fn
+     ([]
+      (apply
+       (partial create-context-from-location-bounds zoom)
+       location-bounds))
+     ([render-context route]
+      (binding [*context-configuration* render-configuration]
+        (draw-route render-context route))
+      render-context)
+     ([render-context]
+      (save-context-to-tile-path
+       render-context
+       (path/child env/*data-path* "tile-cache"))))))

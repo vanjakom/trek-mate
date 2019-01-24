@@ -14,19 +14,42 @@
 
 (def ^:dynamic *port* 8085)
 
+(defn prepare-pin [base-path pin-path]
+  (let [base-image (draw/input-stream->image-context (fs/input-stream base-path))
+        pin-image (draw/input-stream->image-context (fs/input-stream pin-path))]
+    (draw/draw-image
+     base-image
+     [
+      (/ (draw/context-width pin-image) 2)
+      (/ (draw/context-height pin-image) 2)] 
+     pin-image)
+    (let [os (io/create-buffer-output-stream)]
+      (draw/write-png-to-stream base-image os)
+      (io/buffer-output-stream->input-stream os))))
 
-(defn load-small-pin [pin]
-  (fs/input-stream
+(defn load-small-pin [base pin]
+  (prepare-pin
+   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
+    (str base ".imageset") (str base "@1.png")]
    ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
     (str pin ".imageset") (str pin "@1.png")]))
 
-(defn load-medium-pin [pin]
-  (fs/input-stream
+(defn load-medium-pin [base pin]
+  (prepare-pin
+   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
+    (str base ".imageset") (str base "@2.png")]
    ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
     (str pin ".imageset") (str pin "@2.png")]))
 
-(defn load-large-pin [pin]
-  (fs/input-stream
+#_(with-open [os (fs/output-stream ["tmp" "pin.png"])]
+  (io/copy-input-to-output-stream
+   (load-medium-pin "grey_base" "visit_pin")
+   os) )
+
+(defn load-large-pin [base pin]
+  (prepare-pin
+   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
+    (str base ".imageset") (str base "@3.png")]
    ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
     (str pin ".imageset") (str pin "@3.png")]))
 
@@ -114,14 +137,14 @@
        :body (json/write-to-string ((:locations-fn map)))}
       {:status 404}))
    (compojure.core/GET
-    "/pin/:name"
-    [name]
-    (if-let [pin (load-medium-pin name)]
+    "/pin/:base/:pin"
+    [base pin]
+    (if-let [image (load-medium-pin base pin)]
       {
        :status 200
        :headers {
                  "ContentType" "image/png"}
-       :body pin}
+       :body image}
       {:status 404}))))
 
 (defn create-server

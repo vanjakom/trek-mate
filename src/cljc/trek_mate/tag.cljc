@@ -131,6 +131,7 @@
 (def tag-penny-press "#penny-press")
 (def tag-brompton "#brompton")
 (def tag-brompton-personal "@brompton")
+(def tag-unesco "#unesco")
 
 ;;; should not be added by user, added by device to confirm location coordinates are taken
 ;;; on device
@@ -138,6 +139,8 @@
 
 ;;; to be used when planning road trips
 (def tag-visit "#visit")
+;;; same purpose as initially #visit but personal
+(def tag-todo "@todo")
 
 ;;; offroad tags
 (def tag-crossroad "#crossroad")

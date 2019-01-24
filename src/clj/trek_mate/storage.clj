@@ -13,6 +13,7 @@
    [clj-cloudkit.client :as client]
    [clj-cloudkit.operation :as operation]
    [clj-cloudkit.model :as model]
+   [clj-geo.math.tile :as math-tile]
    [trek-mate.env :as env]
    [trek-mate.tag :as tag]))
 
@@ -111,7 +112,7 @@
 (defn location->location-id [location]
   (create-location-id (:longitude location) (:latitude location)))
 
-(defn location->cloudkit-location-personal-id [location]
+#_(defn location->cloudkit-location-personal-id [location]
   (location-id-user->cloudkit-location-personal-id
     (location->location-id location)
     (:user location)))
@@ -219,10 +220,8 @@
        (partial location-personal->cloudkit-record user timestamp))
       personal-location-seq))))
 
-
-
-
-
-
-
-
+(defn upload-tile-at-zoom [zoom bounds]
+  (store-tile-from-path-to-tile-v1
+   client-prod
+   (path/child env/*data-path* "tile-cache")
+   (apply (partial math-tile/calculate-tile-seq zoom) bounds)))
