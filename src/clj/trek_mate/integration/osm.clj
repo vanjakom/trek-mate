@@ -50,11 +50,11 @@
 
 (def map-osm-node->location (map osm-node->location))
 
-(def filter-node
-  (filter #(= (:type %) :node)))
+(def filter-node (filter #(= (:type %) :node)))
 
-(def filter-way
-  (filter #(= (:type %) :way)))
+(def filter-way (filter #(= (:type %) :way)))
+
+(def filter-relation (filter #(= (:type %) :relation)))
 
 (def filter-cities
   "Includes city and town places"
