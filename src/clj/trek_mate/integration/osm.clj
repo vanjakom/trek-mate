@@ -287,10 +287,23 @@
 
 
 
+(defn process-location-chunk-go
+  [locations way-ch relation-node-index relation-way-index]
+  )
+
 (defn dot-process-go
   "All in one, creates index on chunk of locations, runs through ways, adding tags from
   relations"
-  [context node-path way-path relation-path location-out]
-  (with-open [input-stream (fs/input-stream node-path)]
-    ))
+  [context node-path way-path relation-node-index-ch relation-way-index-ch location-out]
+  (async/go
+    (let [relation-node-index (async/>! relation-node-index-ch)
+          relation-way-index (async/>! relation-way-ch)]
+     (with-open [input-stream (fs/input-stream node-path)]
+       ;; read chunk of locations, use process location-chunk-go
+       
+       ))))
+
+
+
+
 
