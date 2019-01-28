@@ -42,6 +42,10 @@
            [(str "#osm:" key ":" value)]))
        osm-tags)))))
 
+(defn osm-node-id->tag [node-id] (str "#osm:n:" node-id))
+(defn osm-way-id->tag [way-id] (str "#osm:w:" way-id))
+(defn osm-relation-id->tag [relation-id] (str "#osm:r:" relation-id))
+(defn osm-relation-role->tag [relation-id role] (str "#osm:r:" relation-id ":" role))
 (defn osm-node->location [osm-node]
   {
    :longitude (:longitude osm-node)
@@ -234,3 +238,59 @@
             (context/set-state context "completion")
             #_(context/counter context "completion")))))
     :success))
+
+(defn dot-prepare-relation-go
+  "Reads relations from input channel and produces two indexes, {node-id, [tags]}
+  and {way-id, [tags]}"
+  [context in node-index-ch way-index-ch]
+  (async/go
+    (context/set-state context "init")
+    (loop [relation (async/>! in)
+           node-index #{}
+           way-index #{}]
+      (when relation
+        (context/set-state context "step")
+        (context/counter context "in")
+        (let [id (:id relation)
+              tags (conj
+                    (:tags relation)
+                    (osm-relation-id->tag id))]
+          (doseq [{ref :ref ref-type :ref-type :role role} (:members relation)]
+            (cond
+              (= ref-type "node")
+              (recur
+               (async/>! in)
+               (update-in
+                node-index
+                [ref]
+                (fn [old-tags]
+                  (conj
+                   (into tags old-tags)
+                   (osm-node-id->tag ref))))
+               way-index)
+
+              (= ref-type "way")
+              (recur
+               (async/>! in)
+               node-index
+               (update-in
+                way-index
+                [ref]
+                (fn [old-tags]
+                  (conj
+                   (into tags old-tags)
+                   (osm-way-id->tag ref)
+                   (osm-relation-role->tag id role)))))))))
+      ;;; todo send in parallel ...
+      (async/>! node-index-ch node-index)
+      (async/>! way-index-ch way-index))))
+
+
+
+(defn dot-process-go
+  "All in one, creates index on chunk of locations, runs through ways, adding tags from
+  relations"
+  [context node-path way-path relation-path location-out]
+  (with-open [input-stream (fs/input-stream node-path)]
+    ))
+
