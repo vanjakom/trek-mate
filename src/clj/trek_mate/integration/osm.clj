@@ -9,6 +9,7 @@
    [clj-common.localfs :as fs]
    [clj-common.edn :as edn]
    [clj-common.geo :as geo]
+   [clj-common.pipeline :as pipeline]
    [trek-mate.tag :as tag]
    [clj-geo.import.osm :as import]))
 
@@ -291,10 +292,28 @@
   [locations way-ch relation-node-index relation-way-index]
   )
 
+(def default-location-chunk 100000)
+(defn chunk-and-index-node-go
+  "Loads N nodes, creates index and passes them down."
+  [context in out]
+  (async/go
+    (loop [index {}
+           node (async/<! in)]
+      )))
+
 (defn dot-process-go
   "All in one, creates index on chunk of locations, runs through ways, adding tags from
   relations"
   [context node-path way-path relation-node-index-ch relation-way-index-ch location-out]
+  (let [node-in (async/chan)]
+    (pipeline/read-edn-go
+     (context/wrap-scope context "node")
+     node-path
+     node-in)
+    
+
+
+    )
   (async/go
     (let [relation-node-index (async/>! relation-node-index-ch)
           relation-way-index (async/>! relation-way-ch)]
