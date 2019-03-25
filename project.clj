@@ -11,7 +11,7 @@
                  [org.clojure/clojurescript "1.10.439"]
                  [org.clojure/tools.reader "1.3.0"]
                  
-                 [com.mungolab/clj-common "0.2.0-SNAPSHOT"]
+                 [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
                  [com.mungolab/clj-geo "0.1.0-SNAPSHOT"]
                  [com.mungolab/clj-cloudkit "0.1.0-SNAPSHOT"]]
   :repl-options {

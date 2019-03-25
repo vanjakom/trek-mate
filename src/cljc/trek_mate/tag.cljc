@@ -94,6 +94,7 @@
 
 (def tag-village "#village")
 (def tag-shopping "#shopping")
+(def tag-building "#building")
 (def tag-bakery "#bakery")
 (def tag-grocery "#grocery")
 (def tag-festival "#festival")
@@ -367,4 +368,4 @@
 (defn has-tags? [entity]
   (> (count (:tags entity)) 0))
 
-
+(defn is? [tag location] (contains? (:tags location) tag))

@@ -3,14 +3,25 @@
   (:require
    compojure.core
    [clj-common.http-server :as server]
+   [clj-common.http :as http]
    [clj-common.jvm :as jvm]
    [clj-common.2d :as draw]
    [clj-common.path :as path]
    [clj-common.io :as io]
    [clj-common.localfs :as fs]
    [clj-common.json :as json]
+   [clj-common.as :as as]
+   [clj-geo.import.tile :as tile]
+   [clj-geo.math.tile :as tile-math]
    [trek-mate.env :as env]
-   [trek-mate.pin :as pin]))
+   [trek-mate.pin :as pin]
+   [trek-mate.tag :as tag]
+   [trek-mate.dot :as dot]
+   [trek-mate.integration.osm :as osm-integration]))
+
+;;; todo
+;;; 20190204 change signature of tile-fn to return image instead of input stream this would
+;;; enable faster middlewares
 
 (def ^:dynamic *port* 8085)
 
@@ -41,18 +52,12 @@
    ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
     (str pin ".imageset") (str pin "@2.png")]))
 
-#_(with-open [os (fs/output-stream ["tmp" "pin.png"])]
-  (io/copy-input-to-output-stream
-   (load-medium-pin "grey_base" "visit_pin")
-   os) )
-
 (defn load-large-pin [base pin]
   (prepare-pin
    ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
     (str base ".imageset") (str base "@3.png")]
    ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
     (str pin ".imageset") (str pin "@3.png")]))
-
 
 (defn create-static-raster-tile-fn
   [path]  
@@ -66,6 +71,124 @@
           (let [buffer-output-stream (io/create-buffer-output-stream)]
             (draw/write-png-to-stream context buffer-output-stream)
             (io/buffer-output-stream->input-stream buffer-output-stream)))))))
+
+(defn create-external-raster-tile-fn
+  "Creates tile retrieve function for tiles that will use url created from template
+  replacing {x}, {y}, {z} with correct values" 
+  [url-template]
+  (fn [zoom x y]
+    (let [url (->
+               url-template
+               (.replace "{z}" (str zoom))
+               (.replace "{x}" (str x))
+               (.replace "{y}" (str y)))]
+      ;;; required because of osm
+      (http/with-default-user-agent
+        (tile/retrieve-tile url)))))
+
+(defn create-empty-raster-tile-fn
+  "To be used with other tile overlay fns as original tile resulting in white tile"
+  []
+  (fn [zoom x y]
+    (let [context (draw/create-image-context 256 256)]
+      (draw/write-background context draw/color-white)
+      (let [buffer-output-stream (io/create-buffer-output-stream)]
+        (draw/write-png-to-stream context buffer-output-stream)
+        (io/buffer-output-stream->input-stream buffer-output-stream)))))
+
+(def create-osm-external-raster-tile-fn
+  (partial create-external-raster-tile-fn "https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
+
+(defn tile-number-overlay-fn
+  "Adds zoom/x/y text to one of original overlays fns"
+  [original-tile-fn]
+  (fn [zoom x y]
+    (if-let [input-stream (original-tile-fn zoom x y)]
+      (let [context (draw/input-stream->image-context input-stream)]
+        (draw/draw-text context draw/color-black (str zoom "/" x "/" y) 20 20)
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))))
+
+(defn tile-border-overlay-fn
+  "Adds border to tile to help debugging"
+  [original-tile-fn]
+  (fn [zoom x y]
+    (if-let [input-stream (original-tile-fn zoom x y)]
+      (let [context (draw/input-stream->image-context input-stream)]
+        (draw/draw-poly
+         context
+         [{:x 0 :y 0} {:x 255 :y 0} {:x 255 :y 255} {:x 0 :y 255}]
+         draw/color-black)
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))))
+
+;; old implementation, use new tile-overlay-dot-from-split 
+#_(defn tile-overlay-dot-export
+  "Renders data from dot export tiles on top of original tiles"
+  [tile-path original-tile-fn]
+  (fn [zoom x y]
+    (if-let [tile-is (original-tile-fn zoom x y)]
+      (if-let [locations (seq (dot/read-tile tile-path zoom x y))]
+        (let [context (draw/input-stream->image-context tile-is)]
+          (doseq [location (map osm-integration/hydrate-tags locations)]
+            (let [point ((tile-math/zoom->location->point zoom) location)
+                  x (rem (first point) 256)
+                  y (rem (second point) 256)]
+              #_(draw/set-point context draw/color-red x y)
+              (doseq [draw-x (range (- x 1) (+ x 2))]
+                (doseq [draw-y (range (- y 1) (+ y 2))]
+                  (draw/set-point
+                   context
+                   (dot/location->color location)
+                   (max 0 (min draw-x 255))
+                   (max 0 (min draw-y 255)))))))
+          (let [buffer-output-stream (io/create-buffer-output-stream)]
+            (draw/write-png-to-stream context buffer-output-stream)
+            (io/buffer-output-stream->input-stream buffer-output-stream)))
+        tile-is))))
+
+(defn tile-overlay-dot-from-split
+  [root-location-split-path rules original-tile-fn]
+  (fn [zoom x y]
+    (println "rendering dot tile" zoom x y)
+    (if-let [tile-is (original-tile-fn zoom x y)]
+      ;; render only zoom 16
+      (if (= zoom 16)
+        (let [context (draw/input-stream->image-context tile-is)]
+         (dot/render-tile-on-context context rules root-location-split-path zoom x y)
+         (let [buffer-output-stream (io/create-buffer-output-stream)]
+           (draw/write-png-to-stream context buffer-output-stream)
+           (io/buffer-output-stream->input-stream buffer-output-stream)))
+        tile-is))))
+
+(defn tile-overlay-dot-from-repository
+  ([dot-repository rules original-tile-fn]
+   (tile-overlay-dot-from-repository dot-repository rules original-tile-fn nil))
+  ([dot-repository rules original-tile-fn dataset]
+   (fn [zoom x y]
+     (println "rendering dot from repository" zoom x y)
+     (if-let [tile-is (original-tile-fn zoom x y)]
+       (let [context (draw/input-stream->image-context tile-is)]
+         (doseq [dot-path (filter
+                           #(or (nil? dataset) (= (path/name %) dataset))
+                           (fs/list (path/child dot-repository zoom x y)))]
+           (dot/render-dot-pipeline context rules zoom dot-path))
+         (let [buffer-output-stream (io/create-buffer-output-stream)]
+           (draw/write-png-to-stream context buffer-output-stream)
+           (io/buffer-output-stream->input-stream buffer-output-stream)))))))
+
+(defn tile-overlay-dot-coverage
+  [repository original-tile-fn]
+  (fn [zoom x y]
+     (println "rendering dot coverage" zoom x y)
+     (if-let [tile-is (original-tile-fn zoom x y)]
+       (let [image-context (draw/input-stream->image-context tile-is)]
+         (dot/render-dot-coverage-pipeline image-context repository [zoom x y])
+         (let [buffer-output-stream (io/create-buffer-output-stream)]
+           (draw/write-png-to-stream image-context buffer-output-stream)
+           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
 (defn empty-locations-fn [] [])
 
@@ -94,6 +217,21 @@
 (defn unregister-map [name]
   (swap! configuration dissoc name))
 
+(defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
+(defn url-tag->html [tag]
+  (if (tag/url-tag? tag)
+    (html-href (tag/url-tag->url tag) (tag/url-tag->title tag))
+    tag))
+(defn location->web-location [location]
+  {
+   :longitude (:longitude location)
+   :latitude (:latitude location)
+   :description (clojure.string/join " " (map
+                                          (comp
+                                           url-tag->html)
+                                          (:tags location)))
+   :pin (take 2 (pin/calculate-pins (:tags location)))})
+
 (def handler
   (compojure.core/routes
    (compojure.core/GET
@@ -114,11 +252,22 @@
       {
        :status 404}))
    (compojure.core/GET
+    "/configuration/:name"
+    [name]
+    (if-let [map (get (deref configuration) name)]
+      {
+       :status 200
+       :body (json/write-to-string (:configuration map))}
+      {
+       :status 404}))
+   (compojure.core/GET
     "/tile/raster/:name/:zoom/:x/:y"
     [name zoom x y]
-    (println "raster tile" name zoom x y)
     (if-let [map (get (deref configuration) name)]
-      (if-let [input-stream ((:raster-tile-fn map) zoom x y)]
+      (if-let [input-stream ((:raster-tile-fn map)
+                             (as/as-long zoom)
+                             (as/as-long  x)
+                             (as/as-long y))]
         {
          :status 200
          :headers {
@@ -126,6 +275,15 @@
          :body input-stream}
         {:status 404})
       {:status 404}))
+   (compojure.core/GET
+    "/tile/data/:name/:zoom/:x/:y"
+    [name zoom x y]
+    (if-let [data-tile-fn (get-in @configuration [name :data-tile-fn])]
+      {
+       :status 200
+       :body (json/write-to-string (data-tile-fn zoom x y))}
+      {
+       :status 404}))
    (compojure.core/GET
     "/locations/:name"
     [name]
@@ -149,7 +307,14 @@
 
 (defn create-server
   []
-  (server/create-server *port* (var handler)))
+  (server/create-server
+   *port*
+   (fn [request]
+     (try
+       ((var handler) request)
+       (catch Exception e
+         (.printStackTrace e)
+         {:status 500})))))
 
 (defn stop-server
   []
@@ -158,4 +323,4 @@
 
 #_(create-server)
 
-
+#_configuration

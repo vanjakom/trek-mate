@@ -7,13 +7,16 @@
    [clojure.core.async :as async]
    [clj-common.context :as context]
    [clj-common.localfs :as fs]
+   [clj-common.path :as path]
    [clj-common.edn :as edn]
-   [clj-common.geo :as geo]
+   [clj-geo.math.core :as geo]
    [clj-common.pipeline :as pipeline]
    [trek-mate.tag :as tag]
-   [clj-geo.import.osm :as import]))
+   [clj-geo.import.osm :as import]
+   [clj-geo.math.tile :as tile-math]))
 
-(defn osm-tags->tags [osm-tags]
+;;; old version with extraction
+#_(defn osm-tags->tags [osm-tags]
   (let [mapping {
                  "name:en" (fn [key value] [(tag/name-tag value)])
                  "tourism" (fn [_ value]
@@ -43,15 +46,52 @@
            [(str "#osm:" key ":" value)]))
        osm-tags)))))
 
-(defn osm-node-id->tag [node-id] (str "#osm:n:" node-id))
-(defn osm-way-id->tag [way-id] (str "#osm:w:" way-id))
-(defn osm-relation-id->tag [relation-id] (str "#osm:r:" relation-id))
-(defn osm-relation-role->tag [relation-id role] (str "#osm:r:" relation-id ":" role))
+(def osm-tag-node-prefix "osm:n:")
+(def osm-tag-way-prefix "osm:w:")
+(def osm-tag-relation-prefix "osm:r:")
+
+(def osm-gen-node-prefix "osm-gen:n:")
+(def osm-gen-way-prefix "osm-gen:w:")
+(def osm-gen-relation-prefix "osm-gen:r:")
+
+(defn osm-node-tags->tags [node-id osm-tags]
+  (into
+   #{}
+   (map
+    (fn [[key value]]
+      (str osm-tag-node-prefix node-id ":" key ":" value))
+    osm-tags)))
+
+(defn osm-way-tags->tags [way-id osm-tags]
+  (into
+   #{}
+   (map
+    (fn [[key value]]
+      (str osm-tag-way-prefix way-id ":" key ":" value))
+    osm-tags)))
+
+(defn osm-relation-tags->tags [relation-id osm-tags]
+  (into
+   #{}
+   (map
+    (fn [[key value]]
+      (str osm-tag-relation-prefix relation-id ":" key ":" value))
+    osm-tags)))
+
+(defn osm-node-id->tag [node-id] (str osm-gen-node-prefix node-id))
+(defn osm-relation-id-role->tag [relation-id role]
+  (if role
+    (str osm-gen-relation-prefix relation-id ":" role)
+    (str osm-gen-relation-prefix relation-id)))
+(defn osm-way-index->tag [way-id index] (str osm-gen-way-prefix way-id ":" index))
+
 (defn osm-node->location [osm-node]
   {
    :longitude (:longitude osm-node)
    :latitude (:latitude osm-node)
-   :tags (osm-tags->tags (:tags osm-node))})
+   :tags (conj
+          (osm-node-tags->tags (:id osm-node) (:tags osm-node))
+          (osm-node-id->tag (:id osm-node)))})
 
 (def map-osm-node->location (map osm-node->location))
 
@@ -74,8 +114,6 @@
   (filter
    #(> (count (:tags %)) 0)))
 
-
-;;; move to transducer
 (defn filter-city [name node-seq]
   (first
    (filter
@@ -104,6 +142,14 @@
 (defn filter-node-from-set [node-set]
   (filter #(contains? node-set (:id %))))
 
+(defn filter-node-in-bounds [bounds]
+  (filter
+   #(geo/location-in-bounding-box? bounds %)))
+
+(def filter-road (filter #(some? (get (:tags %) "highway"))))
+
+(def filter-trunk-road (filter #(= "trunk" (get (:tags %) "highway"))))
+
 (defn hydrate-way [node-index way]
   (assoc
    way
@@ -116,18 +162,10 @@
 
 (defn hydrate-way->route [hydrate-way]
   {
-   :tags (osm-tags->tags (:tags hydrate-way))
+   :tags (osm-way-tags->tags (:tags hydrate-way))
    :locations (map osm-node->location (filter some? (:nodes hydrate-way)))})
 
 (def map-hydrate-way->route (map hydrate-way->route))
-
-(defn filter-node-in-bounds [bounds]
-  (filter
-   #(geo/location-in-bounding-box bounds %)))
-
-(def filter-road (filter #(some? (get (:tags %) "highway"))))
-
-(def filter-trunk-road (filter #(= "trunk" (get (:tags %) "highway"))))
 
 (defn names [node]
   (into
@@ -159,6 +197,43 @@
 (def filter-has-names (filter #(some? (seq (names %)))))
 
 (def filter-has-nodes (filter #(not (empty? (filter some? (:nodes %))))))
+
+(defn hydrate-tags
+  "To be used to extract trek-mate tags on top of osm and other data. Whole location is given
+  because of differences in tagging between countries.
+  Note: This should probably moved in per project ns using fns defined in this ns."
+  [location]
+  (assoc
+   location
+   :tags
+   (reduce
+    (fn [tags tag]
+      (conj
+       (cond
+         (= tag "osm:highway:motorway") (conj tags tag/tag-road)
+
+         (= tag "osm:highway:trunk") (conj tags tag/tag-road)
+         (= tag "osm:highway:primary") (conj tags tag/tag-road)
+         (= tag "osm:highway:secondary") (conj tags tag/tag-road)
+         (= tag "osm:highway:tertiary") (conj tags tag/tag-road)
+         (= tag "osm:highway:unclassified") (conj tags tag/tag-road)
+         (= tag "osm:highway:residential") (conj tags tag/tag-road)
+         (= tag "osm:highway:service") (conj tags tag/tag-road)
+         (= tag "osm:highway:motorway") (conj tags tag/tag-road)
+
+         (= tag "osm:highway:motorway_link") (conj tags tag/tag-road)
+         (= tag "osm:highway:trunk_link") (conj tags tag/tag-road)
+         (= tag "osm:highway:primary_link") (conj tags tag/tag-road)
+         (= tag "osm:highway:secondary_link") (conj tags tag/tag-road)
+         (= tag "osm:highway:tertiary_link") (conj tags tag/tag-road)
+         
+                  
+         ;; (.startsWith tag "osm:highway:") (conj tags tag/tag-road)
+         :default tags)
+       tag))
+    #{}
+    (:tags location))))
+
 
 
 #_(defn process-osm-export
@@ -218,7 +293,7 @@
         (async/close! ch)
         (context/set-state context "completion")))))
 
-(defn way-hydration-go
+#_(defn way-hydration-go
   [context in node-index-ch out]
   (async/go
     #_(context/counter context "init")
@@ -240,89 +315,168 @@
             #_(context/counter context "completion")))))
     :success))
 
-(defn dot-prepare-relation-go
-  "Reads relations from input channel and produces two indexes, {node-id, [tags]}
-  and {way-id, [tags]}"
-  [context in node-index-ch way-index-ch]
+(defn explode-relation-go
+  [context in out]
   (async/go
     (context/set-state context "init")
-    (loop [relation (async/>! in)
-           node-index #{}
-           way-index #{}]
+    (loop [relation (async/<! in)]
       (when relation
         (context/set-state context "step")
         (context/counter context "in")
         (let [id (:id relation)
-              tags (conj
-                    (:tags relation)
-                    (osm-relation-id->tag id))]
-          (doseq [{ref :ref ref-type :ref-type :role role} (:members relation)]
+              tags (osm-relation-tags->tags id (:tags relation))]
+          (when
+              (loop [member (first (:members relation))
+                     rest-of (rest (:members relation))]
+                (if member         
+                  (if (async/>! out (assoc member :id id :tags tags))
+                    (do
+                      (context/counter context "out")
+                      (if (seq rest-of)
+                        (recur (first rest-of) (rest rest-of))
+                        true))
+                    false)
+                  true))
+            (recur (async/<! in))))))
+    (async/close! out)
+    (context/set-state context "completion")
+    :success))
+
+(defn dot-prepare-relation-go
+  "Reads exploded relations from input channel and produces two indexes,
+  {node-id, [tags]} and {way-id, [tags]}"
+  [context in node-index-ch way-index-ch]
+  (async/go
+    (context/set-state context "init")
+    (loop [relation-member (async/<! in)
+           node-index {}
+           way-index {}]
+      (if relation-member
+        (do
+          (context/set-state context "step")
+          (context/counter context "in")
+          (let [{id :id tags :tags ref :ref ref-type :ref-type role :role} relation-member]
             (cond
               (= ref-type "node")
               (recur
-               (async/>! in)
+               (async/<! in)
                (update-in
                 node-index
                 [ref]
                 (fn [old-tags]
-                  (conj
+                  (conj-some
                    (into tags old-tags)
-                   (osm-node-id->tag ref))))
+                   (osm-relation-id-role->tag id role))))
                way-index)
 
               (= ref-type "way")
               (recur
-               (async/>! in)
+               (async/<! in)
                node-index
                (update-in
                 way-index
                 [ref]
                 (fn [old-tags]
-                  (conj
+                  (conj-some
                    (into tags old-tags)
-                   (osm-way-id->tag ref)
-                   (osm-relation-role->tag id role)))))))))
-      ;;; todo send in parallel ...
-      (async/>! node-index-ch node-index)
-      (async/>! way-index-ch way-index))))
+                   (osm-relation-id-role->tag id role)))))
 
+              :else
+              (recur (async/<! in) node-index way-index))))
+        (do
+          (async/>! node-index-ch node-index)
+          (context/counter context "node-out")
+          (async/>! way-index-ch way-index)
+          (context/counter context "way-out")
+          (context/set-state context "completion"))))))
 
-
-(defn process-location-chunk-go
-  [locations way-ch relation-node-index relation-way-index]
-  )
-
-(def default-location-chunk 100000)
-(defn chunk-and-index-node-go
-  "Loads N nodes, creates index and passes them down."
-  [context in out]
+(defn dot-process-node-chunk-go
+  "Takes chunk of locations indexed by node id, stream ways against index, using relation
+  way and node index. When processing is finished locations are sent to out channel"
+  [context location-chunk-in way-path relation-node-index-in relation-way-index-in location-out]
   (async/go
-    (loop [index {}
-           node (async/<! in)]
-      )))
+    (context/set-state context "init")
+    (when-let* [relation-node-index (async/<! relation-node-index-in)
+                relation-way-index (async/<! relation-way-index-in)]
+      (loop [location-index (async/<! location-chunk-in)]
+        (when location-index
+          (context/counter context "location-chunk-in")
+          (let [way-in (async/chan)]
+            (pipeline/read-edn-go (context/wrap-scope context "way-loop") way-path way-in)
+            (loop [location-index location-index
+                   way (async/<! way-in)]
+              (if way
+                (let [id (:id way)
+                      tags (conj
+                            (clojure.set/union
+                             (osm-way-tags->tags id (:tags way))
+                             (get relation-way-index id)))]
+                  (context/counter context "way-in")
+                  (recur
+                   (reduce
+                    (fn [location-index [index node-id]]
+                      (if-let [location (get location-index node-id)]
+                        (do
+                          (context/counter context "way-node-match")
+                          (assoc
+                           location-index
+                           node-id
+                           (update-in
+                            location
+                            [:tags]
+                            clojure.set/union
+                            (conj
+                             tags
+                             (osm-way-index->tag id index)))))
+                        (do
+                          (context/counter context "way-node-skip")
+                          location-index)))
+                    location-index
+                    (map-indexed (fn [index node-ref] [index (:id node-ref)]) (:nodes way)))
+                   (async/<! way-in)))
+                (doseq [[id location] location-index]
+                  (when
+                      (pipeline/out-or-close-and-exhaust-in
+                       location-out
+                       (assoc
+                        location
+                        :tags
+                        (conj
+                         (clojure.set/union (:tags location) (get relation-node-index id))
+                         (osm-node-id->tag id)))
+                       location-chunk-in)
+                    (context/counter context "location-out"))))))
+          (recur (async/<! location-chunk-in)))))
+    (async/close! location-out)
+    (context/set-state context "completion")))
 
-(defn dot-process-go
-  "All in one, creates index on chunk of locations, runs through ways, adding tags from
-  relations"
-  [context node-path way-path relation-node-index-ch relation-way-index-ch location-out]
-  (let [node-in (async/chan)]
-    (pipeline/read-edn-go
-     (context/wrap-scope context "node")
-     node-path
-     node-in)
-    
-
-
-    )
+;;; depricated, to be removed ...
+(defn dot-split-tile-go
+  "Splits dot export data into tile partitioned exports. Does not perform any transformations
+  of input data. For each zoom level inside [min-zoom, max-zoom] ( inclusive ) will output
+  location if out-map fn retrieves channel.
+  out-fn should have two arities. Arity 3 will be called for each location (zoom x y). Arity 0
+  will be called once processing is finished to let out-fn know that channels could be closed."
+  [context in min-zoom max-zoom filter-fn out-fn]
   (async/go
-    (let [relation-node-index (async/>! relation-node-index-ch)
-          relation-way-index (async/>! relation-way-ch)]
-     (with-open [input-stream (fs/input-stream node-path)]
-       ;; read chunk of locations, use process location-chunk-go
-       
-       ))))
-
-
-
-
+    (context/set-state context "init")
+    (loop [location (async/<! in)]
+      (when location
+        (context/set-state context "step")
+        (context/counter context "in")
+        (when (filter-fn location)
+          (context/counter context "filter")
+          (loop [zoom min-zoom
+                 left-zooms (rest (range min-zoom (inc max-zoom)))]
+            (let [[_ x y] (tile-math/zoom->location->tile zoom location)]
+             (if-let [out (out-fn zoom x y)]
+               (when (pipeline/out-or-close-and-exhaust-in out location in)
+                 (context/counter context (str "out_" zoom "/" x "/" y))
+                 (if-let [zoom (first left-zooms)]
+                   (recur zoom (rest left-zooms))) )
+               (context/counter context "ignore")))))
+        ;;; if write was unsucessful in will be closed and no action will be done after recur 
+        (recur (async/<! in))))
+    (out-fn)
+    (context/set-state context "completion")))
 

@@ -32,6 +32,10 @@ function retrieveJson (url, callback, error) {
     retrieve (url, function (data) { callback (JSON.parse (data))}, error)
 }
 
+function retrieveConfiguration (map, callback) {
+    retrieveJson ("/configuration/" + map, callback, noOp)
+}
+
 function retrieveLocations (map, callback) {
     retrieveJson ("/locations/" + map, callback, noOp)
 }

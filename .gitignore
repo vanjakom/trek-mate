@@ -16,4 +16,3 @@ data/
 logging
 .DS_Store
 
-src/clj/trek_mate/examples/

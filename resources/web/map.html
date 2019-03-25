@@ -8,21 +8,33 @@
     <script type= "text/javascript" src= "/lib/core.js"></script>
     <script type= "text/javascript">
       function initialize () {
-	  var mapId = urlPath ().last ();
+	  var mapId = urlPath ().last ()
 	  
-	  document.getElementById ("status").innerHTML = "map: " + mapId;
+	  document.getElementById ("status").innerHTML = "map: " + mapId
 
-	  var map = L.map("map").setView([65, -19], 7);
+	  var map = L.map("map").setView([45, 0], 4)
 	  L.tileLayer(
 	      "/tile/raster/" + mapId + "/{z}/{x}/{y}",
 	      {
 		  attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 		  maxZoom: 18,
-	      }).addTo(map);
+	      }).addTo(map)
 	  
-	  map
-	      .on ("click", function (e) { setStatus ("")})
+	  map.on (
+	      "click",
+	      function (e) {
+		  setStatus (
+		      "(" + Number (e.latlng.lng).toFixed (5) + "," +
+			  Number (e.latlng.lat).toFixed (5)  + ")" )
+	      }
+	  )
 
+	  retrieveConfiguration (mapId, function (configuration) {
+	      map.setView (
+		  [configuration.latitude, configuration.longitude],
+		  configuration.zoom)
+	  })
+	  
 	  retrieveLocations (mapId, function (locations) { addLocationsToMap (map, locations)})
       }
       </script>
