@@ -376,9 +376,9 @@
   tile but where stored in same chunk."
   [context repository tile in]
   (let [chunk-seq (repository->tile->chunk-seq repository tile)
-        bounds-check-fn (tile-math/tile->zoom-->point->bounds?
-                         tile
-                         *dot-zoom-level*)
+        bounds-check-fn (tile-math/zoom->tile-->point->tile-offset
+                         *dot-zoom-level*
+                         tile)
         intermediate-ch (async/chan)]
     (read-chunk-seq-go
      (context/wrap-scope context "read")
@@ -449,10 +449,9 @@
           (let [dot-ch (async/chan)
                 image-context-update-ch (async/chan)
                 image-context-final-ch (async/chan)
-                dot->point (partial
-                            tile-math/zoom->zoom->point->tile-offset
-                            *dot-zoom-level*
-                            zoom)]
+                dot->tile-offset (tile-math/zoom->tile-->point->tile-offset
+                                  *dot-zoom-level*
+                                  [zoom x y])]
             (read-tile-go
              (context/wrap-scope context "read")
              repository
@@ -464,7 +463,7 @@
              (fn
                ([] image-context)
                ([image-context dot]
-                (let [[x y] (dot->point [(:x dot) (:y dot)])]
+                (if-let [[x y] (dot->tile-offset [(:x dot) (:y dot)])]
                   (doseq [x (range (- x 2) (+ x 2))]
                     (doseq [y (range (- y 2) (+ y 2))]
                       (if (and (> x 0) (< x 256) (> y 0) (< y 256))
@@ -472,8 +471,8 @@
                           (draw/set-point image-context draw/color-red x y )
                           (context/counter context "render"))
                         (context/counter context "ignore-offset"))))
-                  #_(draw/set-point image-context draw/color-red x y)
-                  image-context))
+                  #_(draw/set-point image-context draw/color-red x y))
+                image-context)
                ([image-context] image-context))
              image-context-update-ch)
             (pipeline/drain-go
@@ -609,7 +608,6 @@
 
 ;;; todo
 ;;; test code first without way explode ...
-
 (defn dot-create-from-locations-go
   "Based on given location stream created dot with specified zoom, x, y. Doing way explode."
   [context in zoom x y out]
@@ -691,7 +689,7 @@
 
 ;;; depricated
 ;;; remove
-(defn render-tile-on-context
+#_(defn render-tile-on-context
   "Wrap around pipeline to be used for rendering of tile in 2D. image context is taken from outside
   to be able to render dot on top of other tiles. rules is seq of fn which
   for given tags either return color or nil. First color returned will be used to render
