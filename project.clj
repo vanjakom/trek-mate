@@ -13,7 +13,8 @@
                  
                  [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
                  [com.mungolab/clj-geo "0.1.0-SNAPSHOT"]
-                 [com.mungolab/clj-cloudkit "0.1.0-SNAPSHOT"]]
+                 [com.mungolab/clj-cloudkit "0.1.0-SNAPSHOT"]
+                 [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]]
   :repl-options {
                  :nrepl-middleware
                  [cider.nrepl/wrap-apropos

@@ -11,6 +11,7 @@
    [clj-common.localfs :as fs]
    [clj-common.json :as json]
    [clj-common.as :as as]
+   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.tile :as tile]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.env :as env]
@@ -149,7 +150,7 @@
             (io/buffer-output-stream->input-stream buffer-output-stream)))
         tile-is))))
 
-(defn tile-overlay-dot-from-split
+#_(defn tile-overlay-dot-from-split
   [root-location-split-path rules original-tile-fn]
   (fn [zoom x y]
     (println "rendering dot tile" zoom x y)
@@ -163,7 +164,7 @@
            (io/buffer-output-stream->input-stream buffer-output-stream)))
         tile-is))))
 
-(defn tile-overlay-dot-from-repository
+#_(defn tile-overlay-dot-from-repository
   ([dot-repository rules original-tile-fn]
    (tile-overlay-dot-from-repository dot-repository rules original-tile-fn nil))
   ([dot-repository rules original-tile-fn dataset]
@@ -209,7 +210,7 @@
                                      :description :string
                                      :pin :string}]]})
 
-(def configuration (atom (create-initial-configuration)))
+(defonce configuration (atom (create-initial-configuration)))
 
 (defn register-map [name map]
   (swap! configuration assoc name map))
@@ -231,6 +232,38 @@
                                            url-tag->html)
                                           (:tags location)))
    :pin (take 2 (pin/calculate-pins (:tags location)))})
+
+(defn enrich-locations
+  "Used to add id required for deduplication by Leaflet Realtime"
+  [geojson]
+  (update-in
+   geojson
+   [:features]
+   (fn [features]
+     (map
+      (fn [feature]
+        (let [description (clojure.string/join
+                           " "
+                           (map
+                                          (comp
+                                           url-tag->html)
+                                          (:tags (:properties feature))))
+              pin-url (let [pin-seq (pin/calculate-pins
+                                     (:tags (:properties feature)))]
+                        (str "/pin/" (first pin-seq) "/" (second pin-seq)))]
+          (update-in
+          feature
+          [:properties]
+          (fn [properties]
+            (assoc
+             properties
+             :id
+             (clojure.string/join "@" (:coordinates (:geometry feature)))
+             :pin
+             pin-url
+             :description
+             description)))))
+      features))))
 
 (def handler
   (compojure.core/routes
@@ -292,8 +325,37 @@
        :status 200
        :headers {
                  "ContentType" "application/json"}
-       :body (json/write-to-string ((:locations-fn map)))}
+       :body (json/write-to-string
+              (enrich-locations
+               (geojson/location-seq->geojson
+                ((or (:locations-fn map) (constantly []))))))}
       {:status 404}))
+   (compojure.core/GET
+    "/tags/:name"
+    [name]
+    (if-let [map (get (deref configuration) name)]
+      {
+       :status 200
+       :headers {
+                 "ContentType" "application/json"}
+       :body (json/write-to-string
+              ((or (:tags-fn map) (constantly #{}))))}
+      {
+       :status 404}))
+   (compojure.core/POST
+    "/state/:name"
+    [name :as request]
+    (if-let [state-fn (get-in (deref configuration) [name :state-fn])]
+      (let [state (json/read-keyworded (:body request))
+            new-state (state-fn state)]
+       {
+        :status 200
+        :body (json/write-to-string
+               {
+                :tags (:tags new-state)
+                :locations (enrich-locations
+                            (geojson/location-seq->geojson
+                             (:locations new-state)))})})))
    (compojure.core/GET
     "/pin/:base/:pin"
     [base pin]

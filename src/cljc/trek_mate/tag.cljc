@@ -96,6 +96,7 @@
 (def tag-shopping "#shopping")
 (def tag-building "#building")
 (def tag-bakery "#bakery")
+(def tag-camp "#camp")
 (def tag-grocery "#grocery")
 (def tag-festival "#festival")
 (def tag-woods "#woods")
@@ -246,6 +247,9 @@
 
 #_(defn dataset-tag [dataset]
   (str tag-prefix-dataset dataset))
+
+(defn source-tag [source]
+  (str "|source|" source))
 
 (defn force-activity [tags activity]
   (conj
