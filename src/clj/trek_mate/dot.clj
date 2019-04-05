@@ -170,7 +170,7 @@
                     (pipeline/write-edn-go
                      (context/wrap-scope context (str "out-" zoom "-" x "-" y))
                      resource-controller
-                     (create-chunk-path path zoom x y)
+                     (create-chunk-path path [zoom x y])
                      channel)
                     channel))))))
           [zoom x y])))
@@ -283,7 +283,7 @@
                 (pipeline/read-edn-go
                  (context/wrap-scope context (str "read/" zoom "/" x "/" y))
                  resource-controller
-                 (create-chunk-path path zoom x y)
+                 (create-chunk-path path [zoom x y])
                  in)
                 (pipeline/ignore-close-go context per-split-result-ch result-ch)
                 (split-tile-go
@@ -343,7 +343,7 @@
   [repository chunk-seq]
   (map
    (fn [[zoom x y]]
-     (create-chunk-path repository zoom x y))
+     (create-chunk-path repository [zoom x y]))
    chunk-seq))
 
 (defn read-chunk-seq-go
@@ -415,30 +415,30 @@
         (empty? chunk-seq)
         (do
           (draw/draw-poly
-           context
+           image-context
            [{:x 1 :y 1} {:x 254 :y 1} {:x 254 :y 254} {:x 1 :y 254}]
            draw/color-yellow)
           (draw/draw-poly
-           context
+           image-context
            [{:x 2 :y 2} {:x 253 :y 2} {:x 253 :y 253} {:x 2 :y 253}]
            draw/color-yellow)
           (draw/draw-poly
-           context
+           image-context
            [{:x 3 :y 3} {:x 252 :y 3} {:x 252 :y 252} {:x 3 :y 252}]
            draw/color-yellow)
           (context/counter context "empty"))
-        (> 1 (count chunk-seq))
+        (> (count chunk-seq) 1)
         (do
           (draw/draw-poly
-           context
+           image-context
            [{:x 1 :y 1} {:x 254 :y 1} {:x 254 :y 254} {:x 1 :y 254}]
            draw/color-red)
           (draw/draw-poly
-           context
+           image-context
            [{:x 2 :y 2} {:x 253 :y 2} {:x 253 :y 253} {:x 2 :y 253}]
            draw/color-red)
           (draw/draw-poly
-           context
+           image-context
            [{:x 3 :y 3} {:x 252 :y 3} {:x 252 :y 252} {:x 3 :y 252}]
            draw/color-red)
           (context/counter context "many"))
@@ -517,6 +517,18 @@
       (do
         (println "skip")
         (context/counter context "skip")))))
+
+(defn way-explode-go
+  [])
+
+(defn render-dot-go
+  "Creates raster tile based on rendering rules provided. Rules are defined as
+  list of fns which accept dot and return color to render with.
+  Note: way explode is not performed."
+  [rules image-context repository tile]
+  ;;; todo
+  )
+
 
 #_(defn read-tile
   "Reads tile data if exists as location sequence, if not returns empty list"
@@ -599,6 +611,8 @@
            {:x x :y y :tags (into #{} tags)}))
        (range 0 256)))
     (range 0 256))))
+
+(defn dot-render-repository [] )
 
 #_(def a (create-dot-context))
 #_(dot-context-set-point a #{:a} [7 5])

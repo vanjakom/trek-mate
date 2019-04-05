@@ -355,7 +355,10 @@
                 :tags (:tags new-state)
                 :locations (enrich-locations
                             (geojson/location-seq->geojson
-                             (:locations new-state)))})})))
+                             (:locations new-state)))})})
+      {
+        :status 200
+        :body (json/write-to-string {:tags #{} :locations []})}))
    (compojure.core/GET
     "/pin/:base/:pin"
     [base pin]

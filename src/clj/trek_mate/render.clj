@@ -12,22 +12,25 @@
    [clj-geo.math.tile :as tile-math]
    [trek-mate.env :as env]))
 
-(def color [:keyword :black :red :white :green :blue])
+;;; todo deprecated
+;;; see if there is useful code to keep
 
-(def point [:x :y])
+#_(def color [:keyword :black :red :white :green :blue])
 
-(def tile-context
+#_(def point [:x :y])
+
+#_(def tile-context
   {
    :tile :tile
    :set-point-fn [:fn :color :x :y :nil]
    :to-png-fn [:fn :nil :bytes]
    :from-png-fn [:fn :bytes :nil]})
 
-(def context-configuration
+#_(def context-configuration
   {
    :route-style-fn [:fn :route [:radius :color]]})
 
-(def ^:dynamic *context-configuration*
+#_(def ^:dynamic *context-configuration*
   (let [color-palette {
                        :white {
                                :red (float 1.0)
@@ -53,7 +56,7 @@
      :background-color (:white color-palette)
      :route-style-fn (fn [route] [1 (:black color-palette)])}))
 
-(def context
+#_(def context
   {
    :zoom :long
    :tile-vec [:vector :tile-context]
@@ -63,7 +66,7 @@
    :draw-route-fn [:fn :color :route :nil]})
 
 ;;; universal drawing functions, maybe to extract to util
-(defn raw-draw-line [set-point-fn point-seq]
+#_(defn raw-draw-line [set-point-fn point-seq]
   (doseq [[[x1 y1] [x2 y2]]
           (partition 2 1 point-seq)]
     (let [dx (- x2 x1)
@@ -81,12 +84,12 @@
             (doseq [x (range x1 (inc x2))]
               (set-point-fn [(int x) (int (+ y1 (* (/ dy dx) (- x x1))))]))))))))
 
-(defn raw-draw-point [set-point-fn radius [point-x point-y]]
+#_(defn raw-draw-point [set-point-fn radius [point-x point-y]]
   (doseq [x (range (- point-x radius) (+ point-x radius 1))]
     (doseq [y (range (- point-y radius) (+ point-y radius 1))]
       (set-point-fn [x y]))))
 
-(defn create-tile-context [zoom x y]
+#_(defn create-tile-context [zoom x y]
   (let [context (draw/create-image-context 256 256)]
     (draw/write-background
      context
@@ -103,7 +106,7 @@
                     (with-open [input-stream (io/bytes->input-stream)]
                       (draw/input-stream->image input-stream)))}))
 
-(defn create-context-set-point-fn [tile-context-vec x-span y-span]
+#_(defn create-context-set-point-fn [tile-context-vec x-span y-span]
   (fn [color [x y]]
     (if (and (>= x 0) (< x (* x-span 256)) (>= y 0) (< y (* y-span 256)))
       (let [x-index (quot x 256)
@@ -129,7 +132,7 @@
                :tile-vec-count (count tile-context-vec)}
               ex))))))))
 
-(defn create-java-context
+#_(defn create-java-context
   "Creates Java rendering context for specified tile offsets"
   [zoom x-min x-max y-min y-max]
   (let [x-span (inc (Math/abs (- x-max x-min)))
@@ -170,7 +173,7 @@
                                    :x-span x-span :y-span y-span
                                    :tile-count (* x-span y-span)}))))))
 
-(defn create-context-from-tile-bounds
+#_(defn create-context-from-tile-bounds
   [zoom x-min x-max y-min y-max]
   ;; todo support both java and javascript
   (let [context (create-java-context zoom x-min x-max y-min y-max)
@@ -199,13 +202,13 @@
      :draw-line-fn draw-line-fn
      :draw-route-fn draw-route-fn)))
 
-(defn create-context-from-tile-seq
+#_(defn create-context-from-tile-seq
   [tile-seq]
   (apply
    create-context-from-tile-bounds
    (tile-math/calculate-tile-bounds-from-tile-seq tile-seq)))
 
-(defn create-context-from-location-bounds
+#_(defn create-context-from-location-bounds
   [zoom min-longitude max-longitude min-latitude max-latitude]
   (apply
    create-context-from-tile-bounds
@@ -217,23 +220,23 @@
     max-latitude
     min-latitude)))
 
-(defn draw-tile
+#_(defn draw-tile
   [context tile-data]
   ((:draw-tile context) tile-data))
 
-(defn draw-line
+#_(defn draw-line
   "Draws line in coordinate system of context, to be used with artificial data"
   ([context color point-seq]
    ((:draw-line-fn context) color 1 point-seq))
   ([context color radius point-seq]
    ((:draw-line-fn context) color radius point-seq)))
 
-(defn draw-route
+#_(defn draw-route
   "Draws route. Uses context specific mappings for color and width"
   [context route]
   ((:draw-route-fn context) route))
 
-(defn save-context-to-tile-path [context tile-path]
+#_(defn save-context-to-tile-path [context tile-path]
   (doseq [tile-context (:tile-context-vec context)]
     (let [tile-path (path/child
                      tile-path
@@ -244,7 +247,7 @@
       (with-open [output-stream (fs/output-stream tile-path)]
         (io/write output-stream ((:to-png-fn tile-context)))))))
 
-(defn save-context-to-image [context output-stream]
+#_(defn save-context-to-image [context output-stream]
   (let [image-context (draw/create-image-context
                        (* (:x-span context) 256)
                        (* (:y-span context) 256))]
@@ -257,7 +260,7 @@
           (draw/draw-image image-context [x-offset y-offset] tile-image))))
     (draw/write-png-to-stream image-context output-stream)))
 
-(defn render-tile-at-zoom [zoom bounds locations routes]
+#_(defn render-tile-at-zoom [zoom bounds locations routes]
   (let [context (apply
                  (partial create-context-from-location-bounds zoom)
                  bounds)]
@@ -265,7 +268,7 @@
       (draw-route context route))
     (save-context-to-tile-path context (path/child env/*data-path* "tile-cache"))))
 
-(defn render-tile-go
+#_(defn render-tile-go
   "Creates rendering context for tiles described with zoom and bounds and renders routes
   sent to in chan"
   [context render-configuration zoom location-bounds in]

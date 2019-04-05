@@ -70,7 +70,7 @@ function addLocationsToMap (map, locations) {
 }
 
 var TrekMate = {
-    tags: new Set (["#world"]),
+    tags: new Set ([]),
     realtime: null
 }
 
