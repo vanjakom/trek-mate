@@ -198,7 +198,8 @@
 
 (def filter-has-nodes (filter #(not (empty? (filter some? (:nodes %))))))
 
-(defn hydrate-tags
+;;; deprecated
+#_(defn hydrate-tags
   "To be used to extract trek-mate tags on top of osm and other data. Whole location is given
   because of differences in tagging between countries.
   Note: This should probably moved in per project ns using fns defined in this ns."
@@ -233,6 +234,55 @@
        tag))
     #{}
     (:tags location))))
+
+;;; new set of operations to work with dot tags
+
+(defn tags->highway-set [tags]
+  (into
+   #{}
+   (filter
+    some?
+    (map
+     #(if-let [[osm r-w _ highway type] (.split % ":")]
+        (if (and (= osm "osm") (or (= r-w "r") (= r-w "w")) (= highway "highway"))
+          type))
+     tags))))
+
+(defn tags->gas? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way amenity gas] (.split % ":")]
+        (or
+         (and (= osm "osm") (= n-r-w "n") (= amenity "amenity") (= gas "fuel"))
+         (and
+          (= osm "osm") (= n-r-w "w") (= amenity "amenity") (= gas "fuel")
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+;;; simplistic for start, to understand scope
+(defn hydrate-tags [dot]
+  (update-in
+   dot
+   [:tags]
+   (fn [tags]
+     (reduce
+      (fn [tags extract-fn]
+        (extract-fn tags))
+      tags
+      ;; list of extraction fns
+      [
+       
+       ;; highway extract fn
+       (fn [tags]
+         (let [highway-set (tags->highway-set tags)]
+           (if (seq highway-set)
+             (conj tags tag/tag-road)
+             tags)))
+       (fn [tags]
+         (when (tags->gas? tags)
+           (conj tags tag/tag-gas-station)))]))))
+
 
 
 

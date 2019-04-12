@@ -115,6 +115,7 @@
   "Adds border to tile to help debugging"
   [original-tile-fn]
   (fn [zoom x y]
+    (println "rendering border...")
     (if-let [input-stream (original-tile-fn zoom x y)]
       (let [context (draw/input-stream->image-context input-stream)]
         (draw/draw-poly
@@ -127,69 +128,79 @@
 
 ;; old implementation, use new tile-overlay-dot-from-split 
 #_(defn tile-overlay-dot-export
-  "Renders data from dot export tiles on top of original tiles"
-  [tile-path original-tile-fn]
-  (fn [zoom x y]
-    (if-let [tile-is (original-tile-fn zoom x y)]
-      (if-let [locations (seq (dot/read-tile tile-path zoom x y))]
-        (let [context (draw/input-stream->image-context tile-is)]
-          (doseq [location (map osm-integration/hydrate-tags locations)]
-            (let [point ((tile-math/zoom->location->point zoom) location)
-                  x (rem (first point) 256)
-                  y (rem (second point) 256)]
-              #_(draw/set-point context draw/color-red x y)
-              (doseq [draw-x (range (- x 1) (+ x 2))]
-                (doseq [draw-y (range (- y 1) (+ y 2))]
-                  (draw/set-point
-                   context
-                   (dot/location->color location)
-                   (max 0 (min draw-x 255))
-                   (max 0 (min draw-y 255)))))))
-          (let [buffer-output-stream (io/create-buffer-output-stream)]
-            (draw/write-png-to-stream context buffer-output-stream)
-            (io/buffer-output-stream->input-stream buffer-output-stream)))
-        tile-is))))
+    "Renders data from dot export tiles on top of original tiles"
+    [tile-path original-tile-fn]
+    (fn [zoom x y]
+      (if-let [tile-is (original-tile-fn zoom x y)]
+        (if-let [locations (seq (dot/read-tile tile-path zoom x y))]
+          (let [context (draw/input-stream->image-context tile-is)]
+            (doseq [location (map osm-integration/hydrate-tags locations)]
+              (let [point ((tile-math/zoom->location->point zoom) location)
+                    x (rem (first point) 256)
+                    y (rem (second point) 256)]
+                #_(draw/set-point context draw/color-red x y)
+                (doseq [draw-x (range (- x 1) (+ x 2))]
+                  (doseq [draw-y (range (- y 1) (+ y 2))]
+                    (draw/set-point
+                     context
+                     (dot/location->color location)
+                     (max 0 (min draw-x 255))
+                     (max 0 (min draw-y 255)))))))
+            (let [buffer-output-stream (io/create-buffer-output-stream)]
+              (draw/write-png-to-stream context buffer-output-stream)
+              (io/buffer-output-stream->input-stream buffer-output-stream)))
+          tile-is))))
 
 #_(defn tile-overlay-dot-from-split
-  [root-location-split-path rules original-tile-fn]
-  (fn [zoom x y]
-    (println "rendering dot tile" zoom x y)
-    (if-let [tile-is (original-tile-fn zoom x y)]
-      ;; render only zoom 16
-      (if (= zoom 16)
-        (let [context (draw/input-stream->image-context tile-is)]
-         (dot/render-tile-on-context context rules root-location-split-path zoom x y)
-         (let [buffer-output-stream (io/create-buffer-output-stream)]
-           (draw/write-png-to-stream context buffer-output-stream)
-           (io/buffer-output-stream->input-stream buffer-output-stream)))
-        tile-is))))
+    [root-location-split-path rules original-tile-fn]
+    (fn [zoom x y]
+      (println "rendering dot tile" zoom x y)
+      (if-let [tile-is (original-tile-fn zoom x y)]
+        ;; render only zoom 16
+        (if (= zoom 16)
+          (let [context (draw/input-stream->image-context tile-is)]
+            (dot/render-tile-on-context context rules root-location-split-path zoom x y)
+            (let [buffer-output-stream (io/create-buffer-output-stream)]
+              (draw/write-png-to-stream context buffer-output-stream)
+              (io/buffer-output-stream->input-stream buffer-output-stream)))
+          tile-is))))
 
 #_(defn tile-overlay-dot-from-repository
-  ([dot-repository rules original-tile-fn]
-   (tile-overlay-dot-from-repository dot-repository rules original-tile-fn nil))
-  ([dot-repository rules original-tile-fn dataset]
-   (fn [zoom x y]
-     (println "rendering dot from repository" zoom x y)
-     (if-let [tile-is (original-tile-fn zoom x y)]
-       (let [context (draw/input-stream->image-context tile-is)]
-         (doseq [dot-path (filter
-                           #(or (nil? dataset) (= (path/name %) dataset))
-                           (fs/list (path/child dot-repository zoom x y)))]
-           (dot/render-dot-pipeline context rules zoom dot-path))
-         (let [buffer-output-stream (io/create-buffer-output-stream)]
-           (draw/write-png-to-stream context buffer-output-stream)
-           (io/buffer-output-stream->input-stream buffer-output-stream)))))))
+    ([dot-repository rules original-tile-fn]
+     (tile-overlay-dot-from-repository dot-repository rules original-tile-fn nil))
+    ([dot-repository rules original-tile-fn dataset]
+     (fn [zoom x y]
+       (println "rendering dot from repository" zoom x y)
+       (if-let [tile-is (original-tile-fn zoom x y)]
+         (let [context (draw/input-stream->image-context tile-is)]
+           (doseq [dot-path (filter
+                             #(or (nil? dataset) (= (path/name %) dataset))
+                             (fs/list (path/child dot-repository zoom x y)))]
+             (dot/render-dot-pipeline context rules zoom dot-path))
+           (let [buffer-output-stream (io/create-buffer-output-stream)]
+             (draw/write-png-to-stream context buffer-output-stream)
+             (io/buffer-output-stream->input-stream buffer-output-stream)))))))
 
-(defn tile-overlay-dot-coverage
+(defn tile-overlay-dot-coverage-fn
   [repository original-tile-fn]
   (fn [zoom x y]
-     (println "rendering dot coverage" zoom x y)
-     (if-let [tile-is (original-tile-fn zoom x y)]
-       (let [image-context (draw/input-stream->image-context tile-is)]
-         (dot/render-dot-coverage-pipeline image-context repository [zoom x y])
-         (let [buffer-output-stream (io/create-buffer-output-stream)]
-           (draw/write-png-to-stream image-context buffer-output-stream)
-           (io/buffer-output-stream->input-stream buffer-output-stream))))))
+    (if-let [tile-is (original-tile-fn zoom x y)]
+      (let [image-context (draw/input-stream->image-context tile-is)]
+        (dot/render-dot-coverage-pipeline image-context repository [zoom x y])
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream image-context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))))
+
+(defn tile-overlay-dot-render-fn
+  [original-tile-fn rule-seq & repositories]
+  (fn [zoom x y]
+    (println "rendering...")
+    (if-let [tile-is (original-tile-fn zoom x y)]
+      (let [image-context (draw/input-stream->image-context tile-is)]
+        (dot/render-dot-pipeline image-context rule-seq repositories [zoom x y])
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream image-context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
 (defn empty-locations-fn [] [])
 
@@ -245,24 +256,24 @@
         (let [description (clojure.string/join
                            " "
                            (map
-                                          (comp
-                                           url-tag->html)
-                                          (:tags (:properties feature))))
+                            (comp
+                             url-tag->html)
+                            (:tags (:properties feature))))
               pin-url (let [pin-seq (pin/calculate-pins
                                      (:tags (:properties feature)))]
                         (str "/pin/" (first pin-seq) "/" (second pin-seq)))]
           (update-in
-          feature
-          [:properties]
-          (fn [properties]
-            (assoc
-             properties
-             :id
-             (clojure.string/join "@" (:coordinates (:geometry feature)))
-             :pin
-             pin-url
-             :description
-             description)))))
+           feature
+           [:properties]
+           (fn [properties]
+             (assoc
+              properties
+              :id
+              (clojure.string/join "@" (:coordinates (:geometry feature)))
+              :pin
+              pin-url
+              :description
+              description)))))
       features))))
 
 (def handler
@@ -296,18 +307,22 @@
    (compojure.core/GET
     "/tile/raster/:name/:zoom/:x/:y"
     [name zoom x y]
-    (if-let [map (get (deref configuration) name)]
-      (if-let [input-stream ((:raster-tile-fn map)
-                             (as/as-long zoom)
-                             (as/as-long  x)
-                             (as/as-long y))]
-        {
-         :status 200
-         :headers {
-                   "ContentType" "image/png"}
-         :body input-stream}
+    (try
+      (if-let [map (get (deref configuration) name)]
+        (if-let [input-stream ((:raster-tile-fn map)
+                               (as/as-long zoom)
+                               (as/as-long  x)
+                               (as/as-long y))]
+          {
+           :status 200
+           :headers {
+                     "ContentType" "image/png"}
+           :body input-stream}
+          {:status 404})
         {:status 404})
-      {:status 404}))
+      (catch Throwable e
+        (.printStackTrace e)
+        {:status 500})))
    (compojure.core/GET
     "/tile/data/:name/:zoom/:x/:y"
     [name zoom x y]
@@ -348,17 +363,17 @@
     (if-let [state-fn (get-in (deref configuration) [name :state-fn])]
       (let [state (json/read-keyworded (:body request))
             new-state (state-fn state)]
-       {
-        :status 200
-        :body (json/write-to-string
-               {
-                :tags (:tags new-state)
-                :locations (enrich-locations
-                            (geojson/location-seq->geojson
-                             (:locations new-state)))})})
+        {
+         :status 200
+         :body (json/write-to-string
+                {
+                 :tags (:tags new-state)
+                 :locations (enrich-locations
+                             (geojson/location-seq->geojson
+                              (:locations new-state)))})})
       {
-        :status 200
-        :body (json/write-to-string {:tags #{} :locations []})}))
+       :status 200
+       :body (json/write-to-string {:tags #{} :locations []})}))
    (compojure.core/GET
     "/pin/:base/:pin"
     [base pin]

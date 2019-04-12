@@ -9,6 +9,7 @@
    [clj-common.edn :as edn]
    [clj-common.as :as as]
    [clj-common.io :as io]
+   [clj-common.localfs :as fs]
    [clj-common.pipeline :as pipeline]
    [clj-common.context :as context]
    [clj-geo.math.tile :as tile-math]
@@ -124,6 +125,15 @@
 (defn location->dot [location]
   (let [[x y] ((tile-math/zoom->location->point *dot-zoom-level*) location)]
     {:x x :y y :tags (:tags location)}))
+
+(defn dot->location [dot]
+  (let [[longitude latitude] (tile-math/zoom->point->location
+                              *dot-zoom-level*
+                              [(:x dot) (:y dot)])]
+    {:longitude longitude
+     :latitude latitude
+     :tags (:tags dot)}))
+
 
 #_(defn import-and-compact-go
   "Adds locations sent to in to existing repository. Performs overwrite of existing location.
@@ -346,6 +356,7 @@
      (create-chunk-path repository [zoom x y]))
    chunk-seq))
 
+;; todo use resource controller and read-edn-go for reading
 (defn read-chunk-seq-go
   "Lowest level retrieve fn. Retrieves all data stored in sequence of chunks."
   [context repository chunk-seq in]
@@ -390,6 +401,32 @@
      intermediate-ch
      (filter (fn [{x :x y :y}] (bounds-check-fn [x y])))
      in)))
+
+(defn read-repository-go
+  "Streams dots from whole repository to channel."
+  [context resource-controller repository in]
+  (async/go
+    (loop [path-seq (fs/list repository)]
+      (when-let [path (first path-seq)]
+        (if (fs/is-directory path)
+          (recur (concat (rest path-seq) (fs/list path)))
+          (when
+              ;; add filtering for "dot" files once there are multiple
+              ;; file types in repository
+              (call-and-pass
+               #(resource-controller path read-repository-go)
+               (with-open [reader (io/input-stream->buffered-reader
+                                   (fs/input-stream path))]
+                 (resource-controller path read-repository-go in)
+                 (loop [line (io/read-line reader)]
+                   (if line
+                     (do
+                       (context/counter context "dot")
+                       (if (async/>! in (edn/read line))
+                         (recur (io/read-line reader))
+                         nil))
+                     true))))
+            (recur (rest path-seq))))))))
 
 
 ;;; works
@@ -502,7 +539,6 @@
     ;; current implementation has issue with listing large number of chunks
     (if (>= (first tile) 13)
       (do
-        (println "draw")
         (render-dot-coverage-go
          (context/wrap-scope context "render")
          repository
@@ -515,20 +551,124 @@
          30000)
         (context/print-state-context context))
       (do
-        (println "skip")
         (context/counter context "skip")))))
 
 (defn way-explode-go
-  [])
+  [context in [zoom x y] tag-explode-set out]
+
+  ;;; use dot-create-from-locations-go as template 
+  )
 
 (defn render-dot-go
   "Creates raster tile based on rendering rules provided. Rules are defined as
   list of fns which accept dot and return color to render with.
   Note: way explode is not performed."
-  [rules image-context repository tile]
-  ;;; todo
-  )
+  [context rule-seq image-context [zoom x y] in out]
+  (async/go
+    (context/set-state context "init")
 
+    (let [image-context-update-ch (async/chan)
+          image-context-final-ch (async/chan)
+          dot->tile-offset (tile-math/zoom->tile-->point->tile-offset
+                            *dot-zoom-level*
+                            [zoom x y])]
+      (context/set-state context "step")
+      (pipeline/reducing-go
+       (context/wrap-scope context "render")
+       in
+       (fn
+         ([] image-context)
+         ([image-context dot]
+          ;; prevent dots from other tiles going to render
+          (if-let [[x y] (dot->tile-offset [(:x dot) (:y dot)])]
+            (doseq [rule rule-seq]
+              (if-let [[color width] (rule dot)]
+                (let [half (int (Math/ceil width))]
+                  (doseq [x (range (- x half) (+ x half))]
+                    (doseq [y (range (- y half) (+ y half))]
+                      (if (and (> x 0) (< x 256) (> y 0) (< y 256))
+                        (do
+                          (draw/set-point image-context draw/color-red x y )
+                          (context/counter context "render"))
+                        (context/counter context "ignore-offset"))))))))
+          image-context)
+         ([image-context] image-context))
+       image-context-update-ch)
+      (pipeline/drain-go
+       (context/wrap-scope context "drain")
+       image-context-update-ch
+       image-context-final-ch)
+      (async/<! image-context-final-ch)
+      (async/>! out image-context)
+      (async/close! out)
+      (context/set-state context "completion"))))
+
+(defn render-dot-pipeline
+  [image-context rule-seq repositories [zoom x y]]
+  (let [context (context/create-state-context)
+        channel-provider (pipeline/create-channels-provider)]
+    ;; current implementation has issue with listing large number of chunks
+    (if (>= zoom 13)
+      (do
+        (pipeline/funnel-go
+         (context/wrap-scope context "1_funnel")
+         (reduce
+          (fn [channels repository]
+            (let [uid (str (last repository) "-" zoom "-" x "-" y) 
+                  in-ch (channel-provider (str "in_" uid))]
+              (read-tile-go
+               (context/wrap-scope context "0_read")
+               repository
+               [zoom x y]
+               in-ch)
+              
+              (conj channels in-ch)))
+          '()
+          repositories)
+         (channel-provider "hydrate"))
+        
+        #_(pipeline/transducer-stream-go
+           (context/wrap-scope context "3_filter")
+           (channel-provider "filter")
+           (filter
+            (fn [{tags :tags}]
+              (contains? tags "#geocache")))
+           (channel-provider "render"))
+
+        ;; todo
+        ;; currently osm hydration is performed on all dots, support per repository
+        ;; custom chain
+        (pipeline/transducer-stream-go
+         (context/wrap-scope context "2_hydrate")
+         (channel-provider "hydrate")
+         (map osm-integration/hydrate-tags)
+         #_(channel-provider "explode")
+         (channel-provider "render"))
+
+        ;; todo not implemented yet
+        #_(way-explode-go
+         (context/wrap-scope context "3_explode")
+         (channel-provider "explode")
+         [zoom x y]
+         #{tag/tag-road}
+         (channel-provider "render"))
+        
+        ;; todo, perform way explode
+        
+        (render-dot-go
+         (context/wrap-scope context "4_render")
+         rule-seq
+         image-context
+         [zoom x y]
+         (channel-provider "render")
+         (channel-provider "wait"))
+        (pipeline/wait-on-channel
+         (context/wrap-scope context "5_wait")
+         (channel-provider "wait")
+         30000)
+        (context/print-state-context context))
+      (do
+        (context/counter context "skip")))))
 
 #_(defn read-tile
   "Reads tile data if exists as location sequence, if not returns empty list"
@@ -613,6 +753,25 @@
     (range 0 256))))
 
 (defn dot-render-repository [] )
+
+
+
+#_(osm-integration/hydrate-tags
+ {
+  :x 9276408,
+  :y 5866333,
+  :tags #{
+          "osm:r:4155411:highway:pedestrian"
+          "osm:r:4155411:bicycle:permissive"
+          "osm:w:24157786:leisure:park"
+          "osm:r:4155411:type:multipolygon"
+          "osm-gen:r:4155411:inner"
+          "osm-gen:n:261678698"
+          "osm-gen:w:24157786:6"
+          "osm:w:24157786:name:Szabadság tér"
+          "osm:w:24157786:is_in:Budapest"
+          "osm:w:24157786:name:de:Freiheitsplatz"}})
+
 
 #_(def a (create-dot-context))
 #_(dot-context-set-point a #{:a} [7 5])

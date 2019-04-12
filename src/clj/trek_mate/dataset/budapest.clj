@@ -7,6 +7,7 @@
    [clojure.core.async :as async]
    clj-common.http-server
    clj-common.ring-middleware
+   [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.jvm :as jvm]
@@ -372,7 +373,7 @@
     (list budapest))))
 
 
-;;; helper function to find out duplicates
+;;; helper function to find out duplicate locations
 #_(reduce
  (fn [state location]
    (if-let [previous-location (get state (storage/location->location-id location))]
@@ -401,12 +402,6 @@
        (assoc state (storage/location->location-id location) location)))
    {}
    location-seq)))
-
-
-
-;;; todo upload locations to icloud
-;;; add dataset name to locations to be able to remove all of then once needed
-
 
 ;;; debug endpoint
 
@@ -437,10 +432,13 @@
      :tags
      location-seq))))
 
-(defn state-transition-fn [state]
-  {
-   :tags (extract-tags)
-   :locations (filter-locations (into #{} state))})
+(defn state-transition-fn [tags]
+  (let [tags (if (empty? tags)
+               #{"#world"}
+               (into #{} tags))]
+   {
+    :tags (extract-tags)
+    :locations (filter-locations tags)}))
 
 (web/register-map
  "budapest-osm"
@@ -484,6 +482,27 @@
                      budapest-osm-repository
                      (web/create-osm-external-raster-tile-fn))))
   :locations-fn (constantly [])})
+
+(web/register-map
+ "budapest-dot"
+ {
+  :configuration {
+                  :longitude (:longitude budapest)
+                  :latitude (:latitude budapest)
+                  :zoom 14}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/tile-overlay-dot-render-fn
+                     (web/create-osm-external-raster-tile-fn)
+                     [(fn [{tags :tags}]
+                        (when (contains? tags tag/tag-geocache)
+                          [draw/color-red 4]))
+                      (fn [{tags :tags}]
+                        (when (contains? tags tag/tag-road)
+                          [draw/color-black 1]))]
+                     budapest-geocache-repository
+                     budapest-osm-repository)))
+  :state-fn state-transition-fn})
 
 
 (web/create-server)
