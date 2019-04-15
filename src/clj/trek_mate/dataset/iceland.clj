@@ -10,6 +10,7 @@
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
+   [clj-common.http :as http]
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.localfs :as fs]
@@ -24,7 +25,8 @@
    [trek-mate.integration.osm :as osm-integration]
    [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
-   [trek-mate.web :as web]))
+   [trek-mate.web :as web]
+   [trek-mate.util :as util]))
 
 ;;; this namespace should contain everything needed to prepare data required for
 ;;; @iceland2019 trip
@@ -237,6 +239,41 @@
 ;;; extract gas stations
 ;;; if way filter out first location
 
+(defn tag-mapping->key-fn->location->location [mapping key-fn location]
+  (if-let [tags-to-add (get mapping (key-fn location))]
+    (update-in
+     location
+     [:tags]
+     (fn [old-tags]
+       (if (string? tags-to-add)
+         (conj old-tags tags-to-add)
+         (clojure.set/union old-tags tags-to-add))))
+    location))
+
+(def osm-mapping
+  {
+   ;; hostel Reykjavik
+   6364458172 (list "@iceland2019" "@sleep" "@day1")
+
+   ;; hostel Vik
+   6364564376 (list "@iceland2019" "@sleep" "@day2")
+
+   ;; plane parking 
+   4801234673 (list "@iceland2019" tag/tag-parking "@day2")
+
+   ;; Reynisfjara
+   4187183525 (list "@iceland2019" tag/tag-todo tag/tag-beach "@day3")
+
+   ;; Diamond beach
+   4381268597 (list "@iceland2019" tag/tag-todo tag/tag-beach "@day4")
+
+   ;; Seyðisfjardarkirkja, rainbow road
+   2078018340 (list "@iceland2019" tag/tag-todo tag/tag-church "@day4")
+
+   ;; Mývatn Nature Baths
+   2566467958 (list "@iceland2019" tag/tag-todo tag/tag-visit "@day5")
+   })
+
 (def osm-location-extract-pipeline nil)
 (def osm-location-seq nil)
 (let [context (context/create-state-context)
@@ -249,22 +286,41 @@
    osm-repository
    (channel-provider :hydrate))
 
-  #_(pipeline/take-go
-   (context/wrap-scope context "take")
-   100000
-   (channel-provider :read)
-   (channel-provider :hydrate))
-
   (pipeline/transducer-stream-go
    (context/wrap-scope context "1_hydrate")
    (channel-provider :hydrate)
    (map osm-integration/hydrate-tags)
+   (channel-provider :mapping))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "2_add_mapping")
+   (channel-provider :mapping)
+   (map
+    (partial
+     tag-mapping->key-fn->location->location
+     osm-mapping
+     osm-integration/location->node-id))
    (channel-provider :filter))
+
+  #_(pipeline/take-go
+   (context/wrap-scope context "take")
+   1000
+   (channel-provider :mapping)
+   (channel-provider :take))
+
+  #_(pipeline/trace-go
+   (context/wrap-scope context "trace")
+   (channel-provider :take))
   
   (pipeline/transducer-stream-go
    (context/wrap-scope context "2_filter")
    (channel-provider :filter)
-   (filter #(contains? (:tags %) tag/tag-gas-station))
+   (filter #(or
+             (contains? osm-mapping (osm-integration/location->node-id %))
+             (dot/dot->trek-mate-tags? %)
+             #_(contains? (:tags %) tag/tag-sleep)
+             #_(contains? (:tags %) tag/tag-camp)
+             #_(contains? (:tags %) tag/tag-gas-station)))
    (channel-provider :transform))
 
   (pipeline/transducer-stream-go
@@ -286,6 +342,19 @@
      :channel-provider channel-provider
      :resource-controller resource-controller})))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(async/close! ((:channel-provider osm-location-extract-pipeline) :hydrate))
+
+#_(count osm-location-seq)
+#_(doseq [counter (reduce
+                 (fn [counters location]
+                   (reduce
+                    (fn [counters tag]
+                      (update-in counters [tag] #(if % (inc %) 1)))
+                    counters
+                    (filter #(or (.startsWith % "#") (.startsWith % "@")) (:tags location))))
+                 {}
+                 osm-location-seq)]
+  (println counter))
 
 ;;; manual locations prepare
 
@@ -308,7 +377,7 @@
   :latitude 63.4359332
   :tags #{"@sleep" "@day2"}})
 
-;;; create map of camps from osm data ...
+;;; create map of camps from osm data
 
 ;;; prepare camps from tjalda.is
 ;;; data is located in
@@ -358,9 +427,15 @@
             (let [latitude (extract-coordinate (get-in camp [:content 0 :content 0]))
                   longitude (extract-coordinate (get-in camp [:content 1 :content 0]))
                   website (.replace
-                           (get-in camp [:content 2 :content 0 :content 0])
-                           "http://www."
-                           "https://")
+                           (.replace
+                            (.replace
+                             (get-in camp [:content 2 :content 0 :content 0])
+                             "http://www."
+                             "https://")
+                            "https://tjalda.is/"
+                            "https://tjalda.is/en/")
+                           "www.tjalda.is/"
+                           "www.tjalda.is/en/")
                   name (get-in camp [:content 3 :content 0])]
               {
                :longitude longitude
@@ -374,6 +449,7 @@
                         (tag/name-tag name)
                         (tag/url-tag name website)
                         (tag/source-tag "tjalda.is")
+                        "#tjalda"
                         (if (contains? all-year-website-set website)
                           "#24x7")]))})
             (catch Throwable e
@@ -382,73 +458,150 @@
          camp-html
          [0 :content 0 :content 0 :content 0 :content]))))))
 
-(def tjalda-camp-24x7-seq
-  (filter #(contains? (:tags %) "#24x7") tjalda-camp-seq))
-
-;;; reykjavik from wikidata, just for test
-(def world-location-seq
-  [
-   {:longitude -21.883333
-    :latitude 64.15
-    :tags #{"#world" tag/tag-city}}])
-
-
 ;;; wikidata entries
-;;; #added 2017-08
-;;; #test:defaultView:Map
-;;; PREFIX schema: <http://schema.org/>
-;;;  PREFIX wikibase: <http://wikiba.se/ontology#>
-;;;  PREFIX wd: <http://www.wikidata.org/entity/>
-;;; PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-;;; 
-;;; SELECT ?item ?itemLabel ?itemDescription ?geo ?wikipedia ?wikivoyage ?instanceOf WHERE {
-;;;   ?item wdt:P31 ?instanceOf.
-;;;   ?item wdt:P17* wd:Q189;
-;;;         wdt:P625 ?geo .
-;;;           SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE]". }
-;;; 
-;;;   OPTIONAL {
-;;;       ?wikipedia schema:about ?item .
-;;;       ?wikipedia schema:inLanguage "en" .
-;;;       ?wikipedia schema:isPartOf <https://en.wikipedia.org/> .
-;;;     }
-;;;   
-;;;     OPTIONAL {
-;;;       ?wikivoyage schema:about ?item .
-;;;       ?wikivoyage schema:inLanguage "en" .
-;;;       ?wikivoyage schema:isPartOf <https://en.wikivoyage.org/> .
-;;;     }
-;;; }
-;;; run against https://query.wikidata.org/
-;;; download as json
-(def wikidata-raw
-  (with-open [is (fs/input-stream (path/child dataset-path "raw" "wikidata.json"))]
-    (json/read-keyworded is)))
-
-(count wikidata-raw)
-(def wikidata-sample (take 5 wikidata-raw))
-;;; http://localhost:7078/variable?namespace=trek-mate.dataset.iceland&name=wikidata-sample
-
-
-
-
-
-
-
-
-
-
-
-
+;;; prepare query on http://query.wikidata.org
+;;; once results are promising copy Link > SPARQL endpoint
+;;; and add format=json for results ( link contains whole query 
+(def wikidata-location-seq
+  (let [query-url "https://query.wikidata.org/sparql?format=json&query=%23added%202017-08%0A%23test%3AdefaultView%3AMap%0APREFIX%20schema%3A%20%3Chttp%3A%2F%2Fschema.org%2F%3E%0APREFIX%20wikibase%3A%20%3Chttp%3A%2F%2Fwikiba.se%2Fontology%23%3E%0APREFIX%20wd%3A%20%3Chttp%3A%2F%2Fwww.wikidata.org%2Fentity%2F%3E%0APREFIX%20wdt%3A%20%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2Fdirect%2F%3E%0A%0ASELECT%20%3Fitem%20%3FitemLabel%20%3FitemDescription%20%3Fgeo%20%3Fwikipedia%20%3Fwikivoyage%20%3FinstanceOf%20WHERE%20%7B%0A%20%20%3Fitem%20wdt%3AP17*%20wd%3AQ189.%0A%20%20%3Fitem%20wdt%3AP625%20%3Fgeo%20.%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fitem%20wdt%3AP31%20%3FinstanceOf%0A%20%20%7D%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fwikipedia%20schema%3Aabout%20%3Fitem%20.%0A%20%20%20%20%3Fwikipedia%20schema%3AinLanguage%20%22en%22%20.%0A%20%20%20%20%3Fwikipedia%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fen.wikipedia.org%2F%3E%20.%0A%20%20%7D%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fwikivoyage%20schema%3Aabout%20%3Fitem%20.%0A%20%20%20%20%3Fwikivoyage%20schema%3AinLanguage%20%22en%22%20.%0A%20%20%20%20%3Fwikivoyage%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fen.wikivoyage.org%2F%3E%20.%0A%20%20%7D%0A%20%20SERVICE%20wikibase%3Alabel%20%7B%20bd%3AserviceParam%20wikibase%3Alanguage%20%22en%22.%20%7D%0A%7D"]
+    (map
+    (comp
+     wikidata/intermediate->location
+     #(wikidata/create-intermediate
+       (:id %)
+       (:label-en %)
+       (:description %)
+       (:longitude %)
+       (:latitude %)
+       (:instance-of-set %)
+       (:url-wikipedia-en %)
+       (:url-wikivoyage-en %)))
+    (vals
+     (reduce
+      (fn [item-map item]
+        (if-let [stored-item (get item-map (:id item))]
+          (assoc
+           item-map
+           (:id item)
+           (update-in stored-item [:instance-of-set] conj))
+          (assoc
+           item-map
+           (:id item)
+           item)))
+      {}
+      (map
+       (fn [raw-item]
+        
+         (let [[longitude latitude] (wikidata/sparql-geo->longitude-latitude
+                                     (:value (:geo raw-item)))]
+           {
+            :id (wikidata/sparql-url->id (:value (:item raw-item)))
+            :label-en (:value (:itemLabel raw-item))
+            :description-en (:value (:itemDescription raw-item))
+            :longitude longitude
+            :latitude latitude
+            :url-wikipedia-en (:value (:wikipedia raw-item))
+            :url-wikivoyage-en (:value (:wikivoyage raw-item))
+            :instance-of-set (set [(wikidata/sparql-url->id
+                                    (:value (:instanceOf raw-item)))])}))
+       (:bindings
+        (:results
+         (json/read-keyworded (http/get-as-stream query-url))))))))))
 
 ;;; map preparation
 
-(def location-seq '())
-(alter-var-root (var location-seq) concat world-location-seq)
-(alter-var-root (var location-seq) concat tjalda-camp-seq)
-(alter-var-root (var location-seq) concat osm-location-seq)
+(def wikidata-mapping
+  {
+   :Q685369 "#world"
+   :Q817118 "#world"
+   :Q14453 "#world"
+   :Q29042 "#world"
+   :Q887147 "#world"
+   :Q276537 "#world"
+   
+   :Q1764 (list "@iceland2019"tag/tag-world "@day1" "@day9" "@day10")
+   :Q107370 (list "@iceland2019"tag/tag-todo "@day2")
+   :Q6711348 (list "@iceland2019" tag/tag-todo tag/tag-history "@day2")
+   :Q1128186 (list "@iceland2019" tag/tag-todo "@day2")
+   :Q216846 (list "@iceland2019" tag/tag-todo "@day2")
+   :Q38519 (list "@iceland2019" tag/tag-todo "@day2")
+   :Q777882 (list "@iceland2019" tag/tag-todo "@day2")
+   :Q1130718 (list "@iceland2019" tag/tag-todo "@day2")
+   :Q1405353 (list "@iceland2019" tag/tag-todo "@day2")
+   :Q24297011 (list "@iceland2019" tag/tag-todo "@day2")
 
-(count osm-location-seq)
+   :Q968999 (list "@iceland2019" tag/tag-beach tag/tag-todo "@day3")
+   :Q7319590 (list "@iceland2019" tag/tag-visit tag/tag-todo "@day3")
+   :Q1145786 (list "@iceland2019" tag/tag-todo "@day3")
+
+   :Q511933 (list "@iceland2019" tag/tag-todo "@day4")
+   :Q1605186 (list "@iceland2019" tag/tag-todo "@day4")
+   :Q11761952 (list "@iceland2019" tag/tag-todo "@day4")
+
+   :Q212051 (list "@iceland2019" tag/tag-todo "@day5")
+   :Q210280 (list "@iceland2019" tag/tag-todo "@day5")
+   :Q16677092 (list "@iceland2019" tag/tag-todo "@day5")
+   :Q2006297 (list "@iceland2019" tag/tag-todo "@day5")
+   :Q752994 (list "@iceland2019" tag/tag-todo "@day5")
+      
+   :Q335311 (list "@iceland2019" tag/tag-todo)
+
+   :Q886946 (list "@iceland2019" tag/tag-todo tag/tag-visit "@day9")})
+
+
+;;; applied to all locations, used for adding tags which belong to
+;;; sources which could not be mapped over id ( wikidata, osm )
+(def location-mapping
+  {
+   "-16.96611@64.01688" (list "@iceland2019" "@sleep" "@day3")
+   "-14.40844@65.25804" (list "@iceland2019" "@sleep" "@day4")
+   "-16.91559@65.64868" (list "@iceland2019" "@sleep" "@day5")
+   })
+
+
+;;; todo list
+
+;;; add hotels for first two days
+
+;;; support to download osm node fast, or way, extract first node and add tags ...
+;;; osm extract
+;;; camps, beaches 
+;;; wikidata filter either wikipedia or wikidata link
+
+;;; add all osm mappings
+;;; report missing wikidata / osm mappings
+;;; add marijana notes to github, maybe specific project for iceland ... 
+
+
+;;; additional locations, which do not exist in osm, wikidata, other sources
+(def manual-location-seq
+  [
+   ])
+
+(def location-seq
+  (map
+   (comp
+    (partial
+      tag-mapping->key-fn->location->location
+      location-mapping
+      util/location->location-id)
+    (fn [location]
+      (update-in
+       location
+       [:tags]
+       (fn [tags]
+         (conj tags (util/location->location-id location))))))
+   (concat
+    manual-location-seq
+    tjalda-camp-seq
+    osm-location-seq
+    (map
+     (partial
+      tag-mapping->key-fn->location->location
+      wikidata-mapping
+      wikidata/location->id)
+     wikidata-location-seq))))
+
 (count location-seq)
 
 (defn filter-locations [tags]
@@ -493,5 +646,14 @@
 
 (web/create-server)
 
+;;; debug server
+(clj-common.http-server/create-server
+ 7078
+ (compojure.core/GET
+  "/variable"
+  _
+  (clj-common.ring-middleware/expose-variable)))
 
-
+;;; todo on the road
+;;; rainbow road, village on east, add to wikidata
+;;; camps, webistes, info, add ... ( wikidata or osm )

@@ -86,7 +86,7 @@ function navigateTag (tag) {
 
 function renderTags (tags) {
     var html = ""
-    for (const tag of tags) {
+    for (const tag of tags.sort ()) {
 	html += "<a href='javascript:navigateTag(\"" + tag + "\")'>"
 	if (TrekMate.tags.has (tag)) {
 	    html += tag + " [REMOVE]"
@@ -150,8 +150,9 @@ function initialize () {
 	"click",
 	function (e) {
 	    setStatus (
-		"(" + Number (e.latlng.lng).toFixed (5) + "," +
-		    Number (e.latlng.lat).toFixed (5)  + ")")
+		"{:longitude " + Number (e.latlng.lng).toFixed (5) +
+		" :latitude " + Number (e.latlng.lat).toFixed (5)  +
+		" :tags #{}}")
 	}
     )
 

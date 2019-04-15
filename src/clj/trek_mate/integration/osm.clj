@@ -5,6 +5,7 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
@@ -237,6 +238,24 @@
 
 ;;; new set of operations to work with dot tags
 
+(defn tags->name [tags]
+  (some?
+   (first
+    (filter
+     #(when-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "name"))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "name")
+              (contains? tags (osm-way-index->tag way 0))))
+          (value)))
+     tags))))
+
 (defn tags->highway-set [tags]
   (into
    #{}
@@ -260,6 +279,168 @@
           (contains? tags (osm-way-index->tag way 0)))))
      tags))))
 
+
+(defn tags->sleep? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tourism type] (.split % ":")]
+        (or
+         (and
+          (= osm "osm")
+          (= n-r-w "n")
+          (= tourism "tourism")
+          (or
+           (= type "hotel")
+           (= type "hostel")
+           (= type "motel")
+           (= type "guest_house")
+           (= type "camp_site")))
+         (and
+          (= osm "osm")
+          (= n-r-w "w")
+          (= tourism "tourism")
+          (or
+           (= type "hotel")
+           (= type "hostel")
+           (= type "motel")
+           (= type "guest_house")
+           (= type "camp_site"))
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+(defn tags->camp? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tourism type] (.split % ":")]
+        (or
+         (and
+          (= osm "osm")
+          (= n-r-w "n")
+          (= tourism "tourism")
+          (= type "camp_site"))
+         (and
+          (= osm "osm")
+          (= n-r-w "w")
+          (= tourism "tourism")
+          (= type "camp_site")
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+(defn tags->website [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "website"))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "website")
+              (contains? tags (osm-way-index->tag way 0))))
+          value))
+     tags))))
+
+;;; iceland specific / liquor store
+(defn tags->vínbúðin? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (or
+         (and
+          (= osm "osm")
+          (= n-r-w "n")
+          (= tag "name")
+          (= value "Vínbúðin"))
+         (and
+          (= osm "osm")
+          (= n-r-w "w")
+          (= tag "name")
+          (= value "Vínbúðin")
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+(defn tags->toilet? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (or
+         (and
+          (= osm "osm")
+          (= n-r-w "n")
+          (= tag "amenity")
+          (= value "toilets"))
+         (and
+          (= osm "osm")
+          (= n-r-w "w")
+          (= tag "amenity")
+          (= value "toilets")
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+(defn tags->shower? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (or
+         (and
+          (= osm "osm")
+          (= n-r-w "n")
+          (= tag "amenity")
+          (= value "shower"))
+         (and
+          (= osm "osm")
+          (= n-r-w "w")
+          (= tag "amenity")
+          (= value "shower")
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+(defn tags->visit? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (or
+         (and
+          (= osm "osm")
+          (= n-r-w "n")
+          (= tag "tourism")
+          (= value "attraction"))
+         (and
+          (= osm "osm")
+          (= n-r-w "w")
+          (= tag "tourism")
+          (= value "attraction")
+          (contains? tags (osm-way-index->tag way 0)))))
+     tags))))
+
+(defn tags->shop [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "shop"))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "shop")
+              (contains? tags (osm-way-index->tag way 0))))
+          value))
+     tags))))
+
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
   (update-in
@@ -269,21 +450,74 @@
      (reduce
       (fn [tags extract-fn]
         (extract-fn tags))
-      tags
+      (conj
+       tags
+       tag/tag-osm)
       ;; list of extraction fns
       [
+       (fn [tags]
+         (if-let [name (tags->name tags)]
+           (conj tags name)
+           tags))
        
        ;; highway extract fn
-       (fn [tags]
+       ;; disabled, focusing on poi extract, iceland filter lcoation should
+       ;; be changed to enable this
+       #_(fn [tags]
          (let [highway-set (tags->highway-set tags)]
            (if (seq highway-set)
              (conj tags tag/tag-road)
              tags)))
+       
        (fn [tags]
-         (when (tags->gas? tags)
-           (conj tags tag/tag-gas-station)))]))))
+         (if (tags->gas? tags)
+           (conj tags tag/tag-gas-station)
+           tags))
+       (fn [tags]
+         (if (tags->camp? tags)
+           (conj tags tag/tag-camp)
+           tags))
+       (fn [tags]
+         (if (tags->sleep? tags)
+           (conj tags tag/tag-sleep)
+           tags))
+       (fn [tags]
+         (if-let [website (tags->website tags)]
+           (conj tags (tag/url-tag "website" website))
+           tags))
+       (fn [tags]
+         (if (tags->vínbúðin? tags)
+           (conj tags "#vínbúðin")
+           tags))  
+       (fn [tags]
+         (if (tags->toilet? tags)
+           (conj tags tag/tag-toilet)
+           tags))
+       (fn [tags]
+         (if (tags->shower? tags)
+           (conj tags tag/tag-shower)
+           tags))
+       (fn [tags]
+         (if (tags->visit? tags)
+           (conj tags tag/tag-visit)
+           tags))
+       (fn [tags]
+         (when-let [shop (tags->shop tags)]
+           (cond
+             (= shop "supermarket") (conj
+                                     tags
+                                     tag/tag-shop tag/tag-supermarket
+                                     tag/tag-food tag/tag-drink)
+             (= shop "convenience" (conj
+                                    tags
+                                    tag/tag-shop tag/tag-food tag/tag-drink))
+             (:else tags))))
+       
+       ]))))
 
-
+(defn location->node-id [location]
+  (when-let [tag (first (filter #(.startsWith % osm-gen-node-prefix) (:tags location)))]
+    (as/as-long (.substring tag (count osm-gen-node-prefix)))))
 
 
 #_(defn process-osm-export

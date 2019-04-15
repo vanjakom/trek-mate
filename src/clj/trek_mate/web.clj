@@ -115,7 +115,6 @@
   "Adds border to tile to help debugging"
   [original-tile-fn]
   (fn [zoom x y]
-    (println "rendering border...")
     (if-let [input-stream (original-tile-fn zoom x y)]
       (let [context (draw/input-stream->image-context input-stream)]
         (draw/draw-poly

@@ -406,10 +406,11 @@
   "Streams dots from whole repository to channel."
   [context resource-controller repository in]
   (async/go
+    (context/set-state context "init")
     (loop [path-seq (fs/list repository)]
       (when-let [path (first path-seq)]
         (if (fs/is-directory path)
-          (recur (concat (rest path-seq) (fs/list path)))
+          (recur (concat (fs/list path) (rest path-seq)))
           (when
               ;; add filtering for "dot" files once there are multiple
               ;; file types in repository
@@ -418,6 +419,7 @@
                (with-open [reader (io/input-stream->buffered-reader
                                    (fs/input-stream path))]
                  (resource-controller path read-repository-go in)
+                 (context/set-state context "step")
                  (loop [line (io/read-line reader)]
                    (if line
                      (do
@@ -426,7 +428,9 @@
                          (recur (io/read-line reader))
                          nil))
                      true))))
-            (recur (rest path-seq))))))))
+            (recur (rest path-seq))))))
+    (async/close! in)
+    (context/set-state context "completion")))
 
 
 ;;; works
@@ -700,6 +704,13 @@
     (let [splits (.split tag "\\:")]
       [(as/as-long (get splits 2) (as/as-long (get splits 3)))])))
 
+(defn dot->trek-mate-tags? [dot]
+  (some?
+   (first
+    (filter
+     #(or (.startsWith "#") (.startsWith "@"))
+     (:tags dot)))))
+
 (defn tags->per-osm-way-tags [tags]
   (reduce
    (fn [way-map tag]
@@ -781,7 +792,7 @@
 
 ;;; todo
 ;;; test code first without way explode ...
-(defn dot-create-from-locations-go
+#_(defn dot-create-from-locations-go
   "Based on given location stream created dot with specified zoom, x, y. Doing way explode."
   [context in zoom x y out]
   (async/go

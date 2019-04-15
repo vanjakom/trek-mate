@@ -46,6 +46,12 @@
 ;;; will be used by user to mark tags useful to himself and for checkings
 (def tag-prefix-personal "@")
 
+(def tag-world "#world")
+(def tag-wikidata "#wikidata")
+(def tag-osm "#osm")
+(def tag-wikipedia "#wikipedia")
+(def tag-wikivoyage "#wikivoyage")
+
 ;;; using system tags now
 ;;; used during system import of datasets to be able to filter and partially
 ;;; update them later
@@ -123,6 +129,12 @@
 (def tag-art "#art")
 (def tag-church "#church")
 (def tag-parking "#parking")
+(def tag-toilet "#toilet")
+(def tag-shower "#shower")
+(def tag-shop "#shop")
+(def tag-supermarket "#supermarket")
+(def tag-food "#food")
+
 
 (def tag-geocache "#geocache")
 (def tag-geocache-personal "@geocache")
