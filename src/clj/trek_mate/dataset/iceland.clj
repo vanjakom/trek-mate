@@ -11,12 +11,14 @@
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.http :as http]
+   [clj-common.io :as io]
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.math.core :as math]
+   [clj-geo.import.tile :as tile]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
    [trek-mate.integration.geocaching :as geocaching]
@@ -286,6 +288,27 @@
    osm-repository
    (channel-provider :hydrate))
 
+  #_(dot/read-tile-go
+   (context/wrap-scope context "0_read")
+   osm-repository
+   (tile-math/zoom->location->tile 16 {:longitude -20.233278  :latitude 63.7491433})
+   (channel-provider :debug))
+  #_(pipeline/transducer-stream-go
+   (context/wrap-scope context "debug")
+   (channel-provider :debug)
+   (filter #(contains? (:tags %) (osm-integration/osm-node-id->tag "1801770343")))
+   (channel-provider :hydrate)) 
+
+  #_(pipeline/take-go
+   (context/wrap-scope context "take")
+   1000
+   (channel-provider :mapping)
+   (channel-provider :take))
+
+  #_(pipeline/trace-go
+   (context/wrap-scope context "trace")
+   (channel-provider :debug))
+  
   (pipeline/transducer-stream-go
    (context/wrap-scope context "1_hydrate")
    (channel-provider :hydrate)
@@ -302,25 +325,22 @@
      osm-integration/location->node-id))
    (channel-provider :filter))
 
-  #_(pipeline/take-go
-   (context/wrap-scope context "take")
-   1000
-   (channel-provider :mapping)
-   (channel-provider :take))
-
-  #_(pipeline/trace-go
-   (context/wrap-scope context "trace")
-   (channel-provider :take))
   
   (pipeline/transducer-stream-go
    (context/wrap-scope context "2_filter")
    (channel-provider :filter)
    (filter #(or
              (contains? osm-mapping (osm-integration/location->node-id %))
-             (dot/dot->trek-mate-tags? %)
-             #_(contains? (:tags %) tag/tag-sleep)
-             #_(contains? (:tags %) tag/tag-camp)
-             #_(contains? (:tags %) tag/tag-gas-station)))
+             (contains? (:tags %) tag/tag-gas-station)
+             (contains? (:tags %) tag/tag-camp)
+             (contains? (:tags %) tag/tag-sleep)
+             (contains? (:tags %) "#vínbúðin")
+             (contains? (:tags %) tag/tag-toilet)
+             (contains? (:tags %) tag/tag-shower)
+             (contains? (:tags %) tag/tag-visit)
+             (contains? (:tags %) tag/tag-shop)
+             (contains? (:tags %) tag/tag-drink)
+             (contains? (:tags %) tag/tag-eat)))
    (channel-provider :transform))
 
   (pipeline/transducer-stream-go
@@ -344,6 +364,11 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 #_(async/close! ((:channel-provider osm-location-extract-pipeline) :hydrate))
 
+osm-location-seq
+
+
+;;; todo preserve location seq to disk ...
+
 #_(count osm-location-seq)
 #_(doseq [counter (reduce
                  (fn [counters location]
@@ -356,35 +381,11 @@
                  osm-location-seq)]
   (println counter))
 
-;;; manual locations prepare
-
-(def manual-locations (atom {}))
-(defn store-manual-location
-  [{longitude :longitude latitude :latitude tags :tags :as location} ]
-  (swap! manual-locations update-in [[longitude latitude]] #(clojure.set/union % tags)))
-
-;;; osm node 6364458172
-(store-manual-location
- {
-  :longitude -21.9390108
-  :latitude 64.0787926
-  :tags #{"@sleep" "@day1"}})
-
-;;; osm node 6364564376
-(store-manual-location
- {
-  :longitude -19.0623233
-  :latitude 63.4359332
-  :tags #{"@sleep" "@day2"}})
-
-;;; create map of camps from osm data
-
 ;;; prepare camps from tjalda.is
 ;;; data is located in
 ;;; /Users/vanja/projects/trek-mate/data/iceland/raw
 ;;; camps.partial.html - list of all camps, extracted from DOM once loaded
 ;;; all-year.partial.html - list of camps open all year, extracted from DOM
-
 (def tjalda-camp-seq
   (with-open [camp-is (fs/input-stream
                        (path/child
@@ -507,8 +508,6 @@
        (:bindings
         (:results
          (json/read-keyworded (http/get-as-stream query-url))))))))))
-
-;;; map preparation
 
 (def wikidata-mapping
   {
@@ -654,6 +653,81 @@
   _
   (clj-common.ring-middleware/expose-variable)))
 
+;;; dowload tiles into shared cache
+(let [url-template "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      min-zoom 7 max-zoom 11
+      min-x 55 max-x 59
+      min-y 32 max-y 34
+      download-fn (fn []
+                    (doseq [zoom (range min-zoom (inc max-zoom))]
+                      (doseq [x-on-min-zoom (range min-x (inc max-x))]
+                        (doseq [y-on-min-zoom (range min-y (inc max-y))]
+                          (doseq [[zoom x y] (tile-math/zoom->tile->tile-seq
+                                              zoom
+                                              [min-zoom x-on-min-zoom y-on-min-zoom])]
+                            (let [url (->
+                                       url-template
+                                       (.replace "{z}" (str zoom))
+                                       (.replace "{x}" (str x))
+                                       (.replace "{y}" (str y)))]
+                              (if-let [tile-is (tile/*tile-cache* url)]
+                                (report "Cached " zoom "/" x "/" y)
+                                (do
+                                  (report "Downloading " zoom "/" x "/" y)
+                                  ;; required because of osm
+                                  (http/with-default-user-agent
+                                    (tile/retrieve-tile url))
+                                  (Thread/sleep 1000)))))))))]
+  (.start
+   (new java.lang.Thread download-fn "tile-download-thread")))
+#_(clj-common.jvm/interrupt-thread "tile-download-thread")
+
+;;; todo upload tiles to cloudkit instead of folder
+;;; todo take more tiles if we can ...
+(let [url-template "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      min-zoom 7 max-zoom 11
+      min-x 55 max-x 59
+      min-y 32 max-y 34
+      missing-count (atom 0)]  
+  (doseq [zoom (range min-zoom (inc max-zoom))]
+    (doseq [x-on-min-zoom (range min-x (inc max-x))]
+      (doseq [y-on-min-zoom (range min-y (inc max-y))]
+        (doseq [[zoom x y] (tile-math/zoom->tile->tile-seq
+                            zoom
+                            [min-zoom x-on-min-zoom y-on-min-zoom])]
+          (let [tile-path (path/child dataset-path "raw" "osm-tile" zoom x y)
+                url (->
+                     url-template
+                     (.replace "{z}" (str zoom))
+                     (.replace "{x}" (str x))
+                     (.replace "{y}" (str y)))
+                cache-filename (tile/cache-key-fn url)]
+            (if-let [tile-is (tile/*tile-cache* url)]
+              (with-open [out-stream (fs/output-stream tile-path)]
+                (io/copy-input-to-output-stream tile-is out-stream))
+              (do
+                (report "missing " zoom "/" x "/" y)
+                (swap! missing-count inc))))))))
+  (report "count missing: " @missing-count))
+
+;; Downloading  10 / 448 / 259
+
+(web/register-map
+ "iceland-osm-offline"
+ {
+  :configuration {
+                  :longitude -19
+                  :latitude 65
+                  :zoom 7}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/create-static-raster-tile-fn
+                     (path/child dataset-path "raw" "osm-tile"))))
+  :locations-fn (fn [] location-seq)
+  :state-fn state-transition-fn})
+
+
 ;;; todo on the road
 ;;; rainbow road, village on east, add to wikidata
 ;;; camps, webistes, info, add ... ( wikidata or osm )
+

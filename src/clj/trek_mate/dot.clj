@@ -708,7 +708,7 @@
   (some?
    (first
     (filter
-     #(or (.startsWith "#") (.startsWith "@"))
+     #(or (.startsWith % "#") (.startsWith % "@"))
      (:tags dot)))))
 
 (defn tags->per-osm-way-tags [tags]

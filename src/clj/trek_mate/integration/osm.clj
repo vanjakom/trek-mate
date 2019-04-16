@@ -239,22 +239,21 @@
 ;;; new set of operations to work with dot tags
 
 (defn tags->name [tags]
-  (some?
-   (first
-    (filter
-     #(when-let [[osm n-r-w way tag value] (.split % ":")]
-        (if (or
-             (and
-              (= osm "osm")
-              (= n-r-w "n")
-              (= tag "name"))
-             (and
-              (= osm "osm")
-              (= n-r-w "w")
-              (= tag "name")
-              (contains? tags (osm-way-index->tag way 0))))
-          (value)))
-     tags))))
+  (first
+   (filter
+    #(when-let [[osm n-r-w way tag value] (.split % ":")]
+       (if (or
+            (and
+             (= osm "osm")
+             (= n-r-w "n")
+             (= tag "name"))
+            (and
+             (= osm "osm")
+             (= n-r-w "w")
+             (= tag "name")
+             (contains? tags (osm-way-index->tag way 0))))
+         value))
+    tags)))
 
 (defn tags->highway-set [tags]
   (into
@@ -424,10 +423,11 @@
      tags))))
 
 (defn tags->shop [tags]
-  (some?
-   (first
-    (filter
-     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+  (first
+   (filter
+    some?
+    (map
+     #(when-let [[osm n-r-w way tag value] (.split % ":")]
         (if (or
              (and
               (= osm "osm")
@@ -437,6 +437,89 @@
               (= osm "osm")
               (= n-r-w "w")
               (= tag "shop")
+              (contains? tags (osm-way-index->tag way 0))))
+          value))
+     tags))))
+
+(defn tags->bath? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "amenity")
+              (= value "public_bath"))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "amenity")
+              (= value "public_bath")
+              (contains? tags (osm-way-index->tag way 0))))
+          value))
+     tags))))
+
+(defn tags->swimming-pool? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "leisure")
+              (= value "swimming_pool"))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "leisure")
+              (= value "swimming_pool")
+              (contains? tags (osm-way-index->tag way 0))))
+          value))
+     tags))))
+
+(defn tags->drink? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "amenity")
+              (or
+               (= value "bar") (= value "cafe") (= value "pub")))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "amenity")
+              (or
+               (= value "bar") (= value "cafe") (= value "pub"))
+              (contains? tags (osm-way-index->tag way 0))))
+          value))
+     tags))))
+
+
+(defn tags->eat? [tags]
+  (some?
+   (first
+    (filter
+     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+        (if (or
+             (and
+              (= osm "osm")
+              (= n-r-w "n")
+              (= tag "amenity")
+              (= value "restaurant"))
+             (and
+              (= osm "osm")
+              (= n-r-w "w")
+              (= tag "amenity")
+              (= value "restaurant")
               (contains? tags (osm-way-index->tag way 0))))
           value))
      tags))))
@@ -460,10 +543,7 @@
            (conj tags name)
            tags))
        
-       ;; highway extract fn
-       ;; disabled, focusing on poi extract, iceland filter lcoation should
-       ;; be changed to enable this
-       #_(fn [tags]
+       (fn [tags]
          (let [highway-set (tags->highway-set tags)]
            (if (seq highway-set)
              (conj tags tag/tag-road)
@@ -502,23 +582,38 @@
            (conj tags tag/tag-visit)
            tags))
        (fn [tags]
-         (when-let [shop (tags->shop tags)]
+         (if-let [shop (tags->shop tags)]
            (cond
              (= shop "supermarket") (conj
                                      tags
                                      tag/tag-shop tag/tag-supermarket
-                                     tag/tag-food tag/tag-drink)
-             (= shop "convenience" (conj
+                                     tag/tag-food)
+             (= shop "convenience") (conj
                                     tags
-                                    tag/tag-shop tag/tag-food tag/tag-drink))
-             (:else tags))))
-       
+                                    tag/tag-shop tag/tag-food)
+             :else tags)
+           tags))
+       (fn [tags]
+         (if (tags->bath? tags)
+           (conj tags tag/tag-shower "#bath")
+           tags))
+       (fn [tags]
+         (if (tags->swimming-pool? tags)
+           (conj tags tag/tag-shower "#swimming-pool")
+           tags))
+       (fn [tags]
+         (if (tags->drink? tags)
+           (conj tags tag/tag-drink)
+           tags))
+       (fn [tags]
+         (if (tags->eat? tags)
+           (conj tags tag/tag-eat)
+           tags))
        ]))))
 
 (defn location->node-id [location]
   (when-let [tag (first (filter #(.startsWith % osm-gen-node-prefix) (:tags location)))]
     (as/as-long (.substring tag (count osm-gen-node-prefix)))))
-
 
 #_(defn process-osm-export
   "Reads OSM export and splits it into two parts, nodes and ways, EDN is used for

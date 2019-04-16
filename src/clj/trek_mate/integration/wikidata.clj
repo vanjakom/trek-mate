@@ -95,6 +95,38 @@
 (defn intermediate->geyser? [intermediate]
   (intermediate->class->instance-of? :Q83471 intermediate))
 
+
+(defn id->tag [id]
+  (str "wikidata:id:" (name id)))
+
+(defn tag->id [tag]
+  (when (.startsWith tag "wikidata:id:")
+    (keyword (.substring tag (count "wikidata:id:")))))
+
+(defn location->id [location]
+  (when-let [tag (first (filter #(.startsWith % "wikidata:id:") (:tags location)))]
+    (keyword (.substring tag (count "wikidata:id:")))))
+
+;;; utility functions for parsing SPARQL results
+(defn sparql-url->id
+  [item-string]
+  ;; "http://www.wikidata.org/entity/Q75071"
+  (when item-string
+    (keyword (last (.split item-string "/")))))
+
+(defn sparql-geo->longitude-latitude
+  [geo-string]
+  ;; Point(-22.1 64.316666666)
+  
+  (let [[longitude-s latitude-s] (.split
+                                   (.replace
+                                    (.replace geo-string "Point(" "")
+                                    ")"
+                                    "")
+                                   " ")] 
+       [(as/as-double longitude-s) (as/as-double latitude-s)]))
+
+
 (defn intermediate->location [intermediate]
   {
      :longitude (intermediate->longitude intermediate)
@@ -132,40 +164,10 @@
                        (tag/url-tag "wikivoyage" url)
                        tag/tag-wikivoyage))))))})
 
-(defn id->tag [id]
-  (str "wikidata:id:" (name id)))
-
-(defn tag->id [tag]
-  (when (.startsWith tag "wikidata:id:")
-    (keyword (.substring tag (count "wikidata:id:")))))
-
-(defn location->id [location]
-  (when-let [tag (first (filter #(.startsWith % "wikidata:id:") (:tags location)))]
-    (keyword (.substring tag (count "wikidata:id:")))))
-
 (defn id->location [id]
   (let [entity (scraper/entity id)
         intermediate (entity->intermediate entity)]
     (intermediate->location intermediate)))
-
-;;; utility functions for parsing SPARQL results
-(defn sparql-url->id
-  [item-string]
-  ;; "http://www.wikidata.org/entity/Q75071"
-  (when item-string
-    (keyword (last (.split item-string "/")))))
-
-(defn sparql-geo->longitude-latitude
-  [geo-string]
-  ;; Point(-22.1 64.316666666)
-  
-  (let [[longitude-s latitude-s] (.split
-                                   (.replace
-                                    (.replace geo-string "Point(" "")
-                                    ")"
-                                    "")
-                                   " ")] 
-       [(as/as-double longitude-s) (as/as-double latitude-s)]))
 
 #_(def a (scraper/entity "Q1781"))
 #_(def b (entity->intermediate a))
