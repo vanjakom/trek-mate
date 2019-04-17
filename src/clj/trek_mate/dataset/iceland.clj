@@ -274,7 +274,21 @@
 
    ;; Mývatn Nature Baths
    2566467958 (list "@iceland2019" tag/tag-todo tag/tag-visit "@day5")
-   })
+
+   ;; Blönduóskirkja
+   2075394740 (list "@iceland2019" tag/tag-todo "@day6")
+
+   4753076549 (list "@iceland2019" "@marijana-camp")
+   4972294974 (list "@iceland2019" "@marijana-camp")
+   2873571349 (list "@iceland2019" "@marijana-camp")
+   4776201021 (list "@iceland2019" "@marijana-camp")
+   4741392268 (list "@iceland2019" "@marijana-camp")
+   2639079538 (list "@iceland2019" tag/tag-todo "@day6")
+   4781212660 (list "@iceland2019" "@sleep" "@day6")
+   4892911616 (list "@iceland2019" "@day7")
+   4860489818 (list "@iceland2019" "@day7" "@sleep")
+   2397323432 (list "@iceland2019" "@day8" "@sleep")
+   4741403256 (list "@iceland2019" "@day9" "@sleep")})
 
 (def osm-location-extract-pipeline nil)
 (def osm-location-seq nil)
@@ -466,55 +480,56 @@ osm-location-seq
 (def wikidata-location-seq
   (let [query-url "https://query.wikidata.org/sparql?format=json&query=%23added%202017-08%0A%23test%3AdefaultView%3AMap%0APREFIX%20schema%3A%20%3Chttp%3A%2F%2Fschema.org%2F%3E%0APREFIX%20wikibase%3A%20%3Chttp%3A%2F%2Fwikiba.se%2Fontology%23%3E%0APREFIX%20wd%3A%20%3Chttp%3A%2F%2Fwww.wikidata.org%2Fentity%2F%3E%0APREFIX%20wdt%3A%20%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2Fdirect%2F%3E%0A%0ASELECT%20%3Fitem%20%3FitemLabel%20%3FitemDescription%20%3Fgeo%20%3Fwikipedia%20%3Fwikivoyage%20%3FinstanceOf%20WHERE%20%7B%0A%20%20%3Fitem%20wdt%3AP17*%20wd%3AQ189.%0A%20%20%3Fitem%20wdt%3AP625%20%3Fgeo%20.%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fitem%20wdt%3AP31%20%3FinstanceOf%0A%20%20%7D%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fwikipedia%20schema%3Aabout%20%3Fitem%20.%0A%20%20%20%20%3Fwikipedia%20schema%3AinLanguage%20%22en%22%20.%0A%20%20%20%20%3Fwikipedia%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fen.wikipedia.org%2F%3E%20.%0A%20%20%7D%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fwikivoyage%20schema%3Aabout%20%3Fitem%20.%0A%20%20%20%20%3Fwikivoyage%20schema%3AinLanguage%20%22en%22%20.%0A%20%20%20%20%3Fwikivoyage%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fen.wikivoyage.org%2F%3E%20.%0A%20%20%7D%0A%20%20SERVICE%20wikibase%3Alabel%20%7B%20bd%3AserviceParam%20wikibase%3Alanguage%20%22en%22.%20%7D%0A%7D"]
     (map
-    (comp
-     wikidata/intermediate->location
-     #(wikidata/create-intermediate
-       (:id %)
-       (:label-en %)
-       (:description %)
-       (:longitude %)
-       (:latitude %)
-       (:instance-of-set %)
-       (:url-wikipedia-en %)
-       (:url-wikivoyage-en %)))
-    (vals
-     (reduce
-      (fn [item-map item]
-        (if-let [stored-item (get item-map (:id item))]
-          (assoc
-           item-map
-           (:id item)
-           (update-in stored-item [:instance-of-set] conj))
-          (assoc
-           item-map
-           (:id item)
-           item)))
-      {}
-      (map
-       (fn [raw-item]
-        
-         (let [[longitude latitude] (wikidata/sparql-geo->longitude-latitude
-                                     (:value (:geo raw-item)))]
-           {
-            :id (wikidata/sparql-url->id (:value (:item raw-item)))
-            :label-en (:value (:itemLabel raw-item))
-            :description-en (:value (:itemDescription raw-item))
-            :longitude longitude
-            :latitude latitude
-            :url-wikipedia-en (:value (:wikipedia raw-item))
-            :url-wikivoyage-en (:value (:wikivoyage raw-item))
-            :instance-of-set (set [(wikidata/sparql-url->id
-                                    (:value (:instanceOf raw-item)))])}))
-       (:bindings
-        (:results
-         (json/read-keyworded (http/get-as-stream query-url))))))))))
+     (comp
+      wikidata/intermediate->location
+      #(wikidata/create-intermediate
+        (:id %)
+        (:label-en %)
+        (:description %)
+        (:longitude %)
+        (:latitude %)
+        (:instance-of-set %)
+        (:url-wikipedia-en %)
+        (:url-wikivoyage-en %)))
+     (vals
+      (reduce
+       (fn [item-map item]
+         (if-let [stored-item (get item-map (:id item))]
+           (assoc
+            item-map
+            (:id item)
+            (update-in
+             stored-item
+             [:instance-of-set]
+             clojure.set/union (:instance-of-set item)))
+           (assoc
+            item-map
+            (:id item)
+            item)))
+       {}
+       (map
+        (fn [raw-item]
+          (let [[longitude latitude] (wikidata/sparql-geo->longitude-latitude
+                                      (:value (:geo raw-item)))]
+            {
+             :id (wikidata/sparql-url->id (:value (:item raw-item)))
+             :label-en (:value (:itemLabel raw-item))
+             :description-en (:value (:itemDescription raw-item))
+             :longitude longitude
+             :latitude latitude
+             :url-wikipedia-en (:value (:wikipedia raw-item))
+             :url-wikivoyage-en (:value (:wikivoyage raw-item))
+             :instance-of-set (set [(wikidata/sparql-url->id
+                                     (:value (:instanceOf raw-item)))])}))
+        (:bindings
+         (:results
+          (json/read-keyworded (http/get-as-stream query-url))))))))))
 
 (def wikidata-mapping
   {
    :Q685369 "#world"
    :Q817118 "#world"
    :Q14453 "#world"
-   :Q29042 "#world"
    :Q887147 "#world"
    :Q276537 "#world"
    
@@ -542,8 +557,21 @@ osm-location-seq
    :Q16677092 (list "@iceland2019" tag/tag-todo "@day5")
    :Q2006297 (list "@iceland2019" tag/tag-todo "@day5")
    :Q752994 (list "@iceland2019" tag/tag-todo "@day5")
-      
-   :Q335311 (list "@iceland2019" tag/tag-todo)
+
+   :Q29042 (list "#world" "@iceland2019" tag/tag-todo "@day6")
+   :Q1188762 (list "@iceland2019" tag/tag-todo "@day6")
+   :Q1887662 (list "@iceland2019" tag/tag-todo "@day6")
+
+   :Q335311 (list "@iceland2019" tag/tag-todo "@day7")
+   :Q1315012 (list "@iceland2019" tag/tag-todo "@day7")
+   :Q774048 (list "@iceland2019" tag/tag-todo "@day7")
+   :Q15662269 (list "@iceland2019" tag/tag-todo "@day7")
+
+   :Q1183213 (list "@iceland2019" tag/tag-todo "@day8")
+   :Q427971 (list "@iceland2019" tag/tag-todo "@day8")
+   :Q626640 (list "@iceland2019" tag/tag-todo "@day8")
+   :Q737657 (list "@iceland2019" tag/tag-todo "@day8")
+   :Q626642 (list "@iceland2019" tag/tag-todo "@day8")   
 
    :Q886946 (list "@iceland2019" tag/tag-todo tag/tag-visit "@day9")})
 
@@ -552,11 +580,11 @@ osm-location-seq
 ;;; sources which could not be mapped over id ( wikidata, osm )
 (def location-mapping
   {
-   "-16.96611@64.01688" (list "@iceland2019" "@sleep" "@day3")
+   "-16.96611@64.01688" (list "@iceland2019" "@sleep" "@day3" "@marijana-camp")
    "-14.40844@65.25804" (list "@iceland2019" "@sleep" "@day4")
    "-16.91559@65.64868" (list "@iceland2019" "@sleep" "@day5")
-   })
-
+   "-21.87597@64.14613" (list "@iceland2019" "@marijana-camp")
+   "-15.20403@64.25823" (list "@iceland2019" "@marijana-camp")})
 
 ;;; todo list
 
@@ -575,15 +603,25 @@ osm-location-seq
 ;;; additional locations, which do not exist in osm, wikidata, other sources
 (def manual-location-seq
   [
+   {
+    :longitude -21.58166
+    :latitude 64.59155
+    :tags #{
+            tag/tag-waterfall
+            (tag/name-tag "Tröllafossar")
+            "@iceland2019"
+            "@day8"
+            tag/tag-todo
+            (tag/url-tag "myvisiticeland" "https://www.myvisiticeland.is/west/portfolio-items/trollafossar/")}}
    ])
 
 (def location-seq
   (map
    (comp
     (partial
-      tag-mapping->key-fn->location->location
-      location-mapping
-      util/location->location-id)
+     tag-mapping->key-fn->location->location
+     location-mapping
+     util/location->location-id)
     (fn [location]
       (update-in
        location
@@ -593,7 +631,12 @@ osm-location-seq
    (concat
     manual-location-seq
     tjalda-camp-seq
-    osm-location-seq
+    (map
+     (partial
+      tag-mapping->key-fn->location->location
+      osm-mapping
+      osm-integration/location->node-id)
+     osm-location-seq)
     (map
      (partial
       tag-mapping->key-fn->location->location
