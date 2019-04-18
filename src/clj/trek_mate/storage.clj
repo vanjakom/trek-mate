@@ -33,17 +33,17 @@
     (jvm/environment-variable "TREK_MATE_CK_PROD_ID")))
 
 (defn create-tile->cloudkit-tile-v1 [path]
-  (fn [tile]
+  (fn [[zoom x y]]
     (assoc
-     (model/create-empty-record "TileV1" (str "tl1@" (:zoom tile) "@" (:x tile) "@" (:y tile)))
-     :zoom (:zoom tile)
-     :x (:x tile)
-     :y (:y tile)
+     (model/create-empty-record "TileV1" (str "tl1@" zoom "@" x  "@" y))
+     :zoom zoom
+     :x x
+     :y y
      :tile
      (base64/bytes->base64
       (io/input-stream->bytes
        (fs/input-stream
-        (path/child path (:zoom tile) (:x tile) (:y tile)))))
+        (path/child path zoom x y))))
      ;; do not write locations when writing tiles
      #_:locations
      #_(base64/string->base64
@@ -70,11 +70,14 @@
     ([queue request]
      (if (= (count queue) model/maximum-number-of-operations-request)
        (do
+         (report "writing tile seq")
          (try-times 10 (client/records-modify client queue))
          [request])
        (conj queue request)))
     ([queue]
+     (report "writing tile seq")
      (try-times 10 (client/records-modify client queue))
+     (report "finished")
      nil)))
 
 (defn store-tile-from-path-to-tile-v1
@@ -96,8 +99,10 @@
     (model/create-empty-record "TileListV1" (str "tll1@" name))
     :name name
     :tiles (map
-            #(str (:zoom %) "/" (:x %) "/" (:y %))
-            tile-seq))))
+            (fn [[zoom x y]]
+              (str zoom "/" x "/" y))
+            tile-seq)))
+  nil)
 
 (def location-decimal-format
   (let [formatter (new java.text.DecimalFormat "0.00000")]

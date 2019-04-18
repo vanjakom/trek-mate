@@ -10,6 +10,7 @@
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
+   [clj-common.edn :as edn]
    [clj-common.http :as http]
    [clj-common.io :as io]
    [clj-common.json :as json]
@@ -50,14 +51,27 @@
 ;;; contains locations with merged tags from ways and routes
 (def osm-merge-path (path/child dataset-path "osm-merge"))
 
-;;; dataset prepare
-
+(def data-cache-path (path/child dataset-path "data-cache"))
 (def osm-repository (path/child
                      dataset-path
                      "repository" "osm"))
 (def geocache-repository (path/child
                           dataset-path
                           "repository" "geocache"))
+
+;;; data caching fns, move them to clj-common if they make sense
+(defn data-cache [var]
+  (with-open [os (fs/output-stream (path/child data-cache-path (:name (meta var))))]
+   (edn/write-object os (deref var))))
+
+(defn restore-data-cache [var]
+  (let [data(with-open [is (fs/input-stream
+                            (path/child data-cache-path (:name (meta var))))]
+              (edn/read-object is))]
+    (alter-var-root
+     var
+     (constantly data))
+    nil))
 
 ;;; split osm export into nodes, ways and relations
 (def osm-split-pipeline nil)
@@ -238,9 +252,6 @@
                 :channel-provider channel-provider
                 :resource-controller resource-controller})))
 
-;;; extract gas stations
-;;; if way filter out first location
-
 (defn tag-mapping->key-fn->location->location [mapping key-fn location]
   (if-let [tags-to-add (get mapping (key-fn location))]
     (update-in
@@ -292,7 +303,7 @@
 
 (def osm-location-extract-pipeline nil)
 (def osm-location-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
@@ -377,23 +388,8 @@
      :resource-controller resource-controller})))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 #_(async/close! ((:channel-provider osm-location-extract-pipeline) :hydrate))
-
-osm-location-seq
-
-
-;;; todo preserve location seq to disk ...
-
-#_(count osm-location-seq)
-#_(doseq [counter (reduce
-                 (fn [counters location]
-                   (reduce
-                    (fn [counters tag]
-                      (update-in counters [tag] #(if % (inc %) 1)))
-                    counters
-                    (filter #(or (.startsWith % "#") (.startsWith % "@")) (:tags location))))
-                 {}
-                 osm-location-seq)]
-  (println counter))
+#_(data-cache (var osm-location-seq))
+(restore-data-cache (var osm-location-seq))
 
 ;;; prepare camps from tjalda.is
 ;;; data is located in
@@ -532,8 +528,10 @@ osm-location-seq
    :Q14453 "#world"
    :Q887147 "#world"
    :Q276537 "#world"
+
+   :Q139921 (list "@iceland2019" tag/tag-airport "@day1" "@day10")
    
-   :Q1764 (list "@iceland2019"tag/tag-world "@day1" "@day9" "@day10")
+   :Q1764 (list "@iceland2019" tag/tag-world "@day1" "@day9")
    :Q107370 (list "@iceland2019"tag/tag-todo "@day2")
    :Q6711348 (list "@iceland2019" tag/tag-todo tag/tag-history "@day2")
    :Q1128186 (list "@iceland2019" tag/tag-todo "@day2")
@@ -615,6 +613,8 @@ osm-location-seq
             (tag/url-tag "myvisiticeland" "https://www.myvisiticeland.is/west/portfolio-items/trollafossar/")}}
    ])
 
+;;; final location list to be used in maps
+(def location-seq nil)
 (def location-seq
   (map
    (comp
@@ -643,8 +643,23 @@ osm-location-seq
       wikidata-mapping
       wikidata/location->id)
      wikidata-location-seq))))
+(data-cache (var location-seq))
+#_(restore-data-cache (var location-seq))
 
-(count location-seq)
+(def iceland2019-location-seq
+  (filter
+   #(contains? (:tags %) "@iceland2019")
+   location-seq))
+
+
+;;; todo 
+#_(storage/import-location-seq-handler
+ (jvm/environment-variable "TREK_MATE_USER_VANJA")
+ (clj-common.time/timestamp)
+ locations)
+
+
+#_(count location-seq)
 
 (defn filter-locations [tags]
   (filter
@@ -696,12 +711,26 @@ osm-location-seq
   _
   (clj-common.ring-middleware/expose-variable)))
 
-;;; dowload tiles into shared cache
-(let [url-template "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+;;; prepare tiles
+#_(let [url-template "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      tile-root-path (path/child dataset-path "raw" "osm-tile")
       min-zoom 7 max-zoom 11
       min-x 55 max-x 59
       min-y 32 max-y 34
-      download-fn (fn []
+      required-tile-seq (mapcat
+                         (fn [zoom]
+                           (mapcat
+                            (fn [x-on-min-zoom]
+                              (mapcat
+                               (fn [y-on-min-zoom]
+                                 (tile-math/zoom->tile->tile-seq
+                                  zoom
+                                  [min-zoom x-on-min-zoom y-on-min-zoom]))
+                               (range min-y  (inc max-y))))
+                            (range min-x (inc max-x))))
+                         (range min-zoom (inc max-zoom)))]
+  ;;; download tiles
+  (let [download-fn (fn []
                     (doseq [zoom (range min-zoom (inc max-zoom))]
                       (doseq [x-on-min-zoom (range min-x (inc max-x))]
                         (doseq [y-on-min-zoom (range min-y (inc max-y))]
@@ -720,40 +749,38 @@ osm-location-seq
                                   ;; required because of osm
                                   (http/with-default-user-agent
                                     (tile/retrieve-tile url))
-                                  (Thread/sleep 1000)))))))))]
-  (.start
-   (new java.lang.Thread download-fn "tile-download-thread")))
-#_(clj-common.jvm/interrupt-thread "tile-download-thread")
+                                  (Thread/sleep 1000))))))))
+                      (report "download finished"))]
+    (.start
+     (new java.lang.Thread download-fn "tile-download-thread")))
+  #_(clj-common.jvm/interrupt-thread "tile-download-thread")
+    
+  ;;; ensure are tiles are in cache
+  #_(let [missing-count (atom 0)]
+    (doseq [[zoom x y] required-tile-seq]
+      (let [url (->
+                 url-template
+                 (.replace "{z}" (str zoom))
+                 (.replace "{x}" (str x))
+                 (.replace "{y}" (str y)))
+            cache-filename (tile/cache-key-fn url)]
+        (when-not (tile/*tile-cache* url)
+          (do
+            (report "missing " zoom "/" x "/" y)
+            (swap! missing-count inc)))))
+    (report "count missing: " @missing-count))
 
-;;; todo upload tiles to cloudkit instead of folder
-;;; todo take more tiles if we can ...
-(let [url-template "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      min-zoom 7 max-zoom 11
-      min-x 55 max-x 59
-      min-y 32 max-y 34
-      missing-count (atom 0)]  
-  (doseq [zoom (range min-zoom (inc max-zoom))]
-    (doseq [x-on-min-zoom (range min-x (inc max-x))]
-      (doseq [y-on-min-zoom (range min-y (inc max-y))]
-        (doseq [[zoom x y] (tile-math/zoom->tile->tile-seq
-                            zoom
-                            [min-zoom x-on-min-zoom y-on-min-zoom])]
-          (let [tile-path (path/child dataset-path "raw" "osm-tile" zoom x y)
-                url (->
-                     url-template
-                     (.replace "{z}" (str zoom))
-                     (.replace "{x}" (str x))
-                     (.replace "{y}" (str y)))
-                cache-filename (tile/cache-key-fn url)]
-            (if-let [tile-is (tile/*tile-cache* url)]
-              (with-open [out-stream (fs/output-stream tile-path)]
-                (io/copy-input-to-output-stream tile-is out-stream))
-              (do
-                (report "missing " zoom "/" x "/" y)
-                (swap! missing-count inc))))))))
-  (report "count missing: " @missing-count))
+  ;;; upload tiles
+  #_(storage/store-tile-from-path-to-tile-v1
+   storage/client-prod
+   tile-root-path
+   required-tile-seq)
 
-;; Downloading  10 / 448 / 259
+  ;;; crate tile list
+  (storage/create-tile-list-v1
+   storage/client-prod
+   "@iceland2019"
+   required-tile-seq))
 
 (web/register-map
  "iceland-osm-offline"
@@ -773,4 +800,3 @@ osm-location-seq
 ;;; todo on the road
 ;;; rainbow road, village on east, add to wikidata
 ;;; camps, webistes, info, add ... ( wikidata or osm )
-
