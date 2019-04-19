@@ -3,6 +3,7 @@
   (:require
    [clj-common.as :as as]
    [clj-scraper.scrapers.org.wikidata :as scraper]
+   [trek-mate.dot :as dot]
    [trek-mate.tag :as tag]))
 
 ;;; to be able to perform tag extraction on multiple formats wiki data
@@ -168,6 +169,14 @@
   (let [entity (scraper/entity id)
         intermediate (entity->intermediate entity)]
     (intermediate->location intermediate)))
+
+(defn dot->useful-wikidata? [dot]
+  "Filters dots that have at least one trek-mate tag except #wikidata"
+  (some?
+   (first
+    (filter
+     dot/tag->trek-mate-tag?
+     (disj (:tags dot) "#wikidata")))))
 
 #_(def a (scraper/entity "Q1781"))
 #_(def b (entity->intermediate a))

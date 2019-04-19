@@ -15,6 +15,8 @@
    [clj-geo.math.tile :as tile-math]
    [trek-mate.env :as env]
    [trek-mate.tag :as tag]
+   ;; todo remove dependency to integrations, integrations could depend to dot
+   ;; not other way
    [trek-mate.integration.osm :as osm-integration]
    [trek-mate.render :as render]))
 
@@ -704,11 +706,14 @@
     (let [splits (.split tag "\\:")]
       [(as/as-long (get splits 2) (as/as-long (get splits 3)))])))
 
+(defn tag->trek-mate-tag? [tag]
+  (or (.startsWith tag "#") (.startsWith tag "@")))
+
 (defn dot->trek-mate-tags? [dot]
   (some?
    (first
     (filter
-     #(or (.startsWith % "#") (.startsWith % "@"))
+     tag->trek-mate-tag?
      (:tags dot)))))
 
 (defn tags->per-osm-way-tags [tags]

@@ -327,11 +327,13 @@
           (contains? tags (osm-way-index->tag way 0)))))
      tags))))
 
+;; todo, quick fix for website, separator matching is not best ...
 (defn tags->website [tags]
-  (some?
-   (first
-    (filter
-     #(if-let [[osm n-r-w way tag value] (.split % ":")]
+  (first
+   (filter
+    some?
+    (map
+     #(if-let [[osm n-r-w way tag & value-seq] (.split % ":")]
         (if (or
              (and
               (= osm "osm")
@@ -342,7 +344,7 @@
               (= n-r-w "w")
               (= tag "website")
               (contains? tags (osm-way-index->tag way 0))))
-          value))
+          (clojure.string/join ":" value-seq)))
      tags))))
 
 ;;; iceland specific / liquor store
@@ -503,7 +505,6 @@
           value))
      tags))))
 
-
 (defn tags->eat? [tags]
   (some?
    (first
@@ -524,6 +525,16 @@
           value))
      tags))))
 
+(defn tags->node-id [tags]
+  (first
+   (filter
+    some?
+    (map
+     #(if-let [[osm n-r-w id] (.split % ":")]
+        (if (and (= osm "osm-gen") (= n-r-w "n"))
+          id))
+     tags))))
+
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
   (update-in
@@ -535,7 +546,8 @@
         (extract-fn tags))
       (conj
        tags
-       tag/tag-osm)
+       tag/tag-osm
+       )
       ;; list of extraction fns
       [
        (fn [tags]
@@ -609,11 +621,17 @@
          (if (tags->eat? tags)
            (conj tags tag/tag-eat)
            tags))
+       (fn [tags]
+         (if-let [id (tags->node-id tags)]
+           (conj tags (tag/url-tag
+                       "osm"
+                       (str "https://openstreetmap.org/node/" id)))
+           tags))
        ]))))
 
-(defn location->node-id [location]
-  (when-let [tag (first (filter #(.startsWith % osm-gen-node-prefix) (:tags location)))]
-    (as/as-long (.substring tag (count osm-gen-node-prefix)))))
+(defn dot->node-id [dot]
+  (when-let [id (tags->node-id (:tags dot))]
+    (as/as-long id)))
 
 #_(defn process-osm-export
   "Reads OSM export and splits it into two parts, nodes and ways, EDN is used for
@@ -720,6 +738,21 @@
     (async/close! out)
     (context/set-state context "completion")
     :success))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn dot-prepare-relation-go
   "Reads exploded relations from input channel and produces two indexes,

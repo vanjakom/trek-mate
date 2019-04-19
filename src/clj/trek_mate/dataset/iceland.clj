@@ -636,15 +636,45 @@
       tag-mapping->key-fn->location->location
       osm-mapping
       osm-integration/location->node-id)
-     osm-location-seq)
-    (map
-     (partial
-      tag-mapping->key-fn->location->location
-      wikidata-mapping
-      wikidata/location->id)
-     wikidata-location-seq))))
+     ;; hydrate tags to quickly apply changes to loaded set
+     (map
+      osm-integration/hydrate-tags
+      ;; fix bug with website
+      (map
+       #(update-in % [:tags] disj "|url|website|true")
+       osm-location-seq)))
+    (filter
+     wikidata/dot->useful-wikidata?
+     (map
+      (partial
+       tag-mapping->key-fn->location->location
+       wikidata-mapping
+       wikidata/location->id)
+      wikidata-location-seq)))))
 (data-cache (var location-seq))
 #_(restore-data-cache (var location-seq))
+
+
+(count location-seq)
+(count )
+
+
+;;; distribution of tags, useful for debugging
+#_(let [distribution (reverse
+                    (sort-by
+                     second
+                     (reduce
+                      (fn [distribution location]
+                        (reduce
+                         (fn [distribution tag]
+                           (update-in distribution [tag] #(if (some? %) (inc %) 1)))
+                         distribution
+                         (filter dot/tag->trek-mate-tag? (:tags location))))
+                      {}
+                      location-seq)))]
+  (report "distribution:")
+  (doseq [[tag count] distribution]
+    (report "\t" tag count)))
 
 (def iceland2019-location-seq
   (filter
