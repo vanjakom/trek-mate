@@ -278,7 +278,6 @@
           (contains? tags (osm-way-index->tag way 0)))))
      tags))))
 
-
 (defn tags->sleep? [tags]
   (some?
    (first
@@ -738,21 +737,6 @@
     (async/close! out)
     (context/set-state context "completion")
     :success))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 (defn dot-prepare-relation-go
   "Reads exploded relations from input channel and produces two indexes,

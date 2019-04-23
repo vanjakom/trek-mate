@@ -225,6 +225,29 @@
        (partial location-personal->cloudkit-record user timestamp))
       personal-location-seq))))
 
+(defn location-v2->cloudkit-record [location]
+  (with-meta
+    {
+     :location (model/create-cl-location
+                (:longitude location)
+                (:latitude location))
+     :tags (:tags location)}
+    (model/create-record-meta
+     "LocationV2"
+     (str "l2@" (location->location-id location)))))
+
+(defn import-location-v2-seq-handler
+  "Imports seq of locations to new LocationV2 keyspace. All tags are stored
+  inside single keyspace. Currently there is no support for users."
+  [location-seq]
+  (client/records-modify
+     client-prod
+     (map
+      (comp
+       operation/force-replace
+       location-v2->cloudkit-record)
+      location-seq)))
+
 (defn upload-tile-at-zoom [zoom bounds]
   (store-tile-from-path-to-tile-v1
    client-prod

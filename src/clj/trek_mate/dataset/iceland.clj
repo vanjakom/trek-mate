@@ -5,7 +5,7 @@
    compojure.core
    [net.cgrand.enlive-html :as html]
    [clojure.core.async :as async]
-   clj-common.http-server
+   [clj-common.http-server :as http-server]
    clj-common.ring-middleware
    [clj-common.2d :as draw]
    [clj-common.as :as as]
@@ -19,6 +19,7 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.math.core :as math]
+   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.tile :as tile]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
@@ -26,6 +27,8 @@
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.env :as env]
    [trek-mate.integration.osm :as osm-integration]
+   [trek-mate.integration.opencaching :as opencaching]
+   [trek-mate.pin :as pin]
    [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]
@@ -55,9 +58,7 @@
 (def osm-repository (path/child
                      dataset-path
                      "repository" "osm"))
-(def geocache-repository (path/child
-                          dataset-path
-                          "repository" "geocache"))
+
 
 ;;; data caching fns, move them to clj-common if they make sense
 (defn data-cache [var]
@@ -286,19 +287,26 @@
    ;; Mývatn Nature Baths
    2566467958 (list "@iceland2019" tag/tag-todo tag/tag-visit "@day5")
 
-   ;; Blönduóskirkja
-   2075394740 (list "@iceland2019" tag/tag-todo "@day6")
-
    4753076549 (list "@iceland2019" "@marijana-camp")
    4972294974 (list "@iceland2019" "@marijana-camp")
    2873571349 (list "@iceland2019" "@marijana-camp")
    4776201021 (list "@iceland2019" "@marijana-camp")
    4741392268 (list "@iceland2019" "@marijana-camp")
+   
    2639079538 (list "@iceland2019" tag/tag-todo "@day6")
    4781212660 (list "@iceland2019" "@sleep" "@day6")
+
+   ;; Blönduóskirkja
+   2075394740 (list "@iceland2019" tag/tag-church tag/tag-todo "@day6")
+
+   477367277 (list "@iceland2019" tag/tag-art tag/tag-todo "@day7")
+   2932821464 (list "@iceland2019" tag/tag-church tag/tag-todo "@day7")
    4892911616 (list "@iceland2019" "@day7")
    4860489818 (list "@iceland2019" "@day7" "@sleep")
+   
    2397323432 (list "@iceland2019" "@day8" "@sleep")
+   451727232 (list "@iceland2019" "@day8" tag/tag-todo)
+     
    4741403256 (list "@iceland2019" "@day9" "@sleep")})
 
 (def osm-location-extract-pipeline nil)
@@ -469,10 +477,10 @@
          camp-html
          [0 :content 0 :content 0 :content 0 :content]))))))
 
-;;; wikidata entries
+;;; wikidata locations
 ;;; prepare query on http://query.wikidata.org
 ;;; once results are promising copy Link > SPARQL endpoint
-;;; and add format=json for results ( link contains whole query 
+;;; and add format=json for results ( link contai
 (def wikidata-location-seq
   (let [query-url "https://query.wikidata.org/sparql?format=json&query=%23added%202017-08%0A%23test%3AdefaultView%3AMap%0APREFIX%20schema%3A%20%3Chttp%3A%2F%2Fschema.org%2F%3E%0APREFIX%20wikibase%3A%20%3Chttp%3A%2F%2Fwikiba.se%2Fontology%23%3E%0APREFIX%20wd%3A%20%3Chttp%3A%2F%2Fwww.wikidata.org%2Fentity%2F%3E%0APREFIX%20wdt%3A%20%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2Fdirect%2F%3E%0A%0ASELECT%20%3Fitem%20%3FitemLabel%20%3FitemDescription%20%3Fgeo%20%3Fwikipedia%20%3Fwikivoyage%20%3FinstanceOf%20WHERE%20%7B%0A%20%20%3Fitem%20wdt%3AP17*%20wd%3AQ189.%0A%20%20%3Fitem%20wdt%3AP625%20%3Fgeo%20.%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fitem%20wdt%3AP31%20%3FinstanceOf%0A%20%20%7D%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fwikipedia%20schema%3Aabout%20%3Fitem%20.%0A%20%20%20%20%3Fwikipedia%20schema%3AinLanguage%20%22en%22%20.%0A%20%20%20%20%3Fwikipedia%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fen.wikipedia.org%2F%3E%20.%0A%20%20%7D%0A%20%20OPTIONAL%20%7B%0A%20%20%20%20%3Fwikivoyage%20schema%3Aabout%20%3Fitem%20.%0A%20%20%20%20%3Fwikivoyage%20schema%3AinLanguage%20%22en%22%20.%0A%20%20%20%20%3Fwikivoyage%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fen.wikivoyage.org%2F%3E%20.%0A%20%20%7D%0A%20%20SERVICE%20wikibase%3Alabel%20%7B%20bd%3AserviceParam%20wikibase%3Alanguage%20%22en%22.%20%7D%0A%7D"]
     (map
@@ -520,16 +528,94 @@
         (:bindings
          (:results
           (json/read-keyworded (http/get-as-stream query-url))))))))))
+(data-cache (var wikidata-location-seq))
+
+;;; geocaches
+;;; download raw html page for geocache list
+(def geocache-seq nil)
+(def geocache-pipeline nil)
+#_(let [context (context/create-state-context)
+      context-thread (context/create-state-context-reporting-thread context 3000)
+      channel-provider (pipeline/create-channels-provider)
+
+      ;; favorite cache lookup
+      favorite-caches (with-open [is (fs/input-stream
+                                                (path/child
+                                                 dataset-path
+                                                 "raw" "geocache-list.html"))]
+                        (into
+                         #{}
+                         (map
+                          #(first (:content %))
+                          (filter
+                           #(and
+                             (string? (first (:content %)))
+                             (.startsWith (first (:content %)) "GC"))
+                           (html/select
+                            (html/html-resource is) [:td :a])))))]
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "read")
+   (path/child
+    env/*global-dataset-path*
+    "geocaching.com" "pocket-query" "iceland" "21902083_iceland.gpx")
+   (channel-provider :in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "favorite")
+   (channel-provider :in)
+   (map (fn [geocache]
+          (if (contains?
+               favorite-caches
+               (geocaching/location->gc-number geocache))
+            (update-in geocache [:tags] conj "@geocache-favorite")
+            geocache)))
+   (channel-provider :processed))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :processed)
+   (var geocache-seq))
+  (alter-var-root #'geocache-pipeline (constantly (channel-provider))))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(data-cache (var geocache-seq))
+(restore-data-cache (var geocache-seq))
+
+;;; open geocaching locations
+(def opencaching-seq nil)
+#_(def opencaching-seq
+    (filter
+     (fn [{longitude :longitude latitude :latitude}]
+       (and
+        (> longitude -25.04509) (< longitude -13.13787)
+        (> latitude 63.33241) (< latitude 66.53952)))
+     (opencaching/prepare-opencachingde-location-seq
+      (path/child
+       env/*global-dataset-path*
+       "opencaching.de" "latest"))))
+#_(data-cache (var opencaching-seq))
+(restore-data-cache (var opencaching-seq))
 
 (def wikidata-mapping
   {
+   :Q189 (list
+          "#world"
+          (tag/url-tag "cycling iceland camps" "https://cyclingiceland.is/wp-content/uploads/2018/06/CI2018_CampsitesHuts_06Sep2018.pdf")
+          (tag/url-tag "cycling iceland" "https://cyclingiceland.is")
+          (tag/url-tag "road.is" "http://road.is")
+          (tag/url-tag "diamondcircle.is" "http://www.diamondcircle.is")
+          (tag/url-tag "weather iceland" "https://en.vedur.is/weather/forecasts/areas/")
+          
+          )
+   ;; duplicate entry for Vik
    :Q685369 "#world"
+   :Q1486343 "#world"
+   
    :Q817118 "#world"
    :Q14453 "#world"
    :Q887147 "#world"
    :Q276537 "#world"
 
+   ;; duplicate entry for airport
    :Q139921 (list "@iceland2019" tag/tag-airport "@day1" "@day10")
+   :Q3481748 (list "@iceland2019" tag/tag-airport "@day1" "@day10")
    
    :Q1764 (list "@iceland2019" tag/tag-world "@day1" "@day9")
    :Q107370 (list "@iceland2019"tag/tag-todo "@day2")
@@ -555,7 +641,8 @@
    :Q16677092 (list "@iceland2019" tag/tag-todo "@day5")
    :Q2006297 (list "@iceland2019" tag/tag-todo "@day5")
    :Q752994 (list "@iceland2019" tag/tag-todo "@day5")
-
+   :Q1137629 (list "@iceland2019" tag/tag-todo "@day5")
+   
    :Q29042 (list "#world" "@iceland2019" tag/tag-todo "@day6")
    :Q1188762 (list "@iceland2019" tag/tag-todo "@day6")
    :Q1887662 (list "@iceland2019" tag/tag-todo "@day6")
@@ -566,13 +653,15 @@
    :Q15662269 (list "@iceland2019" tag/tag-todo "@day7")
 
    :Q1183213 (list "@iceland2019" tag/tag-todo "@day8")
+
+   ;; same coordinate
    :Q427971 (list "@iceland2019" tag/tag-todo "@day8")
    :Q626640 (list "@iceland2019" tag/tag-todo "@day8")
+   
    :Q737657 (list "@iceland2019" tag/tag-todo "@day8")
    :Q626642 (list "@iceland2019" tag/tag-todo "@day8")   
 
    :Q886946 (list "@iceland2019" tag/tag-todo tag/tag-visit "@day9")})
-
 
 ;;; applied to all locations, used for adding tags which belong to
 ;;; sources which could not be mapped over id ( wikidata, osm )
@@ -615,48 +704,115 @@
 
 ;;; final location list to be used in maps
 (def location-seq nil)
-(def location-seq
-  (map
-   (comp
-    (partial
-     tag-mapping->key-fn->location->location
-     location-mapping
-     util/location->location-id)
-    (fn [location]
-      (update-in
-       location
-       [:tags]
-       (fn [tags]
-         (conj tags (util/location->location-id location))))))
-   (concat
-    manual-location-seq
-    tjalda-camp-seq
+#_(def location-seq
+  ;;; make locations unique by union of tags
+  ;;; most of duplicates are wikidata entries with same lat long
+  ;;; https://www.wikidata.org/wiki/Q427971
+  ;;; https://www.wikidata.org/wiki/Q626640
+  (vals
+   (reduce
+    (fn [location-map location]
+      (let [location-id (util/location->location-id location)]
+        (if-let [stored-location (get location-map location-id)]
+          (do
+            #_(report "duplicate")
+            #_(report "\t" stored-location)
+            #_(report "\t" location)
+            (assoc
+             location-map
+             location-id
+             {
+              :longitude (:longitude location)
+              :latitude (:latitude location)
+              :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+          (assoc location-map location-id location))))
+    {}
+    ;;; stream over all location sources
     (map
-     (partial
-      tag-mapping->key-fn->location->location
-      osm-mapping
-      osm-integration/location->node-id)
-     ;; hydrate tags to quickly apply changes to loaded set
-     (map
-      osm-integration/hydrate-tags
-      ;; fix bug with website
-      (map
-       #(update-in % [:tags] disj "|url|website|true")
-       osm-location-seq)))
-    (filter
-     wikidata/dot->useful-wikidata?
-     (map
+     (comp
       (partial
        tag-mapping->key-fn->location->location
-       wikidata-mapping
-       wikidata/location->id)
-      wikidata-location-seq)))))
-(data-cache (var location-seq))
-#_(restore-data-cache (var location-seq))
+       location-mapping
+       util/location->location-id)
+      (fn [location]
+        (update-in
+         location
+         [:tags]
+         (fn [tags]
+           (conj tags (util/location->location-id location))))))
+     (concat
+      manual-location-seq
+      tjalda-camp-seq
+      geocache-seq
+      opencaching-seq
+      (map
+       (partial
+        tag-mapping->key-fn->location->location
+        osm-mapping
+        osm-integration/location->node-id)
+       ;; hydrate tags to quickly apply changes to loaded set
+       (map
+        osm-integration/hydrate-tags
+        ;; fix bug with website
+        (map
+         #(update-in % [:tags] disj "|url|website|true")
+         osm-location-seq)))
+      (filter
+       wikidata/dot->useful-wikidata?
+       (map
+        (partial
+         tag-mapping->key-fn->location->location
+         wikidata-mapping
+         wikidata/location->id)
+        wikidata-location-seq)))))))
+#_(data-cache (var location-seq))
+(restore-data-cache (var location-seq))
 
 
-(count location-seq)
-(count )
+;;; check that are mappings are present
+#_(do
+  (doseq [missing (reduce
+                   (fn [rest-mappings location]
+                     (disj rest-mappings (osm-integration/location->node-id location)))
+                   (into #{} (keys osm-mapping))
+                   location-seq)]
+    (report "missing osm mapping: " missing))
+
+  (doseq [missing (reduce
+                   (fn [rest-mappings location]
+                     (disj rest-mappings (wikidata/location->id location)))
+                   (into #{} (keys wikidata-mapping))
+                   location-seq)]
+    (report "missing wikidata mapping: " missing))
+  (doseq [missing (reduce
+                   (fn [rest-mappings location]
+                     (disj rest-mappings (util/location->location-id location)))
+                   (into #{} (keys location-mapping))
+                   location-seq)]
+    (report "missing location mapping: " missing)))
+
+;;; write locations to CloudKit
+#_(storage/import-location-v2-seq-handler
+   location-seq)
+(def cloudkit-location-seq nil)
+#_(alter-var-root
+ (var cloudkit-location-seq)
+ (constantly location-seq))
+#_(data-cache (var cloudkit-location-seq))
+(restore-data-cache (var cloudkit-location-seq))
+
+
+;;; prepare tag set for mobile, currently needed to enable navigation to
+;;; tags 
+(doseq [tag (reduce
+             (fn [tags location]
+               (clojure.set/union
+                tags
+                (into #{} (filter dot/tag->trek-mate-tag? (:tags location)))))
+             #{}
+             location-seq)]
+  (println (str "icelandTags.append(\"" tag "\")")))
+
 
 
 ;;; distribution of tags, useful for debugging
@@ -681,13 +837,68 @@
    #(contains? (:tags %) "@iceland2019")
    location-seq))
 
+;;; report @iceland2019 locations to travel
+#_(with-open [os (fs/output-stream
+                ["Users" "vanja" "projects" "travel" "iceland2019"
+                 "data" "locations.geojson"])]
+  (json/write-to-stream 
+   (update-in
+    (geojson/location-seq->geojson
+     iceland2019-location-seq)
+    [:features]
+    (fn [features]
+      (map
+       (fn [feature]
+         (let [description (clojure.string/join
+                            " "
+                            (map
+                             (comp
+                              web/url-tag->html)
+                             (:tags (:properties feature))))
+               pin-url (let [pin-seq (pin/calculate-pins
+                                      (:tags (:properties feature)))]
+                         ;; (str "/pin/" (first pin-seq) "/" (second pin-seq))
+                         (second pin-seq))]
+           (update-in
+            feature
+            [:properties]
+            (fn [properties]
+              (assoc
+               properties
+               :id
+               (clojure.string/join "@" (:coordinates (:geometry feature)))
+               :pin
+               pin-url
+               :description
+               description)))))
+       features)))
+   os))
 
-;;; todo 
-#_(storage/import-location-seq-handler
- (jvm/environment-variable "TREK_MATE_USER_VANJA")
- (clj-common.time/timestamp)
- locations)
+;;; copy pins to travel repo
+#_(doseq [source-root-path (filter
+                          #(.endsWith (last %) ".imageset")
+                          (fs/list
+                           ["Users" "vanja" "projects" "MaplyProject" "TrekMate"
+                            "TrekMate" "pins.xcassets"]))]
+  (let [pin (.replace (last source-root-path) ".imageset" "")
+        source-path (path/child
+                     source-root-path (str pin "@1.png")) 
+        destination-path (path/child
+                          ["Users" "vanja" "projects" "travel" "pins"]
+                          pin)]
+    (report "copying " (last source-path))
+    (report "\t" source-path)
+    (report "\t" destination-path )
+    (with-open [is (fs/input-stream source-path)
+                os (fs/output-stream destination-path)]
+      (io/copy-input-to-output-stream is os))))
 
+;;; run static folder server to test standalone map
+#_(http-server/create-server
+ 8084
+ (http-server/create-static-file-handler
+  "test"
+  ["Users" "vanja" "projects" "travel"]))
 
 #_(count location-seq)
 
@@ -734,7 +945,7 @@
 (web/create-server)
 
 ;;; debug server
-(clj-common.http-server/create-server
+(http-server/create-server
  7078
  (compojure.core/GET
   "/variable"
@@ -824,7 +1035,7 @@
                     (web/create-static-raster-tile-fn
                      (path/child dataset-path "raw" "osm-tile"))))
   :locations-fn (fn [] location-seq)
-  :state-fn state-transition-fn})
+  :state-fn })
 
 
 ;;; todo on the road

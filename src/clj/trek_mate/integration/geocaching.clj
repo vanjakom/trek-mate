@@ -95,6 +95,7 @@
           (filter
            some?
            [
+            "#geocaching.com"
             tag/tag-geocache
             (:code geocache)
             (tag/name-tag (:name geocache))

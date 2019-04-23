@@ -143,7 +143,7 @@
                      "wikidata"
                      (str
                       "https://www.wikidata.org/wiki/"
-                      (intermediate->id intermediate)))
+                      (name (intermediate->id intermediate))))
                     (id->tag (intermediate->id intermediate))
                     (intermediate->description-en intermediate)
                     (when (intermediate->city? intermediate) tag/tag-city)
