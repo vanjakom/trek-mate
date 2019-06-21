@@ -446,15 +446,9 @@
             (let [latitude (extract-coordinate (get-in camp [:content 0 :content 0]))
                   longitude (extract-coordinate (get-in camp [:content 1 :content 0]))
                   website (.replace
-                           (.replace
-                            (.replace
-                             (get-in camp [:content 2 :content 0 :content 0])
-                             "http://www."
-                             "https://")
-                            "https://tjalda.is/"
-                            "https://tjalda.is/en/")
-                           "www.tjalda.is/"
-                           "www.tjalda.is/en/")
+                           (get-in camp [:content 2 :content 0 :content 0])
+                           "http://www."
+                           "https://")
                   name (get-in camp [:content 3 :content 0])]
               {
                :longitude longitude
@@ -466,7 +460,13 @@
                        [tag/tag-sleep
                         tag/tag-camp
                         (tag/name-tag name)
-                        (tag/url-tag name website)
+                        (tag/url-tag name (.replace
+                                           (.replace
+                                            website
+                                            "www.tjalda.is/"
+                                            "www.tjalda.is/en/")
+                                           "https://tjalda.is/"
+                                           "https://tjalda.is/en/"))
                         (tag/source-tag "tjalda.is")
                         "#tjalda"
                         (if (contains? all-year-website-set website)
@@ -476,6 +476,8 @@
         (get-in
          camp-html
          [0 :content 0 :content 0 :content 0 :content]))))))
+
+#_(take 5 (filter #(contains? (:tags %) "#24x7") tjalda-camp-seq))
 
 ;;; wikidata locations
 ;;; prepare query on http://query.wikidata.org
@@ -801,6 +803,8 @@
 #_(data-cache (var cloudkit-location-seq))
 (restore-data-cache (var cloudkit-location-seq))
 
+#_(storage/import-location-v2-seq-handler
+ tjalda-camp-seq)
 
 ;;; prepare tag set for mobile, currently needed to enable navigation to
 ;;; tags 
@@ -1040,4 +1044,59 @@
 
 ;;; todo on the road
 ;;; rainbow road, village on east, add to wikidata
-;;; camps, webistes, info, add ... ( wikidata or osm )
+;;; camps, webiste
+
+;;; import of old locations from budapest for celebration night
+;;; /Users/vanja/projects/MaplyProject/data/queue/ios_container_backup/com.mungolab.TrekMate 2019-04-18 11:37.29.042.xcappdata/AppData/Documents
+(def budapest (wikidata/id->location "Q1781"))
+(def budapest-location-seq [])
+(web/register-map
+ "budapest-after"
+ {
+  :configuration {
+                  :longitude (:longitude budapest)
+                  :latitude (:latitude budapest)
+                  :zoom 14}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/create-osm-external-raster-tile-fn)))
+  :locations-fn (fn [] budapest-location-seq)
+  :state-fn (fn [tags]
+              (let [tags (if (empty? tags)
+                           #{"#world"}
+                           (into #{} tags))]
+                {
+                 :tags (into
+                        #{}
+                        (filter
+                         #(or
+                           (.startsWith % "#")
+                           (.startsWith % "@"))
+                         (mapcat
+                          :tags
+                          budapest-location-seq)))
+                 :locations (filter
+                             (fn [location]
+                               (clojure.set/subset? tags (:tags location))
+                               #_(first (filter (partial contains? tags) (:tags location))))
+                             budapest-location-seq)}))})
+(with-open [is (fs/input-stream
+                (path/string->path
+                 "/Users/vanja/projects/MaplyProject/data/queue/ios_container_backup/com.mungolab.TrekMate 2019-04-18 11:37.29.042.xcappdata/AppData/Documents/locations.json"))]
+  (let [locations (filter
+    (fn [location]
+      (and
+       (> (:longitude location) (- (:longitude budapest) 0.1))
+       (< (:longitude location) (+ (:longitude budapest) 0.1))
+       (> (:latitude location) (- (:latitude budapest) 0.1))
+       (< (:latitude location) (+ (:latitude budapest) 0.1))))
+    (map
+     (fn [location]
+       (update-in location [:tags] #(into #{} %)))
+     (json/read-keyworded is)))]
+    (alter-var-root
+     (var budapest-location-seq)
+     (constantly locations))))
+
+(storage/import-location-v2-seq-handler
+ budapest-location-seq)

@@ -100,6 +100,18 @@
 (def create-osm-external-raster-tile-fn
   (partial create-external-raster-tile-fn "https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
 
+(defn create-mapbox-external-raster-tile-fn
+  [username style access-token]
+  (create-external-raster-tile-fn
+   (str
+    "https://api.mapbox.com/styles/v1/"
+    username
+    "/"
+    style
+    "/tiles/256/{z}/{x}/{y}"
+    "?access_token="
+    access-token)))
+
 (defn tile-number-overlay-fn
   "Adds zoom/x/y text to one of original overlays fns"
   [original-tile-fn]

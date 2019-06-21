@@ -99,6 +99,11 @@
             tag/tag-geocache
             (:code geocache)
             (tag/name-tag (:name geocache))
+            (tag/url-tag
+             (:code geocache)
+             (str
+              "https://www.geocaching.com/seek/cache_details.aspx?wp="
+              (:code geocache)) )
             (when-let [hint (:hint geocache)]  (str "hint:" hint))
             (:last-log-date geocache)
             (:last-log-type geocache)

@@ -69,7 +69,7 @@
 
 ;;; defaults
 (def personal-pin "personal_pin")
-(def no-tags-pin "no_tags-pin")
+(def no-tags-pin "no_tags_pin")
 (def trek-mate-original-pin "trekmate-original_pin")
 (def location-pin "location_pin")
 
