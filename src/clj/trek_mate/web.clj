@@ -25,6 +25,8 @@
 ;;; enable faster middlewares
 
 (def ^:dynamic *port* 8085)
+(def ^:dynamic *pin-path*
+  ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"])
 
 (defn prepare-pin [base-path pin-path]
   (let [base-image (draw/input-stream->image-context (fs/input-stream base-path))
@@ -41,24 +43,30 @@
 
 (defn load-small-pin [base pin]
   (prepare-pin
-   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
-    (str base ".imageset") (str base "@1.png")]
-   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
-    (str pin ".imageset") (str pin "@1.png")]))
+   (path/child
+    *pin-path*
+    (str base ".imageset") (str base "@1.png"))
+   (path/child
+    *pin-path*
+    (str pin ".imageset") (str pin "@1.png"))))
 
 (defn load-medium-pin [base pin]
   (prepare-pin
-   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
-    (str base ".imageset") (str base "@2.png")]
-   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
-    (str pin ".imageset") (str pin "@2.png")]))
+   (path/child
+    *pin-path*
+    (str base ".imageset") (str base "@2.png"))
+   (path/child
+    *pin-path*
+    (str pin ".imageset") (str pin "@2.png"))))
 
 (defn load-large-pin [base pin]
   (prepare-pin
-   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
-    (str base ".imageset") (str base "@3.png")]
-   ["Users" "vanja" "projects" "MaplyProject" "TrekMate" "TrekMate" "pins.xcassets"
-    (str pin ".imageset") (str pin "@3.png")]))
+   (path/child
+    *pin-path*
+    (str base ".imageset") (str base "@3.png"))
+   (path/child
+    *pin-path*
+    (str pin ".imageset") (str pin "@3.png"))))
 
 (defn create-static-raster-tile-fn
   [path]  

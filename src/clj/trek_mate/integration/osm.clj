@@ -55,6 +55,14 @@
 (def osm-gen-way-prefix "osm-gen:w:")
 (def osm-gen-relation-prefix "osm-gen:r:")
 
+(defn osm-tags->tags [osm-tags]
+  (into
+   #{}
+   (map
+    (fn [[key value]]
+      (str "osm:" key "=" value))
+    osm-tags)))
+
 (defn osm-node-tags->tags [node-id osm-tags]
   (into
    #{}

@@ -68,12 +68,18 @@
      (:longitude location)
      (:latitude location)
      instance-of-set
-     (get-in entity [:sitelinks :enwiki])
-     (get-in entity [:sitelinks :enwikivoyage]))))
+     (get-in entity [:sitelinks :enwiki :url])
+     (get-in entity [:sitelinks :enwikivoyage :url]))))
 
 (defn intermediate->city? [intermediate]
   (or
    (intermediate->class->instance-of? :Q515 intermediate)
+   ;; city in united states
+   (intermediate->class->instance-of? :Q1093829 intermediate)
+   ;; city in california
+   (intermediate->class->instance-of? :Q13218357 intermediate)
+   ;; big city
+   (intermediate->class->instance-of? :Q1549591 intermediate)
    ;; hungarian city / town
    (intermediate->class->instance-of? :Q13218690 intermediate)))
 
@@ -96,6 +102,10 @@
 (defn intermediate->geyser? [intermediate]
   (intermediate->class->instance-of? :Q83471 intermediate))
 
+(defn intermediate->airport? [intermediate]
+  (or
+   (intermediate->class->instance-of? :Q1248784 intermediate)
+   (intermediate->class->instance-of? :Q644371 intermediate)))
 
 (defn id->tag [id]
   (str "wikidata:id:" (name id)))
@@ -163,7 +173,8 @@
                     (when-let [url (intermediate->url-wikivoyage-en intermediate)]
                       (list
                        (tag/url-tag "wikivoyage" url)
-                       tag/tag-wikivoyage))))))})
+                       tag/tag-wikivoyage))
+                    (when (intermediate->airport? intermediate) tag/tag-airport)))))})
 
 (defn id->location [id]
   (let [entity (scraper/entity id)
@@ -178,6 +189,6 @@
      dot/tag->trek-mate-tag?
      (disj (:tags dot) "#wikidata")))))
 
-#_(def a (scraper/entity "Q1781"))
+#_(def a (scraper/entity "Q485176"))
 #_(def b (entity->intermediate a))
 #_(def c (intermediate->location b))
