@@ -1,4 +1,6 @@
 (ns trek-mate.dataset.vienna
+  (:use
+   clj-common.clojure)
   (:require
    [clj-common.context :as context]
    [clj-common.edn :as edn]
@@ -11,6 +13,8 @@
    [clj-geo.import.geojson :as geojson]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
+   [trek-mate.storage :as storage]
+   [trek-mate.util :as util]
    [trek-mate.web :as web]))
 
 (def dataset-path (path/child env/*data-path* "vienna"))
@@ -95,6 +99,65 @@
 #_(data-cache (var geocache-seq))
 (restore-data-cache (var geocache-seq))
 
+
+(def vienna-favorite-cache-seq nil)
+(let [context (context/create-state-context)
+      context-thread (context/create-state-context-reporting-thread context 3000)
+      channel-provider (pipeline/create-channels-provider)]
+  ;; read favorite and emit, during reducing of location tags will be merged
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "read-favorite")
+   (path/child
+    env/*global-dataset-path*
+    "geocaching.com" "pocket-query" "vienna" "22354888_vienna2019-favorite.gpx")
+   (channel-provider :in-map))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "map-favorite")
+   (channel-provider :in-map)
+   (map (fn [location] (update-in location [:tags] conj "@favorite")))
+   (channel-provider :in))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :in)
+   (var vienna-favorite-cache-seq))
+  (alter-var-root #'geocache-pipeline (constantly (channel-provider))))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+;; report all locations
+(do
+  (report "reporting vienna favorite locations")
+  (storage/import-location-v2-seq-handler
+   (vals
+    (reduce
+     (fn [location-map location]
+       (let [location-id (util/location->location-id location)]
+         (if-let [stored-location (get location-map location-id)]
+           (do
+            #_(report "duplicate")
+            #_(report "\t" stored-location)
+            #_(report "\t" location)
+            (assoc
+             location-map
+             location-id
+             {
+              :longitude (:longitude location)
+              :latitude (:latitude location)
+              :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+          (assoc location-map location-id location))))
+     {}
+     (concat geocache-seq vienna-favorite-cache-seq))))
+  (report "locations reported"))
+
+
+;; google translation try
+#_(report
+ (let [url (first (filter #(.startsWith % "|url|") (:tags (first vienna-favorite-cache-seq))))]
+   (report url)
+   (str
+    "https://translate.google.com/translate?sl=de&tl=en&u="
+    (java.net.URLEncoder/encode
+     (.substring url (inc (.lastIndexOf url "|"))))))) 
+
 #_(with-open [os (fs/output-stream geojson-path)]
   (json/write-to-stream
    (geojson/location-seq->geojson geocache-seq)
@@ -174,7 +237,24 @@
    required-tile-seq))
 
 ;;; maps
-(def location-seq geocache-seq)
+(def location-seq (vals (reduce
+                    (fn [location-map location]
+                      (let [location-id (util/location->location-id location)]
+                        (if-let [stored-location (get location-map location-id)]
+                          (do
+                            #_(report "duplicate")
+                            #_(report "\t" stored-location)
+                            #_(report "\t" location)
+                            (assoc
+                             location-map
+                             location-id
+                             {
+                              :longitude (:longitude location)
+                              :latitude (:latitude location)
+                              :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+                          (assoc location-map location-id location))))
+                    {}
+                    (concat geocache-seq vienna-favorite-cache-seq))))
 
 (defn filter-locations [tags]
   (filter

@@ -44,6 +44,7 @@
    (into #{} (map as/as-string tag-seq))))
 
 (def location-map nil)
+;;; download locations from OSM
 (let [new-location-map
       {
        :pasadena (add-tag

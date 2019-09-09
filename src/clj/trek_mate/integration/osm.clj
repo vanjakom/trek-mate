@@ -60,7 +60,7 @@
    #{}
    (map
     (fn [[key value]]
-      (str "osm:" key "=" value))
+      (str "osm:" (name key) "=" value))
     osm-tags)))
 
 (defn osm-node-tags->tags [node-id osm-tags]
@@ -539,6 +539,16 @@
     (map
      #(if-let [[osm n-r-w id] (.split % ":")]
         (if (and (= osm "osm-gen") (= n-r-w "n"))
+          id))
+     tags))))
+
+(defn tags->wikidata-id [tags]
+  (first
+   (filter
+    some?
+    (map
+     #(if-let [[tag id] (.split % "=")]
+        (if (= tag "osm:wikidata")
           id))
      tags))))
 
