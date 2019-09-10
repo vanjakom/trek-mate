@@ -1,4 +1,3 @@
-
 (ns trek-mate.dataset.frankfurt
   (:use
    clj-common.clojure)
@@ -26,43 +25,11 @@
    [trek-mate.util :as util]
    [trek-mate.web :as web]))
 
+;; frankfurt
+;; --bounding-box left=8.64553 bottom=50.09416 right=8.70561 top=50.13312
 
-;; todo, copied from timisoara
-;; prepare mbtiles procedure
-;; ~/install/osmosis/bin/osmosis \
-;; 	--read-pbf ~/dataset/geofabrik.de/europe/romania-latest.osm.pbf \
-;; 	--bounding-box left=21.13768 bottom=45.71637 right=21.29438 top=45.80427 clipIncompleteEntities=true \
-;; 	--tf accept-ways footway=* \
-;; 	--tf reject-relations \
-;; 	--used-node outPipe.0=footway \
-;; 	\
-;; 	--read-pbf ~/dataset/geofabrik.de/europe/romania-latest.osm.pbf \
-;; 	--bounding-box left=21.13768 bottom=45.71637 right=21.29438 top=45.80427 clipIncompleteEntities=true \
-;; 	--tf accept-ways cycleway=* \
-;; 	--tf reject-relations \
-;; 	--used-node outPipe.0=cycleway \
-;; 	\
-;; 	--read-pbf ~/dataset/geofabrik.de/europe/romania-latest.osm.pbf \
-;; 	--bounding-box left=21.13768 bottom=45.71637 right=21.29438 top=45.80427 clipIncompleteEntities=true \
-;; 	--tf accept-ways highway=* \
-;; 	--tf reject-relations \
-;; 	--used-node outPipe.0=highway \
-;; 	\
-;; 	--merge inPipe.0=footway inPipe.1=cycleway outPipe.0=merge \
-;; 	--merge inPipe.0=merge inPipe.1=highway \
-;; 	--write-pbf ~/projects/research/maps/timisoara-roads.osm.pbf
-;;
-;; docker run 
-;; 	-v ~/projects/research/maps/:/dataset 
-;; 	-i 
-;; 	-t 
-;; 	--rm 
-;; 	tilemaker 
-;; 	/dataset/timisoara-roads.osm.pbf 
-;; 	--output=/dataset/timisoara-roads.mbtiles 
-;; 	--config /dataset/roads-tilemaker-config.json 
-;; 	--process /dataset/roads-tilemaker-process.lua
-
+;; heilderberg
+;; --bounding-box left=8.65731 bottom=49.39656 right=8.71773 top=49.42666
 
 (def dataset-path (path/child env/*data-path* "frankfurt"))
 
@@ -357,7 +324,9 @@
     (add-tag
      (overpass/way->location "97163658")
      "#globetrotter"
-     tag/tag-shopping)]
+     tag/tag-shopping)
+    frankfurt
+    heidelberg]
    wikidata-seq
    geocache-seq
    starbucks-seq
