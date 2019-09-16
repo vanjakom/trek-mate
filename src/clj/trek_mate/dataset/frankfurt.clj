@@ -31,6 +31,79 @@
 ;; heilderberg
 ;; --bounding-box left=8.65731 bottom=49.39656 right=8.71773 top=49.42666
 
+;; ~/install/osmosis/bin/osmosis \
+;; 	--read-pbf ~/dataset/geofabrik.de/europe/hessen-latest.osm.pbf \
+;; 	--bounding-box left=8.64553 bottom=50.09416 right=8.70561 top=50.13312 \
+;; 	clipIncompleteEntities=true \
+;; 	--tf accept-ways footway=* \
+;; 	--tf reject-relations \
+;; 	--used-node outPipe.0=footway \
+;; 	\
+;; 	--read-pbf ~/dataset/geofabrik.de/europe/hessen-latest.osm.pbf \
+;; 	--bounding-box left=8.64553 bottom=50.09416 right=8.70561 top=50.13312 \
+;; 	clipIncompleteEntities=true \
+;; 	--tf accept-ways cycleway=* \
+;; 	--tf reject-relations \
+;; 	--used-node outPipe.0=cycleway \
+;; 	\
+;; 	--read-pbf ~/dataset/geofabrik.de/europe/hessen-latest.osm.pbf \
+;; 	--bounding-box left=8.64553 bottom=50.09416 right=8.70561 top=50.13312 \
+;; 	clipIncompleteEntities=true \
+;; 	--tf accept-ways highway=* \
+;; 	--tf reject-relations \
+;; 	--used-node outPipe.0=highway \
+;; 	\
+;; 	--merge inPipe.0=footway inPipe.1=cycleway outPipe.0=merge1 \
+;; 	--merge inPipe.0=highway inPipe.1=merge1 \
+;; 	\
+;; 	--write-pbf ~/projects/research/maps/frankfurt-roads.osm.pbf
+;;	
+;; ~/install/osmosis/bin/osmosis \
+;; 	--read-pbf ~/dataset/geofabrik.de/europe/baden-wuerttemberg-latest.osm.pbf \
+;; 	--bounding-box left=8.65731 bottom=49.39656 right=8.71773 top=49.42666 \
+;; 	clipIncompleteEntities=true \
+;; 	--tf accept-ways footway=* \
+;; 	--tf reject-relations \
+;; 	--used-node outPipe.0=footway \
+;; 	\
+;; 	--read-pbf ~/dataset/geofabrik.de/europe/baden-wuerttemberg-latest.osm.pbf \
+;; 	--bounding-box left=8.65731 bottom=49.39656 right=8.71773 top=49.42666 \
+;; 	clipIncompleteEntities=true \
+;; 	--tf accept-ways cycleway=* \
+;; 	--tf reject-relations \
+;; 	--used-node outPipe.0=cycleway \
+;; 	\
+;; 	--read-pbf ~/dataset/geofabrik.de/europe/baden-wuerttemberg-latest.osm.pbf \
+;; 	--bounding-box left=8.65731 bottom=49.39656 right=8.71773 top=49.42666 \
+;; 	clipIncompleteEntities=true \
+;; 	--tf accept-ways highway=* \
+;; 	--tf reject-relations \
+;; 	--used-node outPipe.0=highway \
+;; 	\
+;; 	--merge inPipe.0=footway inPipe.1=cycleway outPipe.0=merge1 \
+;; 	--merge inPipe.0=highway inPipe.1=merge1 \
+;; 	\
+;; 	--write-pbf ~/projects/research/maps/heidelberg-roads.osm.pbf
+;;			
+;; docker run \
+;; 	-v ~/projects/research/maps/:/dataset \
+;; 	-i \
+;; 	-t \
+;; 	--rm \
+;; 	tilemaker \
+;; 	/dataset/heidelberg-roads.osm.pbf \
+;; 	/dataset/frankfurt-roads.osm.pbf \
+;; 	--output=/dataset/frankfurt-heidelberg-roads.mbtiles \
+;; 	--config /dataset/roads-tilemaker-config.json \
+;; 	--process /dataset/roads-tilemaker-process.lua
+;;
+;; note:
+;; tilemaker has bug of not setting metadata bounds to combined bounds of both
+;; files, instead it sets to bounds of first, manually alter bounds with sqllite
+;; editor to
+;; 8.645530,49.396560,8.717730,50.133120
+;; easiest way to check is with QGIS and zoom to region
+
 (def dataset-path (path/child env/*data-path* "frankfurt"))
 
 (def data-cache-path (path/child dataset-path "data-cache"))
@@ -97,25 +170,9 @@
 (location/location->string heidelberg) ; "N 49° 24.733 E 8° 42.600"
 
 
-;; google translation try
-#_(report
- (let [url (first (filter #(.startsWith % "|url|") (:tags (first vienna-favorite-cache-seq))))]
-   (report url)
-   (str
-    "https://translate.google.com/translate?sl=de&tl=en&u="
-    (java.net.URLEncoder/encode
-     (.substring url (inc (.lastIndexOf url "|"))))))) 
-
-#_(with-open [os (fs/output-stream geojson-path)]
-  (json/write-to-stream
-   (geojson/location-seq->geojson geocache-seq)
-   os))
-
-
-
 (def geocache-seq nil)
 (def geocache-pipeline nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)
       ;; favorite cache lookup
@@ -188,10 +245,10 @@
     (channel-provider :in-4)
     (channel-provider :in-5)
     (channel-provider :in-6)]
-   (channel-provider :in))
+   (channel-provider :favorite-in))
   (pipeline/transducer-stream-go
    (context/wrap-scope context "favorite")
-   (channel-provider :in)
+   (channel-provider :favorite-in)
    (map (fn [geocache]
           (if (contains?
                favorite-caches
@@ -200,10 +257,31 @@
               (context/counter "favorite")
               (update-in geocache [:tags] conj "@favorite"))
             geocache)))
-   (channel-provider :processed))
+   (channel-provider :translate-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "translate")
+   (channel-provider :translate-in)
+   (map
+    (fn [geocache]
+      (let [url (str
+                 "https://www.geocaching.com/seek/cache_details.aspx?wp="
+                 (geocaching/location->gc-number geocache)) ]
+        (update-in
+         geocache
+         [:tags]
+         (fn [tags]
+           (conj
+            tags
+            (tag/url-tag
+             "english translate"
+             (str
+              "https://translate.google.com/translate?sl=de&tl=en&u="
+              (java.net.URLEncoder/encode
+               (.substring url (inc (.lastIndexOf url "|"))))))))))))
+   (channel-provider :out))
   (pipeline/capture-var-seq-atomic-go
    (context/wrap-scope context "capture")
-   (channel-provider :processed)
+   (channel-provider :out)
    (var geocache-seq))
   (alter-var-root #'geocache-pipeline (constantly (channel-provider))))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
@@ -369,7 +447,6 @@
   "frankfurt"
   {
    :configuration {
-                  
                    :longitude (:longitude frankfurt)
                    :latitude (:latitude frankfurt)
                    :zoom 13}
@@ -378,5 +455,23 @@
                      (web/create-osm-external-raster-tile-fn)))
    :locations-fn (fn [] location-seq)
    :state-fn state-transition-fn})
+
+(web/register-map
+ "frankfurt-mapbox"
+ {
+  :configuration {
+                  
+                  :longitude (:longitude frankfurt)
+                  :latitude (:latitude frankfurt)
+                  :zoom 13}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/create-mapbox-external-raster-tile-fn
+                     "vanjakom"
+                     "ck0eatvfq03hk1cryyvehvatc"
+                     (jvm/environment-variable "MAPBOX_PUBLIC_KEY"))))
+  :locations-fn (fn [] location-seq)
+  :state-fn state-transition-fn})
+
 
  (web/create-server)

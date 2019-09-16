@@ -226,19 +226,11 @@
 (defn create-initial-configuration
   []
   {
-   "default" {
-              :raster-tile-fn (create-static-raster-tile-fn
-                               (path/child env/*data-path* "tile-cache"))
-              :locations-fn empty-locations-fn}})
-
-(def model-configuration {:string :map})
-(def model-map {
-                :raster-tile-fn [:fn :zoom :x :y :input-stream]
-                :locations-fn [:fn [{
-                                     :longitude :double
-                                     :latitude :double
-                                     :description :string
-                                     :pin :string}]]})
+   "default"
+   {
+    :raster-tile-fn (create-static-raster-tile-fn
+                     (path/child env/*data-path* "tile-cache"))
+    :locations-fn empty-locations-fn}})
 
 (defonce configuration (atom (create-initial-configuration)))
 
