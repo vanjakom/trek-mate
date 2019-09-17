@@ -1,5 +1,7 @@
 (ns trek-mate.web
   "Web Tool running on 8085 serving location data provided by REPL"
+  (:use
+   clj-common.clojure)
   (:require
    compojure.core
    [clj-common.http-server :as server]
@@ -394,7 +396,21 @@
        :headers {
                  "ContentType" "image/png"}
        :body image}
-      {:status 404}))))
+      {:status 404}))
+   (compojure.core/GET
+    "/dot/:map-name/:name"
+    [map-name name]
+    (do
+      (println "request " map-name name)
+      (if-let* [map-data (get (deref configuration) map-name)
+               dot-seq ((get (:dot-fn map-data) name))]
+       {
+        :status 200
+        :headers {
+                  "ContentType" "application/json"}
+        :body (json/write-to-string
+               (geojson/location-seq->geojson dot-seq))}
+       {:status 404})))))
 
 (defn create-server
   []
@@ -410,7 +426,6 @@
 (defn stop-server
   []
   (server/stop-server *port*))
-
 
 #_(create-server)
 

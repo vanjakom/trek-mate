@@ -335,67 +335,6 @@
      20000
      "wikidata"))))
 
-
-(def bike-frankfurt-seq
-  (map
-   (fn [place]
-     (let [bikes (str "available: " (:bikes place))
-           type (if (:spot place) "#station" "#bike")
-           has-bikes (if (> (:bikes place) 0) "#available")]
-       {
-        :longitude (:lng place)
-        :latitude (:lat place)
-        :tags (into
-               #{}
-               (filter
-                some?
-                [
-                 "#nextbike"
-                 "#bike"
-                 "#share"
-                 (:name place)
-                 bikes
-                 type
-                 has-bikes]))}))
-   (:places
-    (first
-     (:cities
-      (first
-       (:countries
-        (json/read-keyworded
-         (http/get-as-stream
-          "https://api.nextbike.net/maps/nextbike-live.json?city=8")))))))))
-
-(def bike-heidelberg-seq
-  (map
-   (fn [place]
-     (let [bikes (str "available: " (:bikes place))
-           type (if (:spot place) "#station" "#bike")
-           has-bikes (if (> (:bikes place) 0) "#available")]
-       {
-        :longitude (:lng place)
-        :latitude (:lat place)
-        :tags (into
-               #{}
-               (filter
-                some?
-                [
-                 "#nextbike"
-                 "#bike"
-                 "#share"
-                 (:name place)
-                 bikes
-                 type
-                 has-bikes]))}))
-   (:places
-    (first
-     (:cities
-      (first
-       (:countries
-        (json/read-keyworded
-         (http/get-as-stream
-          "https://api.nextbike.net/maps/nextbike-live.json?city=194")))))))))
-
 (def location-seq
   (reduce-location-seq
    [
@@ -407,9 +346,7 @@
     heidelberg]
    wikidata-seq
    geocache-seq
-   starbucks-seq
-   bike-frankfurt-seq
-   bike-heidelberg-seq))
+   starbucks-seq))
 
 (defn filter-locations [tags]
   (filter
@@ -442,6 +379,39 @@
   (require 'clj-common.debug)
   (clj-common.debug/run-debug-server))
 
+(defn nextbike-city [city]
+  (map
+   (fn [place]
+     (let [bikes (str "available: " (:bikes place))
+           type (if (:spot place) "#station" "#bike")
+           has-bikes (if (> (:bikes place) 0) "#available")]
+       {
+        :longitude (:lng place)
+        :latitude (:lat place)
+        :tags (into
+               #{}
+               (filter
+                some?
+                [
+                 "#nextbike"
+                 "#bike"
+                 "#share"
+                 (:name place)
+                 bikes
+                 type
+                 has-bikes]))}))
+   (:places
+    (first
+     (:cities
+      (first
+       (:countries
+        (json/read-keyworded
+         (http/get-as-stream
+          (str "https://api.nextbike.net/maps/nextbike-live.json?city=" city))))))))))
+
+(def nextbike-frankfurt-dot-fn (partial nextbike-city "8"))
+
+(def nextbike-heidelberg-dot-fn (partial nextbike-city "194"))
 
  (web/register-map
   "frankfurt"
@@ -454,6 +424,9 @@
                     (web/tile-number-overlay-fn
                      (web/create-osm-external-raster-tile-fn)))
    :locations-fn (fn [] location-seq)
+   :dot-fn {
+            "nextbike-frankfurt" nextbike-frankfurt-dot-fn
+            "nextbike-heidelberg" nextbike-heidelberg-dot-fn}
    :state-fn state-transition-fn})
 
 (web/register-map
