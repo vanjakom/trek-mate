@@ -5,8 +5,8 @@
 
 (def ^:dynamic *data-path*
   (path/string->path
-   (jvm/environment-variable "TREK_MATE_DATA")))
+   (or (jvm/environment-variable "TREK_MATE_DATA") "/tmp/trek-mate")))
 
 (def ^:dynamic *global-dataset-path*
   (path/string->path
-   (jvm/environment-variable "GLOBAL_DATASET")))
+   (or (jvm/environment-variable "GLOBAL_DATASET") "/tmp/dataset")))
