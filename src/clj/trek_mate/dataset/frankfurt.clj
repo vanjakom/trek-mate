@@ -428,6 +428,8 @@
  (concat
   nextbike-frankfurt-station-seq
   nextbike-heidelberg-station-seq))
+#_(storage/import-location-v2-seq-handler
+   (reduce-location-seq geocache-seq))
 
 
 (defn filter-locations [tags]
