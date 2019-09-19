@@ -271,16 +271,17 @@
                            (map
                             (comp
                              url-tag->html)
-                            (:tags (:properties feature))))
+                            (:properties feature)))
               pin-url (let [pin-seq (pin/calculate-pins
-                                     (:tags (:properties feature)))]
+                                     (:properties feature))]
                         (str "/pin/" (first pin-seq) "/" (second pin-seq)))]
           (update-in
            feature
            [:properties]
            (fn [properties]
              (assoc
-              properties
+              {}
+              :tags properties
               :id
               (clojure.string/join "@" (:coordinates (:geometry feature)))
               :pin
