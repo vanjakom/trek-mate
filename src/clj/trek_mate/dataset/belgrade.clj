@@ -46,7 +46,7 @@
     nil))
 
 ;; Q1013179
-#_(def sopot nil)
+(def sopot nil)
 #_(data-cache (var sopot) (wikidata/id->location :Q1013179))
 (restore-data-cache (var sopot))
 
@@ -74,54 +74,99 @@
         latitude-longitude (.split (:GeoLocationRPT data) ",")
         longitude (as/as-double (nth latitude-longitude 1))
         latitude (as/as-double (nth latitude-longitude 0))
-        price (if-let [value (:cena_d (:OtherFields data))] (str "price: " value) "price: unknown")]
+        price (if-let [value (:cena_d (:OtherFields data))]
+                (str "price: " value) "price: unknown")
+        size (if-let* [value (:povrsina_d (:OtherFields data))
+                       unit (:povrsina_d_unit_s (:OtherFields data))]
+               (str "size: " value " " unit) "size: unknown")]
     {
      :longitude longitude
      :latitude latitude
      :tags #{
              (tag/url-tag "halo oglasi" url)
-             price}}))
+             price
+             size}}))
 
 (def location-seq
   [
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/povoljno-izuzetan-plac-sa-objektom-na-kosmaju/5425493525883?kid=2&sid=1565708114139")
     "@plac" "vikendica" "34a")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/babe-101a-povratak-prirodi/5425491530224?kid=1&sid=1567266355169")
     "@plac" "101a")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/kosmaj---nemenikuce/5425634563250?kid=2&sid=1567266355169")
     "@plac")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/kosmaj---nemenikuce/5425634563263?kid=2")
     "@plac")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/prodajem-plac-1ha-i-10ari-babe-sopot/5425634164076?kid=1")
     "@plac" "110a")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/poljoprivred-zemljiste-topoljak-sopot-13-15-a/5425634711904?kid=1&sid=1567268742322")
     "@plac" "suma")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/sopot---ropocevo-31-9a/5425634625012?kid=1&sid=1567268742322")
     "@plac" "9a")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/sopot-babe---zminjak-plac-10-ari/5425634600202?kid=1")
     "@plac" "vikendica")
-   (add-tag
+   #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/naselje-babe-60-ari/5425634927816?kid=1")
-    "@plac" "60a")])
+    "@plac" "60a")
 
-(storage/import-location-v2-seq-handler location-seq)
+
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucama-kosmaj-sopot-id1817/5425626382644?kid=1")
+    "@plac")
+   ;; same location ...
+   #_(add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucu-sopot-kosmaj-id2319/5425626382657?kid=1")
+    "@plac")
+   #_(add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/zemljiste-sa-neuslovnom-kucom-nemenikuce-sopo/5425626382658?kid=1")
+    "@plac")
+   #_(add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/zemljiste-u-nemenikucu-kosmaj-sopot-id6718/5425634232291?kid=1")
+    "@plac")
+   #_(add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/zemljiste-u-nemenikucu-sopot-kosmaj-id9118/5425634254472?kid=1")
+    "@plac")
+   #_(add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucu-sopot-kosmaj-id9018/5425634331040?kid=1")
+    "@plac")
+   #_(add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucu-sopot-kosmaj-id5319/5425635123644?kid=1")
+    "@plac")
+
+   ;; template
+   #_(add-tag
+    (halo-oglasi-crawl
+     )
+    "@plac")
+   ])
+
+(println "")
+
+#_(storage/import-location-v2-seq-handler location-seq)
 
 (defn filter-locations [tags]
   (filter
@@ -162,4 +207,4 @@
   :locations-fn (fn [] location-seq)
   :state-fn state-transition-fn})
 
-
+(web/create-server)
