@@ -217,10 +217,12 @@
   (fn [zoom x y]
     (println "rendering...")
     (if-let [tile-is (original-tile-fn zoom x y)]
-      (let [image-context (draw/input-stream->image-context tile-is)]
-        (dot/render-dot-pipeline image-context rule-seq repositories [zoom x y])
+      (let [background-image-context (draw/input-stream->image-context tile-is)
+            fresh-image-context (draw/create-image-context 256 256)]
+        (draw/draw-image fresh-image-context [127 127] background-image-context)
+        (dot/render-dot-pipeline fresh-image-context rule-seq repositories [zoom x y])
         (let [buffer-output-stream (io/create-buffer-output-stream)]
-          (draw/write-png-to-stream image-context buffer-output-stream)
+          (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
 (defn empty-locations-fn [] [])

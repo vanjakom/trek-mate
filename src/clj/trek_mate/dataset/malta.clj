@@ -45,7 +45,7 @@
     nil))
 
 ;; Q233
-#_(def malta nil)
+(def malta nil)
 #_(data-cache (var malta) (wikidata/id->location :Q233))
 (restore-data-cache (var malta))
 

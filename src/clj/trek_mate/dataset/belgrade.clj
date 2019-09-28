@@ -87,7 +87,8 @@
              price
              size}}))
 
-(def location-seq
+
+(def placevi-seq
   [
    #_(add-tag
     (halo-oglasi-crawl
@@ -125,13 +126,71 @@
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/naselje-babe-60-ari/5425634927816?kid=1")
     "@plac" "60a")
+   
+   ;; template
+   #_(add-tag
+    (halo-oglasi-crawl
+     )
+    "@plac")
+   ])
 
+(def placevi-20190928-seq nil)
+#_(data-cache
+ (var placevi-20190928-seq)
+ [
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/njiva-u-nemenikucu-sopot-kosmaj-id9218/5425634107207?kid=1")
+    "@plac"
+    "@20190928")
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/kosmaj-nemenikuce-2205/5425634674747?kid=1")
+    "@plac"
+    "@20190928")
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucu-sopot-kosmaj-id5618/5425634107247?kid=1")
+    "@plac"
+    "@20190928")
+   
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-na-kosmaju-odlicna-lokacija-sa-pogledom/3914806?kid=2")
+    "@plac"
+    "@20190928")
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/kosmaj-rogaca-plac-92ara-gas-voda-struja-as/5425492884417?kid=1")
+    "@plac"
+    "@20190928")
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/kosmaj-rogaca-33-ara-gradjevinsko-povoljno/5425634662909?kid=2")
+    "@plac"
+    "@20190928")
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-rogaci-kosmaj-id519/5425634742038?kid=1")
+    "@plac"
+    "@20190928")
+   (add-tag
+    (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/kosmaj-rogaca-106-ari-30000-evra/5425480480568?kid=1")
+    "@plac"
+    "@20190928")
 
    (add-tag
     (halo-oglasi-crawl
+     "https://www.halooglasi.com/nekretnine/prodaja-zemljista/povoljno-izuzetan-plac-sa-objektom-na-kosmaju/5425493525883?kid=2")
+    "@plac"
+    "@20190928")
+   
+   ;; same location ...
+   #_(add-tag
+    (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucama-kosmaj-sopot-id1817/5425626382644?kid=1")
     "@plac")
-   ;; same location ...
    #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucu-sopot-kosmaj-id2319/5425626382657?kid=1")
@@ -155,18 +214,16 @@
    #_(add-tag
     (halo-oglasi-crawl
      "https://www.halooglasi.com/nekretnine/prodaja-zemljista/plac-u-nemenikucu-sopot-kosmaj-id5319/5425635123644?kid=1")
-    "@plac")
+    "@plac")])
+(restore-data-cache (var placevi-20190928-seq))
 
-   ;; template
-   #_(add-tag
-    (halo-oglasi-crawl
-     )
-    "@plac")
-   ])
+(def location-seq
+  (concat
+   placevi-seq
+   placevi-20190928-seq))
 
-(println "")
-
-#_(storage/import-location-v2-seq-handler location-seq)
+#_(storage/import-location-v2-seq-handler placevi-seq)
+(storage/import-location-v2-seq-handler placevi-20190928-seq)
 
 (defn filter-locations [tags]
   (filter

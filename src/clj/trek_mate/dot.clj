@@ -23,7 +23,7 @@
 ;;; dot represent final set of tags on given x, y ( web mercator projection on
 ;;; default zoom level, currently 16 ). locations should be chunked into chunks
 ;;; of up to N locations, if more locations exist locations are stored in lower
-;;; zoom level. all locations are stored in default zoom level level of
+;;; zoom level. all locations are stored in default zoom level. level of
 ;;; atomicity is single dot in dataset, meaning all storage functions will
 ;;; ovewrite or remove dot ( if tags are nil or empty ) within one dataset.
 
@@ -92,7 +92,7 @@
 ;;; go from maximum zoom level up to minimum zoom level
 ;;; if 4 dots on same upper dot have less than 4 * 65536 compact
 
-;;; mutation od dot is expensive, should happen rarely after region is mapped
+;;; mutation of dot is expensive, should happen rarely after region is mapped
 
 ;;; nomenclature
 ;;; repositories (path) -> repository (name) -> chunk ([dot]) -> dot (x,y,[tag])
@@ -594,7 +594,7 @@
                     (doseq [y (range (- y half) (+ y half))]
                       (if (and (> x 0) (< x 256) (> y 0) (< y 256))
                         (do
-                          (draw/set-point image-context draw/color-red x y )
+                          (draw/set-point image-context color x y )
                           (context/counter context "render"))
                         (context/counter context "ignore-offset"))))))))
           image-context)
@@ -674,7 +674,7 @@
          30000)
         (context/print-state-context context))
       (do
-        (context/counter context "skip")))))
+        (context/counter context "skip-render")))))
 
 #_(defn read-tile
   "Reads tile data if exists as location sequence, if not returns empty list"
