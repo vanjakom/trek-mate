@@ -244,6 +244,14 @@
 (defn unregister-map [name]
   (swap! configuration dissoc name))
 
+(defonce active-dotstore (atom {}))
+
+(defn register-dotstore [name store-fn]
+  (swap! active-dotstore assoc name store-fn))
+
+(defn unregister-dotstore [name]
+  (swap! active-dotstore dissoc name))
+
 (defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
 (defn url-tag->html [tag]
   (if (tag/url-tag? tag)
@@ -401,12 +409,12 @@
        :body image}
       {:status 404}))
    (compojure.core/GET
-    "/dot/:map-name/:name"
-    [map-name name]
+    "/dotstore/:name/:min-longitude/:max-longitude/:min-latitude/:max-latitude"
+    [name min-longitude max-longitude min-latitude max-latitude]
     (do
-      (println "request " map-name name)
-      (if-let* [map-data (get (deref configuration) map-name)
-               dot-seq ((get (:dot-fn map-data) name))]
+      (println "request " name min-longitude max-longitude min-latitude max-latitude)
+      (if-let* [dotstore (get (deref active-dotstore) name)
+                dot-seq (dotstore min-longitude max-longitude min-latitude max-latitude)]
        {
         :status 200
         :headers {

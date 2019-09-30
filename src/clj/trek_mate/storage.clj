@@ -11,8 +11,10 @@
    [clj-common.json :as json]
    [clj-common.view :as view]
    [clj-cloudkit.client :as client]
+   [clj-cloudkit.filter :as filter]
    [clj-cloudkit.operation :as operation]
    [clj-cloudkit.model :as model]
+   [clj-cloudkit.sort :as sort]
    [clj-geo.math.tile :as math-tile]
    [trek-mate.env :as env]
    [trek-mate.tag :as tag]))
@@ -31,6 +33,9 @@
       "production")
     (jvm/environment-variable "TREK_MATE_CK_PROD_KEY")
     (jvm/environment-variable "TREK_MATE_CK_PROD_ID")))
+
+(def track-backup-path
+  (path/child env/*global-my-dataset-path* "trek-mate" "cloudkit" "track"))
 
 (defn create-tile->cloudkit-tile-v1 [path]
   (fn [[zoom x y]]
@@ -253,3 +258,95 @@
    client-prod
    (path/child env/*data-path* "tile-cache")
    (apply (partial math-tile/calculate-tile-seq zoom) bounds)))
+
+;; track backup / taken from maply-backend-tools.core.track
+(defn create-measured-location [longitude latitude precision
+                                altitude altitude-precision timestamp]
+  {
+   :longitude longitude
+   :latitude latitude
+   :precision precision
+   :altitude altitude
+   :altitude-precision altitude-precision
+   :timestamp timestamp})
+
+(defn create-track [user timestamp tags longitude latitude radius
+                    duration activity-duration avg-precision distance
+                    locations-count]
+  {
+    :user user
+    :timestamp timestamp
+    :tags (view/seq->set tags)
+    :longitude longitude
+    :latitude latitude
+    :radius radius
+    :duration duration
+    :activity-duration activity-duration
+    :avg-precision avg-precision
+    :distance distance
+    :locations-count locations-count})
+
+(defn create-track-with-locations [track locations-seq]
+  (assoc
+    track
+    :locations
+    locations-seq))
+
+(defn cloudkit-record->track [record]
+  (create-track
+    (:user record)
+    (time/millis->seconds (:timestamp record))
+    (:tags record)
+    (:longitude (:location record))
+    (:latitude (:location record))
+    (:radius record)
+    (:duration record)
+    (:activityDuration record)
+    (:avgPrecision record)
+    (:distance record)
+    (:locationsCount record)))
+
+(defn cloudkit-asset->track-locations [input-stream]
+  (map
+    (fn [location]
+      (create-measured-location
+        (:longitude location)
+        (:latitude location)
+        (:precision location)
+        (:altitude location)
+        (:altitude-precision location)
+        (long (:updated location))))
+    (json/read-lines-keyworded input-stream)))
+
+(defn cloudkit-track-seq
+  ([] (cloudkit-track-seq 0))
+  ([from-second-timestamp]
+   (map
+    (fn [track-record]
+      (let [track (cloudkit-record->track track-record)
+            locations (cloudkit-asset->track-locations
+                       (client/assets-download
+                        client-prod
+                        (model/asset-download-url (:track track-record))))]
+        (create-track-with-locations track locations)))
+    (client/records-query-all
+     client-prod
+     "TrackV1"
+     [(filter/greater "timestamp" (time/seconds->millis from-second-timestamp))]
+     [(sort/ascending "timestamp")]))))
+
+(defn backup-tracks [from-timestamp-second]
+  (doseq [track (cloudkit-track-seq from-timestamp-second)]
+    (with-open [os (fs/output-stream (path/child
+                                      track-backup-path
+                                      (:user track)
+                                      (str (:timestamp track) ".json")))]
+      (println "writing: " (path/path->string
+                            (path/child
+                             track-backup-path
+                             (:user track)
+                             (str (:timestamp track) ".json"))))
+      (json/write-to-stream track os))))
+
+#_(backup-tracks 0)
+#_(backup-tracks 1566638746)

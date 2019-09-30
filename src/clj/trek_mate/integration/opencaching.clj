@@ -103,9 +103,7 @@
         "&consumer_key=" clj-geo.import.okapi/*opencaching-de*))))))
 
 (defn api-de-search-bbox
-  [{
-    min-longitude :min-longitude max-longitude :max-longitude
-    min-latitude :min-latitude max-latitude :max-latitude}]
+  [min-longitude max-longitude min-latitude max-latitude]
   (let [geocache-seq
         (:results
          (json/read-keyworded

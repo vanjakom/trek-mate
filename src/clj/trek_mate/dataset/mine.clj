@@ -30,9 +30,11 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-
 (def dataset-path (path/child env/*data-path* "mine"))
 (def data-cache-path (path/child dataset-path "data-cache"))
+(def track-backup-path (path/child
+                        env/*global-my-dataset-path* "trek-mate" "cloudkit"
+                        "track" env/*trek-mate-user*))
 
 ;;; data caching fns, move them to clj-common if they make sense
 (defn data-cache
@@ -56,6 +58,9 @@
 #_(data-cache (var belgrade) (wikidata/id->location :Q3711))
 (restore-data-cache (var belgrade))
 
+(def frankfurt nil)
+(data-cache (var frankfurt) (wikidata/id->location :Q1794))
+(restore-data-cache (var frankfurt))
 
 (def ^:dynamic *cloudkit-client*
   (ck-client/auth-server-to-server
@@ -122,29 +127,8 @@
 
 
 ;; filtering of all tracks
-;; tracks are located under
-;; /Users/vanja/my-dataset/garmin-connect
-;; /Users/MaplyProject/data
+;; tracks are located under my-dataset, trek-mate.storage is used for backup from CK
 ;; tracks are stored in TrackV1 on CK, sortable by timestamp field
-;; example track
-;; /Users/vanja/Downloads/t1@_e30304f84d358101b9ac7c48c74f9c58@1569306454
-
-
-(defn track-location->dot [track-location]
-  {
-   :longitude (:longitude track-location)
-   :latitude (:latitude track-location)
-   :tags #{
-           (str "@" (long (:updated track-location)))
-           "@me"}})
-
-(def track-location-seq
-  (with-open [is (fs/input-stream ["Users" "vanja" "Downloads"
-                                   "t1@_e30304f84d358101b9ac7c48c74f9c58@1567410889"])]
-    (doall
-     (map
-      track-location->dot
-      (json/read-lines-keyworded is)))))
 
 (def track-repository-path (path/child dataset-path "track-repository"))
 (def track-repository-pipeline nil)
@@ -152,14 +136,42 @@
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
-  (pipeline/emit-var-seq-go
+  (pipeline/read-line-directory-go
+   (context/wrap-scope context "0_read")
+   resource-controller
+   track-backup-path
+   "156"
+   (channel-provider :in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "1_map")
+   (channel-provider :in)
+   (comp
+    (map json/read-keyworded)
+    (map (fn [track]
+           (let [updated (:timestamp track)]
+             (map
+              (fn [location]
+                {
+                 :longitude (:longitude location)
+                 :latitude (:latitude location)
+                 :tags #{
+                         "@me"
+                         (str "@" updated)}})
+              (:locations track))))))
+   (channel-provider :map-out))
+  #_(pipeline/emit-var-seq-go
    (context/wrap-scope context "0_read")
   (var track-location-seq)
    (channel-provider :in))
+
+  #_(pipeline/trace-go
+   (context/wrap-scope context "trace")
+   (channel-provider :map-out)
+   (channel-provider :map-out-1))
   
   (pipeline/transducer-stream-go
-   (context/wrap-scope context "1_dot_transform")
-   (channel-provider :in)
+   (context/wrap-scope context "2_dot_transform")
+   (channel-provider :map-out)
    (map dot/location->dot)
    (channel-provider :dot))
   
@@ -173,8 +185,6 @@
    #'track-repository-pipeline
    (constantly channel-provider)))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
-
-
 
 
 (defn filter-locations [tags]
@@ -220,3 +230,24 @@
                      track-repository-path)))
   :locations-fn (fn [] location-seq)
   :state-fn state-transition-fn})
+
+(web/register-map
+ "mine-frankfurt"
+ {
+  :configuration {
+                  
+                  :longitude (:longitude frankfurt)
+                  :latitude (:latitude frankfurt)
+                  :zoom 10}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/tile-overlay-dot-render-fn
+                     #_(web/create-empty-raster-tile-fn)
+                     (web/create-osm-external-raster-tile-fn)
+                     [(constantly [draw/color-green 2])]
+                     track-repository-path)))
+  :locations-fn (fn [] location-seq)
+  :state-fn state-transition-fn})
+
+
+(web/create-server)
