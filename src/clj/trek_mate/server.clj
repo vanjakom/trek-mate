@@ -59,8 +59,8 @@
             "nextbike-heidelberg" nextbike/heidelberg-dot-fn}
    :state-fn state-transition-fn})
 
-(web/register-dotstore "nextbike-frankfurt" nextbike/frankfurt-dot-fn)
-(web/register-dotstore "nextbike-frankfurt" nextbike/heidelberg-dot-fn)
-(web/register-dotstore "opencachingde" opencaching/api-de-search-bbox)
+(web/register-dotstore :nextbike-frankfurt nextbike/frankfurt-dot-fn)
+(web/register-dotstore :nextbike-heidelberg nextbike/heidelberg-dot-fn)
+(web/register-dotstore :opencachingde opencaching/api-de-search-bbox)
 
 (web/create-server)

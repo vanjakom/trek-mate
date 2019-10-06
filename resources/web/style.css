@@ -1,0 +1,36 @@
+
+.map {
+    position: absolute;
+    left:0px;
+    top:0px;
+    right: 250px;
+    bottom: 50px;
+    cursor: crosshair;
+}
+
+.menu-tag {
+    position: absolute;
+    right: 0px;
+    top: 0px;
+    bottom: 250px;
+    width: 250px;
+    background-color: yellow;
+}
+
+.menu-dotstore {
+    position: absolute;
+    right: 0px;
+    bottom: 50px;
+    width: 250px;
+    height: 200px;
+    background-color: green;
+}
+
+.status {
+    position: absolute;
+    right: 0px;
+    bottom: 0px;
+    left: 0px;
+    height: 50px;
+    background-color: yellow;
+}

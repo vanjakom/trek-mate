@@ -5,8 +5,6 @@ if (!Array.prototype.last){
     }
 }
 
-
-
 function urlPath () {
     return window.location.pathname.split ("/")
 }
@@ -71,6 +69,7 @@ function addLocationsToMap (map, locations) {
 
 var TrekMate = {
     tags: new Set ([]),
+    dotstores: new Set ([]),
     realtime: null
 }
 
@@ -84,6 +83,16 @@ function navigateTag (tag) {
     TrekMate.realtime.update ()
 }
 
+function navigateDotStore (dotStore) {
+    if (TrekMate.dotstores.has (dotStore)) {
+	TrekMate.dotstores.delete (dotStore)
+    } else {
+	TrekMate.dotstores.add (dotStore)
+    }
+
+    TrekMate.realtime.update ()    
+}
+
 function renderTags (tags) {
     var html = ""
     for (const tag of tags.sort ()) {
@@ -95,7 +104,21 @@ function renderTags (tags) {
 	}
 	html += "</a><br>"
     }
-    document.getElementById ("menu").innerHTML = html
+    document.getElementById ("menu-tag").innerHTML = html
+}
+
+function renderDotStoreSeq (dotStoreSeq) {
+    var html = ""
+    for (const dotstore of dotStoreSeq.sort ()) {
+	html += "<a href='javascript:navigateDotStore(\"" + dotstore + "\")'>"
+	if (TrekMate.dotstores.has (dotstore)) {
+	    html += dotstore + " [REMOVE]"
+	} else {
+	    html += dotstore + " [ADD]"
+	}
+	html += "</a><br>"
+    }
+    document.getElementById ("menu-dotstore").innerHTML = html
 }
 
 function initialize () {
@@ -121,11 +144,19 @@ function initialize () {
 
     var realtime = L.realtime (
 	function (success, error) {
+	    var request = new Object ()
+	    request ["tags"] = Array.from (TrekMate.tags)
+	    request ["dotstores"] = Array.from (TrekMate.dotstores) 
+	    request ["min-longitude"] = map.getBounds ().getWest ()
+	    request ["max-longitude"] = map.getBounds ().getEast ()
+	    request ["min-latitude"] = map.getBounds ().getSouth ()
+	    request ["max-latitude"] = map.getBounds ().getNorth ()
 	    fetchPostJson (
 		"/state/" + mapId,
-		Array.from (TrekMate.tags),
+		request,
 		function (data) {
 		    renderTags (data.tags)
+		    renderDotStoreSeq (data.dotstores)
 		    success (data.locations)
 		},
 		function (data) {

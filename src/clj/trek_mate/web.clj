@@ -225,32 +225,108 @@
           (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
-(defn empty-locations-fn [] [])
-
-(defn create-initial-configuration
-  []
-  {
-   "default"
-   {
-    :raster-tile-fn (create-static-raster-tile-fn
-                     (path/child env/*data-path* "tile-cache"))
-    :locations-fn empty-locations-fn}})
-
-(defonce configuration (atom (create-initial-configuration)))
-
-(defn register-map [name map]
-  (swap! configuration assoc name map))
-
-(defn unregister-map [name]
-  (swap! configuration dissoc name))
 
 (defonce active-dotstore (atom {}))
+#_(alter-var-root (var active-dotstore) (constantly (atom {})))
 
 (defn register-dotstore [name store-fn]
   (swap! active-dotstore assoc name store-fn))
 
 (defn unregister-dotstore [name]
   (swap! active-dotstore dissoc name))
+
+(defn lookup-dotstore [name]
+  (get (deref active-dotstore) name))
+
+(defn list-dotstores []
+  (keys (deref active-dotstore)))
+
+(defn state-fn
+  [{
+    tags :tags
+    dotstores :dotstores
+    min-longitude :min-longitude
+    max-longitude :max-longitude
+    min-latitude :min-latitude
+    max-latitude :max-latitude}]
+
+  (let [all-dotstores (into
+                       #{}
+                       (list-dotstores))
+        all-location-seq (filter
+                          #(and
+                            (>= (:longitude %) min-longitude)
+                            (<= (:longitude %) max-longitude)
+                            (>= (:latitude %) min-latitude)
+                            (<= (:latitude %) max-latitude))
+                          (reduce
+                           (fn [location-seq dotstore]
+                             (concat
+                              location-seq
+                              ((or
+                                (lookup-dotstore dotstore)
+                                (constantly []))
+                               min-longitude
+                               max-longitude
+                               min-latitude
+                               max-latitude)))
+                           []
+                           dotstores))
+        all-tags (into
+                  #{}
+                  (mapcat
+                   (fn [location]
+                     (filter
+                      #(or (.startsWith % "#") (.startsWith % "@"))
+                      (:tags location)))
+                   all-location-seq))
+        location-seq (filter
+                      #(clojure.set/subset? tags (:tags %))
+                      all-location-seq)]
+    {
+     :tags all-tags
+     :dotstores all-dotstores
+     :locations (enrich-locations
+                 (geojson/location-seq->geojson
+                  location-seq))}))
+
+#_(state-fn {
+           :tags #{"#city"}
+           :dotstores #{:mine}
+           :min-latitude -180
+           :max-latitude 180
+           :min-longitude -90
+           :max-longitudde 90})
+
+(def map-definition-prototype
+  {
+   :configuration
+   {
+    :longitude 0
+    :latitude 0
+    :zoom 8}
+   :raster-tile-fn (tile-border-overlay-fn
+                    (tile-number-overlay-fn
+                     (create-osm-external-raster-tile-fn)))
+   :state-fn (var state-fn)})
+
+(defn create-initial-configuration
+  []
+  {
+   "default"
+   map-definition-prototype})
+
+(defonce configuration (atom (create-initial-configuration)))
+
+(defn register-map [name map]
+  (swap!
+   configuration
+   assoc
+   name
+   (merge map-definition-prototype map)))
+
+(defn unregister-map [name]
+  (swap! configuration dissoc name))
 
 (defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
 (defn url-tag->html [tag]
@@ -302,6 +378,7 @@
 
 (def handler
   (compojure.core/routes
+   ;; support handlers
    (compojure.core/GET
     "/lib/core.js"
     []
@@ -310,6 +387,42 @@
      :headers {
                "ContentType" "text/javascript"}
      :body (jvm/resource-as-stream ["web" "lib" "core.js"])})
+   (compojure.core/GET
+    "/style.css"
+    []
+    {
+     :status 200
+     :headers {
+               "ContentType" "text/csst"}
+     :body (jvm/resource-as-stream ["web" "style.css"])})
+
+   ;; global handlers
+   (compojure.core/GET
+    "/pin/:base/:pin"
+    [base pin]
+    (if-let [image (load-medium-pin base pin)]
+      {
+       :status 200
+       :headers {
+                 "ContentType" "image/png"}
+       :body image}
+      {:status 404}))
+   (compojure.core/GET
+    "/dotstore/:name/:min-longitude/:max-longitude/:min-latitude/:max-latitude"
+    [name min-longitude max-longitude min-latitude max-latitude]
+    (do
+      (println "request " name min-longitude max-longitude min-latitude max-latitude)
+      (if-let* [dotstore (get (deref active-dotstore) (keyword name))
+                dot-seq (dotstore min-longitude max-longitude min-latitude max-latitude)]
+       {
+        :status 200
+        :headers {
+                  "ContentType" "application/json"}
+        :body (json/write-to-string
+               (geojson/location-seq->geojson dot-seq))}
+       {:status 404})))
+
+   ;; map specific handlers
    (compojure.core/GET
     "/map/:name"
     [name]
@@ -356,72 +469,26 @@
        :body (json/write-to-string (data-tile-fn zoom x y))}
       {
        :status 404}))
-   (compojure.core/GET
-    "/locations/:name"
-    [name]
-    (if-let [map (get (deref configuration) name)]
-      {
-       :status 200
-       :headers {
-                 "ContentType" "application/json"}
-       :body (json/write-to-string
-              (enrich-locations
-               (geojson/location-seq->geojson
-                ((or (:locations-fn map) (constantly []))))))}
-      {:status 404}))
-   (compojure.core/GET
-    "/tags/:name"
-    [name]
-    (if-let [map (get (deref configuration) name)]
-      {
-       :status 200
-       :headers {
-                 "ContentType" "application/json"}
-       :body (json/write-to-string
-              ((or (:tags-fn map) (constantly #{}))))}
-      {
-       :status 404}))
    (compojure.core/POST
     "/state/:name"
     [name :as request]
-    (if-let [state-fn (get-in (deref configuration) [name :state-fn])]
-      (let [state (json/read-keyworded (:body request))
-            new-state (state-fn state)]
-        {
-         :status 200
-         :body (json/write-to-string
-                {
-                 :tags (:tags new-state)
-                 :locations (enrich-locations
-                             (geojson/location-seq->geojson
-                              (:locations new-state)))})})
-      {
-       :status 200
-       :body (json/write-to-string {:tags #{} :locations []})}))
-   (compojure.core/GET
-    "/pin/:base/:pin"
-    [base pin]
-    (if-let [image (load-medium-pin base pin)]
-      {
-       :status 200
-       :headers {
-                 "ContentType" "image/png"}
-       :body image}
-      {:status 404}))
-   (compojure.core/GET
-    "/dotstore/:name/:min-longitude/:max-longitude/:min-latitude/:max-latitude"
-    [name min-longitude max-longitude min-latitude max-latitude]
-    (do
-      (println "request " name min-longitude max-longitude min-latitude max-latitude)
-      (if-let* [dotstore (get (deref active-dotstore) name)
-                dot-seq (dotstore min-longitude max-longitude min-latitude max-latitude)]
+    (let [input (json/read-keyworded (:body request))]
+      (if-let [state-fn (get-in (deref configuration) [name :state-fn])]
+       (let [input (update-in
+                    input
+                    [:dotstores]
+                    (fn [dotstores]
+                      (into
+                       #{}
+                       (map keyword dotstores))))
+             state input
+             new-state (state-fn state)]
+         {
+          :status 200
+          :body (json/write-to-string new-state)})
        {
         :status 200
-        :headers {
-                  "ContentType" "application/json"}
-        :body (json/write-to-string
-               (geojson/location-seq->geojson dot-seq))}
-       {:status 404})))))
+        :body (json/write-to-string {:dotstores #{} :tags #{} :locations []})})))))
 
 (defn create-server
   []
@@ -439,5 +506,3 @@
   (server/stop-server *port*))
 
 #_(create-server)
-
-#_configuration

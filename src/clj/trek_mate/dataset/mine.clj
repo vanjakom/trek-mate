@@ -132,7 +132,7 @@
 
 (def track-repository-path (path/child dataset-path "track-repository"))
 (def track-repository-pipeline nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
@@ -185,7 +185,7 @@
    #'track-repository-pipeline
    (constantly channel-provider)))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
-
+#_(clj-common.pipeline/closed? (track-repository-pipeline :in))
 
 (defn filter-locations [tags]
   (filter
@@ -194,24 +194,7 @@
      #_(first (filter (partial contains? tags) (:tags location))))
    location-seq))
 
-(defn extract-tags []
-  (into
-   #{}
-   (filter
-    #(or
-      (.startsWith % "#")
-      (.startsWith % "@"))
-    (mapcat
-     :tags
-     location-seq))))
-
-(defn state-transition-fn [tags]
-  (let [tags (if (empty? tags)
-               #{"#world"}
-               (into #{} tags))]
-   {
-    :tags (extract-tags)
-    :locations (filter-locations tags)}))
+(web/register-dotstore :mine (constantly location-seq))
 
 (web/register-map
  "mine"
@@ -223,13 +206,12 @@
                   :zoom 10}
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
-                    (web/tile-overlay-dot-render-fn
+                    (web/create-osm-external-raster-tile-fn)
+                    #_(web/tile-overlay-dot-render-fn
                      #_(web/create-empty-raster-tile-fn)
                      (web/create-osm-external-raster-tile-fn)
                      [(constantly [draw/color-green 2])]
-                     track-repository-path)))
-  :locations-fn (fn [] location-seq)
-  :state-fn state-transition-fn})
+                     track-repository-path)))})
 
 (web/register-map
  "mine-frankfurt"
@@ -241,13 +223,13 @@
                   :zoom 10}
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
-                    (web/tile-overlay-dot-render-fn
+                    (web/create-osm-external-raster-tile-fn)
+                    #_(web/tile-overlay-dot-render-fn
                      #_(web/create-empty-raster-tile-fn)
                      (web/create-osm-external-raster-tile-fn)
                      [(constantly [draw/color-green 2])]
                      track-repository-path)))
-  :locations-fn (fn [] location-seq)
-  :state-fn state-transition-fn})
+  :locations-fn (fn [] location-seq)})
 
 
 (web/create-server)

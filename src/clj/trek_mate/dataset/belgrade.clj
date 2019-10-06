@@ -225,31 +225,7 @@
 #_(storage/import-location-v2-seq-handler placevi-seq)
 (storage/import-location-v2-seq-handler placevi-20190928-seq)
 
-(defn filter-locations [tags]
-  (filter
-   (fn [location]
-     (clojure.set/subset? tags (:tags location))
-     #_(first (filter (partial contains? tags) (:tags location))))
-   location-seq))
-
-(defn extract-tags []
-  (into
-   #{}
-   (filter
-    #(or
-      (.startsWith % "#")
-      (.startsWith % "@"))
-    (mapcat
-     :tags
-     location-seq))))
-
-(defn state-transition-fn [tags]
-  (let [tags (if (empty? tags)
-               #{"#world"}
-               (into #{} tags))]
-   {
-    :tags (extract-tags)
-    :locations (filter-locations tags)}))
+(web/register-dotstore :placevi (constantly location-seq))
 
 (web/register-map
  "beograd-placevi"
@@ -261,7 +237,6 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :locations-fn (fn [] location-seq)
-  :state-fn state-transition-fn})
+  :locations-fn (fn [] location-seq)})
 
 (web/create-server)
