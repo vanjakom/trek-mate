@@ -45,6 +45,14 @@
      (constantly data))
     nil))
 
+(defn add-tag
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
+
 (def beograd (wikidata/id->location :Q3711))
 (def mladenovac (wikidata/id->location :Q167858))
 (def pozarevac (wikidata/id->location :Q199942))
@@ -65,23 +73,36 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :locations-fn (fn [] location-seq)})
+  :locations-fn (fn [] [])})
 
 ;; #moto @strom @homolje2019
 ;; moto tour, 20191012
 (def homolje (wikidata/id->location :Q615586))
 
-(def homolje2019-location-seq
+(def homolje2019-geocache-seq
   [
-   homolje
-   beograd
-   mladenovac
-   pozarevac
-   smederevo
-   petrovac-na-mlavi
-   zagubica
-   vrelo-mlave
-   manastir-gornjak])
+   (geocaching/gpx-path->location
+    (path/child
+     env/*global-dataset-path*
+     "geocaching.com" "manual" "GC2V2E4.gpx"))])
+
+(def homolje2019-location-seq
+  (map
+   #(add-tag % "@homolje2019")
+   (concat
+    homolje2019-geocache-seq
+    [
+     homolje
+     beograd
+     mladenovac
+     pozarevac
+     smederevo
+     petrovac-na-mlavi
+     zagubica
+     vrelo-mlave
+     manastir-gornjak])))
+
+(storage/import-location-v2-seq-handler homolje2019-location-seq)
 
 (web/register-dotstore :homolje2019 (constantly homolje2019-location-seq))
 

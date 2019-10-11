@@ -241,6 +241,55 @@
 (defn list-dotstores []
   (keys (deref active-dotstore)))
 
+(defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
+(defn url-tag->html [tag]
+  (if (tag/url-tag? tag)
+    (html-href (tag/url-tag->url tag) (tag/url-tag->title tag))
+    tag))
+
+(defn location->web-location [location]
+  {
+   :longitude (:longitude location)
+   :latitude (:latitude location)
+   :description (clojure.string/join " " (map
+                                          (comp
+                                           url-tag->html)
+                                          (:tags location)))
+   :pin (take 2 (pin/calculate-pins (:tags location)))})
+
+(defn enrich-locations
+  "Used to add id required for deduplication by Leaflet Realtime"
+  [geojson]
+  (update-in
+   geojson
+   [:features]
+   (fn [features]
+     (map
+      (fn [feature]
+        (let [description (clojure.string/join
+                           " "
+                           (map
+                            (comp
+                             url-tag->html)
+                            (:properties feature)))
+              pin-url (let [pin-seq (pin/calculate-pins
+                                     (:properties feature))]
+                        (str "/pin/" (first pin-seq) "/" (second pin-seq)))]
+          (update-in
+           feature
+           [:properties]
+           (fn [properties]
+             (assoc
+              {}
+              :tags properties
+              :id
+              (clojure.string/join "@" (:coordinates (:geometry feature)))
+              :pin
+              pin-url
+              :description
+              description)))))
+      features))))
+
 (defn state-fn
   [{
     tags :tags
@@ -328,53 +377,6 @@
 (defn unregister-map [name]
   (swap! configuration dissoc name))
 
-(defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
-(defn url-tag->html [tag]
-  (if (tag/url-tag? tag)
-    (html-href (tag/url-tag->url tag) (tag/url-tag->title tag))
-    tag))
-(defn location->web-location [location]
-  {
-   :longitude (:longitude location)
-   :latitude (:latitude location)
-   :description (clojure.string/join " " (map
-                                          (comp
-                                           url-tag->html)
-                                          (:tags location)))
-   :pin (take 2 (pin/calculate-pins (:tags location)))})
-
-(defn enrich-locations
-  "Used to add id required for deduplication by Leaflet Realtime"
-  [geojson]
-  (update-in
-   geojson
-   [:features]
-   (fn [features]
-     (map
-      (fn [feature]
-        (let [description (clojure.string/join
-                           " "
-                           (map
-                            (comp
-                             url-tag->html)
-                            (:properties feature)))
-              pin-url (let [pin-seq (pin/calculate-pins
-                                     (:properties feature))]
-                        (str "/pin/" (first pin-seq) "/" (second pin-seq)))]
-          (update-in
-           feature
-           [:properties]
-           (fn [properties]
-             (assoc
-              {}
-              :tags properties
-              :id
-              (clojure.string/join "@" (:coordinates (:geometry feature)))
-              :pin
-              pin-url
-              :description
-              description)))))
-      features))))
 
 (def handler
   (compojure.core/routes
