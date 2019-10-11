@@ -45,6 +45,46 @@
      (constantly data))
     nil))
 
+(def beograd (wikidata/id->location :Q3711))
+(def mladenovac (wikidata/id->location :Q167858))
+(def pozarevac (wikidata/id->location :Q199942))
+(def smederevo (wikidata/id->location :Q190774))
+(def petrovac-na-mlavi (wikidata/id->location :Q1544334))
+
+(def zagubica (osm/hydrate-tags (overpass/node->location 1614834392)))
+(def vrelo-mlave (osm/hydrate-tags (overpass/way->location 446498457)))
+(def manastir-gornjak (osm/hydrate-tags (overpass/way->location 342473841)))
+
+(web/register-map
+ "beograd"
+ {
+  :configuration {
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 9}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/create-osm-external-raster-tile-fn)))
+  :locations-fn (fn [] location-seq)})
+
+;; #moto @strom @homolje2019
+;; moto tour, 20191012
+(def homolje (wikidata/id->location :Q615586))
+
+(def homolje2019-location-seq
+  [
+   homolje
+   beograd
+   mladenovac
+   pozarevac
+   smederevo
+   petrovac-na-mlavi
+   zagubica
+   vrelo-mlave
+   manastir-gornjak])
+
+(web/register-dotstore :homolje2019 (constantly homolje2019-location-seq))
+
 ;; Q1013179
 (def sopot nil)
 #_(data-cache (var sopot) (wikidata/id->location :Q1013179))

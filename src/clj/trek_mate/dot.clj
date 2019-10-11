@@ -384,6 +384,20 @@
     (async/close! in)
     (context/set-state context "completion")))
 
+(defn read-bounds-go
+  "Higher level retrieve fn. Retrieves locations that belong to given bounding
+  box."
+  [context repository [min-long max-long min-lat max-lat] in]
+  (let [min-tile (tile-math/zoom->location->tile
+                  *minimum-zoom-level*
+                  {:longitude min-long :latitude min-lat})
+        max-tile (tile-math/zoom->location->tile
+                  *minimum-zoom-level*
+                  {:longitude max-long :latitude max-lat})]
+    ;; todo
+    )
+  )
+
 (defn read-tile-go
   "Higher level retrieve fn. Able to filter out locations that don't belong to
   tile but where stored in same chunk."

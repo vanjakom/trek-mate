@@ -81,7 +81,10 @@
    ;; big city
    (intermediate->class->instance-of? :Q1549591 intermediate)
    ;; hungarian city / town
-   (intermediate->class->instance-of? :Q13218690 intermediate)))
+   (intermediate->class->instance-of? :Q13218690 intermediate)
+   ;; serbian cities
+   (intermediate->class->instance-of? :Q783930 intermediate)
+   (intermediate->class->instance-of? :Q37800986 intermediate)))
 
 (defn intermediate->village? [intermediate]
   ;; human settlement 
@@ -101,6 +104,9 @@
 
 (defn intermediate->geyser? [intermediate]
   (intermediate->class->instance-of? :Q83471 intermediate))
+
+(defn intermediate->mountain? [intermediate]
+  (intermediate->class->instance-of? :Q46831 intermediate))
 
 (defn intermediate->airport? [intermediate]
   (or
@@ -166,6 +172,7 @@
                     (when (intermediate->waterfall? intermediate) tag/tag-waterfall)
                     (when (intermediate->glacier? intermediate) tag/tag-glacier)
                     (when (intermediate->geyser? intermediate) tag/tag-geyser)
+                    (when (intermediate->mountain? intermediate) tag/tag-mountain)
                     (when-let [url (intermediate->url-wikipedia-en intermediate)]
                       (list
                        (tag/url-tag "wikipeda" url)

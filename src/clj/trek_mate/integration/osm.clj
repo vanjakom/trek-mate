@@ -552,6 +552,12 @@
           id))
      tags))))
 
+(def osm-tag-mapping
+  {
+   "osm:place=town" tag/tag-city
+   "osm:natural=water" tag/tag-water
+   "osm:amenity=place_of_worship" tag/tag-church})
+
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
   (update-in
@@ -644,7 +650,12 @@
                        "osm"
                        (str "https://openstreetmap.org/node/" id)))
            tags))
-       ]))))
+       (fn [tags]
+         (into
+          tags
+          (filter
+           some?
+           (map osm-tag-mapping tags))))]))))
 
 (defn dot->node-id [dot]
   (when-let [id (tags->node-id (:tags dot))]
