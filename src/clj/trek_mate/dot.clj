@@ -688,7 +688,36 @@
          30000)
         (context/print-state-context context))
       (do
-        (context/counter context "skip-render")))))
+        (context/counter context "skip-render"))
+      )))
+
+(defn render-location-pipeline
+  "To be used to render location seq on tile"
+  [image-context rule-seq location-seq [zoom x y]]
+  (let [context (context/create-state-context)
+        channel-provider (pipeline/create-channels-provider)]
+    (do
+      (pipeline/emit-seq-go
+       (context/wrap-scope context "1_emit")
+       location-seq
+       (channel-provider :transform))
+      (pipeline/transducer-stream-go
+       (context/wrap-scope context "2_transform")
+       (channel-provider :transform)
+       (map location->dot)
+       (channel-provider :render))
+      (render-dot-go
+       (context/wrap-scope context "3_render")
+       rule-seq
+       image-context
+       [zoom x y]
+       (channel-provider :render)
+       (channel-provider :wait))
+      (pipeline/wait-on-channel
+       (context/wrap-scope context "4_wait")
+       (channel-provider :wait)
+       30000)
+      (context/print-state-context context))))
 
 #_(defn read-tile
   "Reads tile data if exists as location sequence, if not returns empty list"
@@ -1063,3 +1092,16 @@
      (channel-provider :out)
      5000)
     (context/print-state-context context)))
+
+(defn location-seq-var->dotstore
+  "Returns dotstore compatibile function, to be used with web/register-dotstore.
+  Note function accepts variable as input to ensure update when dataset is altered"
+  [location-seq-var]
+  (fn [min-longitude max-longitude min-latitude max-latitude]
+    (filter
+     #(and
+       (>= (:longitude %) min-longitude)
+       (<= (:longitude %) max-longitude)
+       (>= (:latitude %) min-latitude)
+       (<= (:latitude %) max-latitude))
+     (deref location-seq-var))))

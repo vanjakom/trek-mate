@@ -2,6 +2,7 @@
   (:use
    clj-common.clojure)
   (:require
+   [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.edn :as edn]
@@ -14,6 +15,7 @@
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -62,6 +64,7 @@
 (def zagubica (osm/hydrate-tags (overpass/node->location 1614834392)))
 (def vrelo-mlave (osm/hydrate-tags (overpass/way->location 446498457)))
 (def manastir-gornjak (osm/hydrate-tags (overpass/way->location 342473841)))
+(def krupajsko-vrelo (osm/hydrate-tags (overpass/way->location 579464479)))
 
 (web/register-map
  "beograd"
@@ -100,11 +103,40 @@
      petrovac-na-mlavi
      zagubica
      vrelo-mlave
-     manastir-gornjak])))
+     manastir-gornjak
+     krupajsko-vrelo])))
 
 (storage/import-location-v2-seq-handler homolje2019-location-seq)
 
 (web/register-dotstore :homolje2019 (constantly homolje2019-location-seq))
+
+;; after tour processing
+(def homolje2019-track-location-seq
+  (with-open [is (fs/input-stream
+                  (path/child
+                   env/*global-my-dataset-path*
+                   "trek-mate" "cloudkit" "track"
+                   env/*trek-mate-user* "1570870898.json"))]
+    (storage/track->location-seq (json/read-keyworded is))))
+
+(web/register-dotstore
+ :homolje2019-track
+ (dot/location-seq-var->dotstore (var homolje2019-track-location-seq)))
+
+(web/register-map
+ "homolje2019"
+ {
+  :configuration {
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 9}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    
+                    (web/tile-overlay-dotstore-render-fn
+                     (web/create-osm-external-raster-tile-fn)
+                     :homolje2019-track
+                     [(constantly [draw/color-green 2])])))})
 
 ;; Q1013179
 (def sopot nil)

@@ -348,5 +348,21 @@
                              (str (:timestamp track) ".json"))))
       (json/write-to-stream track os))))
 
+(defn track->location-seq
+  "Converts track produced by backup routine ( create-track-with-locations ) to
+  list of locations, by setting track tags to each location"
+  [track]
+  (map
+   (fn [location]
+     {
+      :longitude (:longitude location)
+      :latitude (:latitude location)
+      :tags (into #{} (:tags track))})
+   (:locations track)))
+
+;; run latest prepared command, once finished prepare new command by using
+;; latest timestamp reported to stdout
 #_(backup-tracks 0)
 #_(backup-tracks 1566638746)
+;; run next
+#_(backup-tracks 1570870898)

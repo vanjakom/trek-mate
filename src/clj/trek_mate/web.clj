@@ -16,10 +16,10 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.tile :as tile]
    [clj-geo.math.tile :as tile-math]
+   [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.pin :as pin]
    [trek-mate.tag :as tag]
-   [trek-mate.dot :as dot]
    [trek-mate.integration.osm :as osm-integration]))
 
 ;;; todo
@@ -225,7 +225,6 @@
           (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
-
 (defonce active-dotstore (atom {}))
 #_(alter-var-root (var active-dotstore) (constantly (atom {})))
 
@@ -240,6 +239,29 @@
 
 (defn list-dotstores []
   (keys (deref active-dotstore)))
+
+(defn tile-overlay-dotstore-render-fn
+  [original-tile-fn dotstore-id rule-seq]
+  (fn [zoom x y]
+    (let [[min-longitude max-longitude min-latitude max-latitude]
+          (tile-math/tile->location-bounds [zoom x y])
+          image-context (draw/create-image-context 256 256)]
+      (if-let [tile-is (original-tile-fn zoom x y)]
+        (let [background-image-context (draw/input-stream->image-context tile-is)]
+          (draw/draw-image image-context [127 127] background-image-context)))
+
+      (let [dot-seq (if-let [dotstore-fn (lookup-dotstore dotstore-id)]
+                      (dotstore-fn
+                       min-longitude max-longitude min-latitude max-latitude)
+                      [])]
+        (dot/render-location-pipeline
+         image-context
+         rule-seq
+         dot-seq
+         [zoom x y])
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream image-context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
 (defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
 (defn url-tag->html [tag]
