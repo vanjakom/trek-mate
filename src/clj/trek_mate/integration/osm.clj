@@ -556,7 +556,9 @@
   {
    "osm:place=town" tag/tag-city
    "osm:natural=water" tag/tag-water
-   "osm:amenity=place_of_worship" tag/tag-church})
+   "oms:amenity=public_bath" tag/tag-beach
+   "osm:amenity=place_of_worship" tag/tag-church
+   "osm:natural=peak" tag/tag-mountain})
 
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]

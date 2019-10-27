@@ -78,6 +78,54 @@
                     (web/create-osm-external-raster-tile-fn)))
   :locations-fn (fn [] [])})
 
+;; @hiking-homolje
+;; hiking tour manastir gornjak - jezevac - banja zdrelo
+(def banja-zdrelo (osm/hydrate-tags (overpass/way->location 738931488)))
+(def vrh-jezevac  (osm/hydrate-tags (overpass/node->location 4813216305)))
+(def hike-end (overpass/node->location 2724814260))
+(def track (overpass/way->location-seq 113863079))
+(def track-final (map #(add-tag % "track") track))
+
+(def homolje2019-geocache-seq
+  [
+   (geocaching/gpx-path->location
+    (path/child
+     env/*global-dataset-path*
+     "geocaching.com" "manual" "GC2V2E4.gpx"))])
+
+(def hiking-homolje-seq
+  (map
+   #(add-tag % "@hiking-homolje")
+   (concat
+    #_track-final
+    homolje2019-geocache-seq
+    [
+     beograd
+     smederevo
+     pozarevac
+     petrovac-na-mlavi
+     banja-zdrelo
+     vrh-jezevac
+     manastir-gornjak
+     hike-end])))
+
+(storage/import-location-v2-seq-handler hiking-homolje-seq)
+
+(web/register-dotstore :hiking-homolje (constantly hiking-homolje-seq))
+
+(web/register-map
+ "hiking-homolje"
+ {
+  :configuration {
+                  :longitude (:longitude manastir-gornjak)
+                  :latitude (:latitude manastir-gornjak)
+                  :zoom 10}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/create-osm-external-raster-tile-fn)))})
+
+
+
 ;; #moto @strom @homolje2019
 ;; moto tour, 20191012
 (def homolje (wikidata/id->location :Q615586))
@@ -108,7 +156,7 @@
 
 (storage/import-location-v2-seq-handler homolje2019-location-seq)
 
-(web/register-dotstore :homolje2019 (constantly homolje2019-location-seq))
+(web/register-dotstore :homolje2019 (constantly homolje2019-location-seq))-
 
 ;; after tour processing
 (def homolje2019-track-location-seq

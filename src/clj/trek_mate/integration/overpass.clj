@@ -16,6 +16,7 @@
                   query
                   "\n"
                   "out center;"))]
+    (println query)
     (json/read-keyworded
      (http/get-as-stream
       (str
@@ -55,6 +56,13 @@
 (defn way->location [way-id]
   (if-let [way (first (:elements (request (str "way(id:" way-id ");"))))]
     (element->location way)))
+
+(defn way->location-seq [way-id]
+  (if-let [nodes (:elements (request (str "way(id:" way-id ");\nnode(w);")))]
+    (doall (map element->location nodes))))
+
+(def a (request (str "way(id:" 113863079 ");\nnode(w);")))
+(keys (:elements a))
 
 (defn locations-with-tags
   [& tag-seq]
