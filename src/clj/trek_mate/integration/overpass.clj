@@ -40,12 +40,16 @@
     {
      :longitude (:lon (:center element))
      :latitude (:lat (:center element))
-     :tags (osm/osm-tags->tags (:tags element))}
+     :tags (conj
+            (osm/osm-tags->tags (:tags element))
+            (str osm/osm-gen-way-prefix (:id element)))}
     (= (:type element) "node")
     {
      :longitude (:lon element)
      :latitude (:lat element)
-     :tags (osm/osm-tags->tags (:tags element))}
+     :tags (conj
+            (osm/osm-tags->tags (:tags element))
+            (str osm/osm-gen-node-prefix (:id element)))}
     :else
     (throw (ex-info "unknown type" element))))
 
@@ -101,3 +105,14 @@
       "node" "[" tag "]" "(around:" radius-meters "," latitude "," longitude ");"
       "way" "[" tag "]" "(around:" radius-meters "," latitude "," longitude ");"
       ");")))))
+
+(defn wikidata-id->location
+  "Query overpass for given Q number and returns first match, either way or node"
+  [wikidata-id]
+  (first
+   (locations-with-tags "wikidata" (name wikidata-id))))
+
+(defn location-with-tags
+  [& tag-set]
+  (first (apply locations-with-tags tag-set)))
+

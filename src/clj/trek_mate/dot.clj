@@ -1094,8 +1094,8 @@
     (context/print-state-context context)))
 
 (defn location-seq-var->dotstore
-  "Returns dotstore compatibile function, to be used with web/register-dotstore.
-  Note function accepts variable as input to ensure update when dataset is altered"
+  "Returns dotstore compatible function, to be used with web/register-dotstore.
+  Note: function accepts variable as input to ensure update when dataset is altered"
   [location-seq-var]
   (fn [min-longitude max-longitude min-latitude max-latitude]
     (filter
@@ -1105,3 +1105,12 @@
        (>= (:latitude %) min-latitude)
        (<= (:latitude %) max-latitude))
      (deref location-seq-var))))
+
+(defn repository->dotstore
+  "Returns dotstore compatible function to be used with web/register-dotstore.
+  Note: function calculates bounds and requests tiles at maximum zoom level"
+
+  ;; todo
+  
+  )
+

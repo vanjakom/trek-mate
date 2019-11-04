@@ -336,7 +336,8 @@
 
 ;; todo, quick fix for website, separator matching is not best ...
 (defn tags->website [tags]
-  (first
+  ;; old version with node / way
+  #_(first
    (filter
     some?
     (map
@@ -352,6 +353,14 @@
               (= tag "website")
               (contains? tags (osm-way-index->tag way 0))))
           (clojure.string/join ":" value-seq)))
+     tags)))
+  (first
+   (filter
+    some?
+    (map
+     #(if-let [[tag website] (.split % "=")]
+        (if (= tag "osm:website")
+          website))
      tags))))
 
 ;;; iceland specific / liquor store
@@ -555,10 +564,13 @@
 (def osm-tag-mapping
   {
    "osm:place=town" tag/tag-city
+   "osm:place=village" tag/tag-village
    "osm:natural=water" tag/tag-water
+   "osm:waterway=waterfall" tag/tag-waterfall
    "oms:amenity=public_bath" tag/tag-beach
    "osm:amenity=place_of_worship" tag/tag-church
-   "osm:natural=peak" tag/tag-mountain})
+   "osm:natural=peak" tag/tag-mountain
+   "osm:tourism=hotel" tag/tag-sleep})
 
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
@@ -601,6 +613,15 @@
        (fn [tags]
          (if-let [website (tags->website tags)]
            (conj tags (tag/url-tag "website" website))
+           tags))
+       (fn [tags]
+         (if-let [wikidata-id (tags->wikidata-id tags)]
+           (conj
+            tags
+            (tag/url-tag
+             "wikidata"
+             (str "https://www.wikidata.org/wiki/" wikidata-id))
+            tag/tag-wikidata)
            tags))
        (fn [tags]
          (if (tags->vínbúðin? tags)

@@ -75,8 +75,7 @@
                   :zoom 9}
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
-                    (web/create-osm-external-raster-tile-fn)))
-  :locations-fn (fn [] [])})
+                    (web/create-osm-external-raster-tile-fn)))})
 
 ;; @hiking-homolje
 ;; hiking tour manastir gornjak - jezevac - banja zdrelo
@@ -109,7 +108,7 @@
      manastir-gornjak
      hike-end])))
 
-(storage/import-location-v2-seq-handler hiking-homolje-seq)
+#_(storage/import-location-v2-seq-handler hiking-homolje-seq)
 
 (web/register-dotstore :hiking-homolje (constantly hiking-homolje-seq))
 
@@ -123,8 +122,6 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))})
-
-
 
 ;; #moto @strom @homolje2019
 ;; moto tour, 20191012
@@ -154,7 +151,7 @@
      manastir-gornjak
      krupajsko-vrelo])))
 
-(storage/import-location-v2-seq-handler homolje2019-location-seq)
+#_(storage/import-location-v2-seq-handler homolje2019-location-seq)
 
 (web/register-dotstore :homolje2019 (constantly homolje2019-location-seq))-
 
@@ -364,7 +361,7 @@
    placevi-20190928-seq))
 
 #_(storage/import-location-v2-seq-handler placevi-seq)
-(storage/import-location-v2-seq-handler placevi-20190928-seq)
+#_(storage/import-location-v2-seq-handler placevi-20190928-seq)
 
 (web/register-dotstore :placevi (constantly location-seq))
 

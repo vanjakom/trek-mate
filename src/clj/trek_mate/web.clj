@@ -321,7 +321,8 @@
     min-latitude :min-latitude
     max-latitude :max-latitude}]
 
-  (let [all-dotstores (into
+  (let [tags (into #{} tags)
+        all-dotstores (into
                        #{}
                        (list-dotstores))
         all-location-seq (filter
@@ -352,7 +353,7 @@
                       (:tags location)))
                    all-location-seq))
         location-seq (filter
-                      #(clojure.set/subset? tags (:tags %))
+                      #(> (count (clojure.set/intersection tags (:tags %))) 0)
                       all-location-seq)]
     {
      :tags all-tags
