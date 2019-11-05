@@ -566,6 +566,7 @@
    "osm:place=town" tag/tag-city
    "osm:place=village" tag/tag-village
    "osm:natural=water" tag/tag-water
+   "osm:waterway=stream" tag/tag-creek
    "osm:waterway=waterfall" tag/tag-waterfall
    "oms:amenity=public_bath" tag/tag-beach
    "osm:amenity=place_of_worship" tag/tag-church

@@ -47,7 +47,7 @@
 (defn remove-cache [symbol]
   (fs/delete (path/child data-cache-path (name symbol))))
 
-#_(remove-cache 'midzor)
+#_(remove-cache 'temstica-river)
 
 (defn add-tag
   [location & tag-seq]
@@ -81,6 +81,20 @@
    (osm/hydrate-tags (overpass/wikidata-id->location :Q12761256))
    (tag/url-tag "image" "https://talas.rs/wp-content/uploads/2018/09/3.jpg")))
 
+;; todo better location, taking center of way
+(defr kovani-dol
+  (add-tag
+   (osm/hydrate-tags (overpass/wikidata-id->location :Q73545997))
+   (tag/url-tag "image" "https://talas.rs/wp-content/uploads/2018/09/1.jpg")
+   "@todo-photo-wikidata"))
+
+(defr temska (osm/hydrate-tags (overpass/wikidata-id->location :Q3104718)))
+(defr temstica-river
+  (add-tag
+   (osm/hydrate-tags (overpass/wikidata-id->location :Q2670544))
+   (tag/url-tag "image" "https://talas.rs/wp-content/uploads/2018/09/5.jpg")))
+
+
 
 (web/register-dotstore
  :stara-planina
@@ -92,7 +106,10 @@
     midzor
     hotel-stara-planina
     pilj-waterfall
-    cungulj-waterfall])))
+    cungulj-waterfall
+    kovani-dol
+    temska
+    temstica-river])))
 
 (web/register-map
  "stara-planina"
