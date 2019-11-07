@@ -1109,7 +1109,7 @@
 (defn repository->dotstore
   "Returns dotstore compatible function to be used with web/register-dotstore.
   Note: function calculates bounds and requests tiles at maximum zoom level"
-
+  []
   ;; todo
   
   )
