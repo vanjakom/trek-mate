@@ -5,6 +5,7 @@
    [clj-common.as :as as]
    [clj-common.http :as http]
    [clj-common.json :as json]
+   [clj-common.localfs :as fs]
    [trek-mate.integration.osm :as osm]))
 
 (def ^:dynamic *endpoint* "http://overpass-api.de/")
@@ -33,37 +34,61 @@
       (str "[\"" key "\"=\"" value "\"]"))
     (partition 2 2 nil tag-seq))))
 
-(defn element->location
+(defn node->location
   [element]
-  (cond
-    (= (:type element) "way")
-    {
-     :longitude (:lon (:center element))
-     :latitude (:lat (:center element))
-     :tags (conj
-            (osm/osm-tags->tags (:tags element))
-            (str osm/osm-gen-way-prefix (:id element)))}
-    (= (:type element) "node")
-    {
+  {
      :longitude (:lon element)
      :latitude (:lat element)
      :tags (conj
             (osm/osm-tags->tags (:tags element))
-            (str osm/osm-gen-node-prefix (:id element)))}
+            (str osm/osm-gen-node-prefix (:id element)))})
+
+(defn way->single-location
+  [element]
+  {
+     :longitude (:lon (:center element))
+     :latitude (:lat (:center element))
+     :tags (conj
+            (osm/osm-tags->tags (:tags element))
+            (str osm/osm-gen-way-prefix (:id element)))})
+
+
+(defn way->location-seq
+  [element]
+  (let [tags (conj
+            (osm/osm-tags->tags (:tags element))
+            (str osm/osm-gen-way-prefix (:id element)))]
+    (map
+     (fn [{longitude :lon latitude :lat}]
+       {
+        :longitude longitude
+        :latitude latitude
+        :tags tags})
+     (:geometry element))))
+
+(defn element->single-location
+  [element]
+  (cond
+    (= (:type element) "way")
+    (way->single-location element)
+    (= (:type element) "node")
+    (node->location element)
     :else
     (throw (ex-info "unknown type" element))))
 
-(defn node->location [node-id]
+(defn node-id->location [node-id]
   (if-let [node (first (:elements (request (str "node(id:" node-id ");"))))]
-    (element->location node)))
+    (element->single-location node)))
 
-(defn way->location [way-id]
+(defn way-id->location [way-id]
   (if-let [way (first (:elements (request (str "way(id:" way-id ");"))))]
-    (element->location way)))
+    (element->single-location way)))
 
-(defn way->location-seq [way-id]
+(defn way-id->location-seq
+  "Note returns plain long lat without tags"
+  [way-id]
   (if-let [nodes (:elements (request (str "way(id:" way-id ");\nnode(w);")))]
-    (doall (map element->location nodes))))
+    (doall (map element->single-location nodes))))
 
 (def a (request (str "way(id:" 113863079 ");\nnode(w);")))
 (keys (:elements a))
@@ -72,7 +97,7 @@
   [& tag-seq]
   (let [tag-string (tag-seq->tag-string tag-seq)]
     (map
-     element->location
+     element->single-location
      (:elements
       (request
        (str
@@ -85,7 +110,7 @@
   [longitude latitude radius-meters & tag-seq]
   (let [tag-string (tag-seq->tag-string tag-seq)]
     (map
-     element->location
+     element->single-location
      (:elements
       (request
        (str
@@ -97,7 +122,7 @@
 (defn locations-around-have-tag
   [longitude latitude radius-meters tag]
   (map
-   element->location
+   element->single-location
    (:elements
     (request
      (str

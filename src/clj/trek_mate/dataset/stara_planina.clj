@@ -111,6 +111,18 @@
     temska
     temstica-river])))
 
+
+(def temp-location-seq
+  [
+    topli-do
+    midzor
+    hotel-stara-planina
+    pilj-waterfall
+    cungulj-waterfall
+    kovani-dol
+    temska
+    temstica-river])
+
 (web/register-map
  "stara-planina"
  {
@@ -118,8 +130,11 @@
                   :longitude (:longitude midzor)
                   :latitude (:latitude midzor)
                   :zoom 12}
-  :raster-tile-fn (web/tile-border-overlay-fn
-                   (web/tile-number-overlay-fn
-                    (web/create-osm-external-raster-tile-fn)))})
+  :raster-tile-fn (web/tile-overlay-tagstore-fn
+                   (web/tile-border-overlay-fn
+                    (web/tile-number-overlay-fn
+                     (web/create-osm-external-raster-tile-fn)))
+                   (dot/create-tagstore-in-memory 4 16 temp-location-seq)
+                   draw/color-red)})
 
 (web/create-server)

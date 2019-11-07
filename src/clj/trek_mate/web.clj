@@ -215,7 +215,7 @@
 (defn tile-overlay-dot-render-fn
   [original-tile-fn rule-seq & repositories]
   (fn [zoom x y]
-    (println "rendering...")
+    (println "rendering dot...")
     (if-let [tile-is (original-tile-fn zoom x y)]
       (let [background-image-context (draw/input-stream->image-context tile-is)
             fresh-image-context (draw/create-image-context 256 256)]
@@ -261,6 +261,19 @@
          [zoom x y])
         (let [buffer-output-stream (io/create-buffer-output-stream)]
           (draw/write-png-to-stream image-context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))))
+
+(defn tile-overlay-tagstore-fn
+  [original-tile-fn tagstore color]
+  (fn [zoom x y]
+    (println "rendering tagstore...")
+    (if-let [tile-is (original-tile-fn zoom x y)]
+      (let [background-image-context (draw/input-stream->image-context tile-is)
+            fresh-image-context (draw/create-image-context 256 256)]
+        (draw/draw-image fresh-image-context [127 127] background-image-context)
+        (dot/render-tagstore fresh-image-context tagstore color [zoom x y])
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
 (defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))

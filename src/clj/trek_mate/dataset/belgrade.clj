@@ -61,10 +61,10 @@
 (def smederevo (wikidata/id->location :Q190774))
 (def petrovac-na-mlavi (wikidata/id->location :Q1544334))
 
-(def zagubica (osm/hydrate-tags (overpass/node->location 1614834392)))
-(def vrelo-mlave (osm/hydrate-tags (overpass/way->location 446498457)))
-(def manastir-gornjak (osm/hydrate-tags (overpass/way->location 342473841)))
-(def krupajsko-vrelo (osm/hydrate-tags (overpass/way->location 579464479)))
+(def zagubica (osm/hydrate-tags (overpass/node-id->location 1614834392)))
+(def vrelo-mlave (osm/hydrate-tags (overpass/way-id->location 446498457)))
+(def manastir-gornjak (osm/hydrate-tags (overpass/way-id->location 342473841)))
+(def krupajsko-vrelo (osm/hydrate-tags (overpass/way-id->location 579464479)))
 
 (web/register-map
  "beograd"
@@ -79,10 +79,10 @@
 
 ;; @hiking-homolje
 ;; hiking tour manastir gornjak - jezevac - banja zdrelo
-(def banja-zdrelo (osm/hydrate-tags (overpass/way->location 738931488)))
-(def vrh-jezevac  (osm/hydrate-tags (overpass/node->location 4813216305)))
-(def hike-end (overpass/node->location 2724814260))
-(def track (overpass/way->location-seq 113863079))
+(def banja-zdrelo (osm/hydrate-tags (overpass/way-id->location 738931488)))
+(def vrh-jezevac  (osm/hydrate-tags (overpass/node-id->location 4813216305)))
+(def hike-end (overpass/node-id->location 2724814260))
+(def track (overpass/way-id->location-seq 113863079))
 (def track-final (map #(add-tag % "track") track))
 
 (def homolje2019-geocache-seq

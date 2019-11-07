@@ -1114,3 +1114,131 @@
   
   )
 
+;;; tagstore routines
+
+;;; tagstore fn [zoom x y] -> fn [x y] -> true|false
+
+
+;; normal display 1 per 1
+
+#_(defn tagstore-tile-create []
+  "Creates tile which is suitable for storing 256x256 tile data."
+  ;; long is 64 bit, we need 256x256 bitset
+  (long-array 1024))
+
+#_(defn tagstore-tile-set
+  "Sets given point in tile created with tagstore-tile-create"
+  [tile x y]
+  (println tile x y)
+  (let [global-index (+ (* x 256) y)
+        array-index (quot global-index 64)
+        bit-index (mod global-index 64)]
+    (aset
+     ^longs tile array-index
+     ^long (bit-set (aget ^longs tile array-index) bit-index))))
+
+#_(defn tagstore-tile-get
+  "Gets given point in tile created with tagstore-tile-get"
+  [tile x y]
+  (let [global-index (+ (* x 256) y)
+        array-index (quot global-index 64)
+        bit-index (mod global-index 64)]
+    (bit-test ^long (aget ^longs tile array-index) bit-index)))
+
+
+;; zoomed display
+
+(defn tagstore-tile-create []
+  "Creates tile which is suitable for storing 16x16 tile data."
+  ;; long is 64 bit, we need 16 x 16
+  (long-array 8))
+
+(defn tagstore-tile-set
+  "Sets given point in tile created with tagstore-tile-create"
+  [tile x y]
+  (println tile x y)
+  (let [global-index (+ (* (quot x 16) 16) (quot y 16))
+        array-index (quot global-index 64)
+        bit-index (mod global-index 64)]
+    (aset
+     ^longs tile array-index
+     ^long (bit-set (aget ^longs tile array-index) bit-index))))
+
+(defn tagstore-tile-get
+  "Gets given point in tile created with tagstore-tile-get"
+  [tile x y]
+  (let [global-index (+ (* (quot x 16) 16) (quot y 16))
+        array-index (quot global-index 64)
+        bit-index (mod global-index 64)]
+    (bit-test ^long (aget ^longs tile array-index) bit-index)))
+
+
+
+(defn tagstore-process-seq
+  "Goes over location seq and creates tiles for given zoom level and splits
+  location seq into sequences ready from zoom + 1 processing.
+  Returns [tagstore [zoom location-seq]], updated tagstore and seq of zoom
+  location seq pairs."
+  [zoom location-seq tagstore]
+  (let [tile-fn (partial tile-math/zoom->location->tile zoom)
+        next-tile-fn (partial tile-math/zoom->location->tile (inc zoom))
+        point-fn (tile-math/zoom->location->point zoom)]
+    (reduce
+     (fn [[tagstore split-map] location]
+       (let [tile (tile-fn location)
+             next-tile (next-tile-fn location)
+             [x y] (let [[global-x global-y] (point-fn location)]
+                     [(mod global-x 256) (mod global-y 256)])
+             [tile-data tagstore] (if-let [tile-data (get tagstore tile)]
+                                    [tile-data tagstore]
+                                    (let [tile-data (tagstore-tile-create)]
+                                      [tile-data (assoc tagstore tile tile-data)]))]
+         (tagstore-tile-set tile-data x y)
+         [
+          tagstore
+          (update-in
+           split-map
+           [next-tile]
+           (fn [queue]
+             (conj
+              (or queue '())
+              location)))] ))
+     [tagstore {}]
+     location-seq)))
+
+#_(tagstore-process-seq 8 [{:longitude 20 :latitude 44}] {})
+
+(defn create-tagstore-in-memory
+  "Creates tagstore that will be kept in memory"
+  [min-zoom max-zoom location-seq]
+  (loop [[current-zoom location-seq] [min-zoom location-seq]
+         tagstore {}
+         queue []]
+    (let [[tagstore queue-additions] (tagstore-process-seq
+                                      current-zoom
+                                      location-seq
+                                      tagstore)
+          queue (concat
+                  queue
+                  (filter
+                   (fn [[zoom location-seq]] (<= zoom max-zoom))
+                   (map
+                    (fn [[[zoom x y] location-seq]]
+                      [zoom location-seq])
+                    queue-additions)))]
+      (if (> (count queue) 0)
+        (recur
+         (first queue)
+         tagstore
+         (rest queue))
+        tagstore))))
+
+(defn render-tagstore
+  "Renders given tagstore with specified color"
+  [image-context tagstore color tile]
+  (if-let [tile-data (get tagstore tile)]
+    (doseq [x (range 0 256)]
+      (doseq [y (range 0 256)]
+        (if (tagstore-tile-get tile-data x y)
+          (draw/set-point image-context color x y))))))
+
