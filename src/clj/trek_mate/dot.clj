@@ -1156,7 +1156,6 @@
 (defn tagstore-tile-set
   "Sets given point in tile created with tagstore-tile-create"
   [tile x y]
-  (println tile x y)
   (let [global-index (+ (* (quot x 16) 16) (quot y 16))
         array-index (quot global-index 64)
         bit-index (mod global-index 64)]

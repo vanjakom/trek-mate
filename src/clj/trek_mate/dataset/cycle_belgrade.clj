@@ -43,5 +43,29 @@
 ;; 	--bounding-polygon file=/Users/vanja/dataset/osm-extract/belgrade.poly \
 ;; 	clipIncompleteEntities=true \
 ;; 	--write-pbf /Users/vanja/dataset/osm-extract/belgrade-latest.osm.pbf
+(def beograd (wikidata/id->location :Q3711))
+
+(def cycle-seq (with-open [is (fs/input-stream ["Users" "vanja" "Downloads"
+                                                "export.json"])]
+                 (overpass/response->location-seq
+                  (json/read-keyworded is))))
+
+(count cycle-seq)
+
+(web/register-map
+ "belgrade-cycle"
+ {
+  :configuration {
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 12}
+  :raster-tile-fn (web/tile-overlay-tagstore-fn
+                   (web/tile-border-overlay-fn
+                    (web/tile-number-overlay-fn
+                     (web/create-osm-external-raster-tile-fn)))
+                   (dot/create-tagstore-in-memory 4 16 cycle-seq)
+                   draw/color-red)})
+
+(web/create-server)
 
 

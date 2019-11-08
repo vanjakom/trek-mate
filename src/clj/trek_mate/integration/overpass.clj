@@ -52,7 +52,6 @@
             (osm/osm-tags->tags (:tags element))
             (str osm/osm-gen-way-prefix (:id element)))})
 
-
 (defn way->location-seq
   [element]
   (let [tags (conj
@@ -141,3 +140,14 @@
   [& tag-set]
   (first (apply locations-with-tags tag-set)))
 
+(defn response->location-seq [json-response]
+  (mapcat
+   (fn [element]
+     (cond
+       (= (:type element) "node")
+       [(node->location element)]
+       (= (:type element) "way")
+       (way->location-seq element)
+       :else
+       []))
+   (:elements json-response)))
