@@ -97,17 +97,18 @@
            [
             "#geocaching.com"
             tag/tag-geocache
-            (:code geocache)
+            (str "geocaching:id:" (:code geocache))
             (tag/name-tag (:name geocache))
             (tag/url-tag
              (:code geocache)
              (str
               "https://www.geocaching.com/seek/cache_details.aspx?wp="
               (:code geocache)) )
-            (when-let [hint (:hint geocache)]  (str "hint:" hint))
-            (:last-log-date geocache)
-            (:last-log-type geocache)
+            (when-let [hint (:hint geocache)]  (str "geocaching:hint:" hint))
+            (str "geocaching:last-log-date:" (:last-log-date geocache))
+            (str "geocaching:last-log:" (:last-log-type geocache))
             (when (= (:last-log-type geocache) "Found it") "#last-found")
+            (str "geocaching:type:" (:type geocache))
             (cond
               (= (:type geocache) "Virtual Cache") "#virtual-cache"
               (= (:type geocache) "Earthcache") "#earth-cache"

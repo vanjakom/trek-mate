@@ -134,6 +134,7 @@
 (def tag-shop "#shop")
 (def tag-supermarket "#supermarket")
 (def tag-food "#food")
+(def tag-tourism "#tourism")
 
 
 (def tag-geocache "#geocache")

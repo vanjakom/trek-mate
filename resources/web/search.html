@@ -1,0 +1,227 @@
+<html>
+  <head>
+    <title>Map</title>
+    <!--<link rel="stylesheet" href="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/css/ol.css" type="text/css">-->
+    <!--<script type= "text/javascript" src= "https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script>-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js" integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==" crossorigin=""></script>
+    <script src= "https://cdnjs.cloudflare.com/ajax/libs/leaflet-realtime/2.1.1/leaflet-realtime.js"></script>
+    <script type= "text/javascript" src= "/lib/core.js"></script>
+    <link rel="stylesheet" type="text/css" href="/style.css">
+    <style>
+      ::-webkit-scrollbar {
+	  display: none;
+      }
+
+      .content {
+	  white-space: nowrap;
+	  overflow: hidden;
+      }
+      
+      .search {
+	  position: absolute;
+	  right: 0px;
+	  top: 0px;
+	  left: 0px;
+	  height: 50px;
+	  background-color: yellow;
+	  text-align: center;
+      }
+
+      .search-input {
+	  margin: 5px;
+	  width: 400px;
+	  display: inline-block;
+      }
+
+      .map {
+	  position: absolute;
+	  left:0px;
+	  top:30px;
+	  right: 300px;
+	  bottom: 0px;
+	  cursor: crosshair;
+      }
+
+      .list {
+	  position: absolute;
+	  right: 0px;
+	  top: 30px;
+	  bottom: 0px;
+	  width: 300px;
+	  background-color: yellow;
+	  overflow-y: scroll;
+	  scrollbar-width: none;
+      }
+
+      .list-item {
+	  background-color: white;
+	  margin: 5px;
+	  white-space: normal;
+	  overflow-wrap: break-word;
+	  cursor: pointer;
+      }
+
+      .list-item-selected {
+	  background-color: red;
+	  margin: 5px;
+	  white-space: normal;
+	  overflow-wrap: break-word;
+	  cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <!--<div id= "overlay" style= "width:20px;height:20px;">A</div>-->
+    <div id="content" class="content">
+      <div id="search" class="search">
+      	<input id="search-input" class="search-input" type="text" autocomplete="off"/>
+      </div>
+      <div id="map" class="map"></div>
+      <div id="list" class="list"></div>
+    </div>
+    <script type= "text/javascript">
+      // library
+      var jsonGet = function (url, callback, error) {
+	  var xhr = new XMLHttpRequest()
+	  xhr.open("GET", url, true);
+	  xhr.onreadystatechange = function () {
+	      if(xhr.readyState === 4 && xhr.status === 200) {
+		  callback (JSON.parse(xhr.responseText))
+	      } else {
+		  error ()
+	      }
+	  };
+	  xhr.send();
+      }
+
+      // specific
+
+      var mapId = window.location.pathname.split ("/").last()
+      var map = L.map("map", {maxBoundsViscosity: 1.0})
+      map.setView([45, 0], 4)
+      map.setMaxBounds ([[-90,-180],[90,180]])
+
+      jsonGet(
+	  "/configuration/" + mapId,
+	  function (configuration) {
+	      map.setView (
+		  [configuration.latitude, configuration.longitude],
+		  configuration.zoom)
+	  },
+	  function () {})
+      
+      L.tileLayer(
+	  "/tile/raster/" + mapId + "/{z}/{x}/{y}",
+	  {
+	      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+	      maxZoom: 18,
+	      bounds:[[-90,-180],[90,180]],
+	      noWrap: true
+	  }).addTo(map)
+
+      var results = []
+      var selected = null
+
+      var searchInput = document.getElementById("search-input")
+      var resultList = document.getElementById("list")
+      searchInput.addEventListener(
+	  "keydown",
+	  function(e) {
+	      if (e.keyCode == 13) {
+		  jsonGet(
+		      "/search/" + mapId + "/" + searchInput.value,
+		      function (locations) {
+			  // delete previous results
+			  results.forEach(function (result) {
+			      map.removeLayer(result.marker)
+			  })
+			  while (resultList.firstChild) {
+			      resultList.removeChild(resultList.firstChild)
+			  }
+			  results = []
+			  
+			  // show new results
+			  locations.features.forEach(function (location) {
+			      var id = location.properties.id
+			      var tags = location.properties.tags
+			      
+			      var icon = L.icon({
+				  iconUrl: location.properties.pin,
+				  iconSize: [25,25],
+				  iconAnchor: [12.5,12.5]})
+			      var marker = L.marker(
+				  [
+				      location.geometry.coordinates[1],
+				      location.geometry.coordinates[0]],
+				  {icon: icon})
+
+			      var info = document.createElement("div")
+			      info.className = "list-item"
+			      info.innerHTML = id
+			      tags.forEach (function (tag) {
+				  if (tag.startsWith("|url")) {
+				      var splits = tag.split("|")
+				      info.innerHTML += "</br><a href=\"" + splits[3] + "\">" + splits[2] + "</>"
+				  } else {
+				      info.innerHTML += "</br>" + tag
+				  }
+			      })
+			      resultList.appendChild(info)
+
+			      var result = {
+				  id: id,
+				  pin: location.properties.pin,
+				  marker: marker,
+				  info: info }
+			      results.push(result)
+
+			      info.onclick = function () {
+				  map.panTo(marker.getLatLng())
+				  if (selected) {
+				      selected.info.className = "list-item"
+				      var icon = L.icon({
+					  iconUrl: selected.pin,
+					  iconSize: [25,25],
+					  iconAnchor: [12.5,12.5]})
+				      selected.marker.setIcon(icon)
+				  }
+				  result.info.className = "list-item-selected"
+				  var splits = result.pin.split("/")
+				  var icon = L.icon({
+				      iconUrl: "/pin/red_base/" + splits[3],
+				      iconSize: [25,25],
+				      iconAnchor: [12.5,12.5]})
+				  result.marker.setIcon(icon)
+				  selected = result
+			      }
+			      
+			      marker
+				  .addTo (map)
+				  .on ("click", function (e) {
+				      if (selected) {
+					  selected.info.className = "list-item"
+					  var icon = L.icon({
+					      iconUrl: selected.pin,
+					      iconSize: [25,25],
+					      iconAnchor: [12.5,12.5]})
+					  selected.marker.setIcon(icon)
+				      }
+				      result.info.className = "list-item-selected"
+				      result.info.scrollIntoView()
+				      var splits = result.pin.split("/")
+				      var icon = L.icon({
+					  iconUrl: "/pin/red_base/" + splits[3],
+					  iconSize: [25,25],
+					  iconAnchor: [12.5,12.5]})
+				      result.marker.setIcon(icon)
+				      selected = result
+				  })
+			  })
+		      },
+		      function () {})
+	      }
+	  })
+    </script>
+  </body>
+</html>

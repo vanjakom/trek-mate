@@ -266,7 +266,6 @@
 (defn tile-overlay-tagstore-fn
   [original-tile-fn tagstore color]
   (fn [zoom x y]
-    (println "rendering tagstore...")
     (if-let [tile-is (original-tile-fn zoom x y)]
       (let [background-image-context (draw/input-stream->image-context tile-is)
             fresh-image-context (draw/create-image-context 256 256)]
@@ -526,7 +525,33 @@
           :body (json/write-to-string new-state)})
        {
         :status 200
-        :body (json/write-to-string {:dotstores #{} :tags #{} :locations []})})))))
+        :body (json/write-to-string {:dotstores #{} :tags #{} :locations []})})))
+
+   ;; search handler
+   ;; using search-fn
+   ;; ( min-longitude max-longitude min-latitude max-latitude query )
+   ;; from map if defined
+   (compojure.core/GET
+    "/search/:name"
+    [name]
+    (if-let [map (get (deref configuration) name)]
+      {
+       :status 200
+       :body (jvm/resource-as-stream ["web" "search.html"])}
+      {
+       :status 404}))
+   (compojure.core/GET
+    "/search/:name/:query"
+    [name query]
+    (if-let [search-fn (get-in (deref configuration) [name :search-fn])]
+      {
+       :status 200
+       :body (json/write-to-string
+              (enrich-locations
+               (geojson/location-seq->geojson
+                (search-fn query))))}
+      {
+       :status 404}))))
 
 (defn create-server
   []

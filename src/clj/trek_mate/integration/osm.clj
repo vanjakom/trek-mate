@@ -68,7 +68,7 @@
    #{}
    (map
     (fn [[key value]]
-      (str osm-tag-node-prefix node-id ":" key ":" value))
+      (str "osm:" key "=" value))
     osm-tags)))
 
 (defn osm-way-tags->tags [way-id osm-tags]
@@ -88,11 +88,17 @@
     osm-tags)))
 
 (defn osm-node-id->tag [node-id] (str osm-gen-node-prefix node-id))
+(defn osm-way-id->tag [way-id] (str osm-gen-way-prefix way-id))
+(defn osm-relation-id->tag [relation-id] (str osm-gen-relation-prefix relation-id))
+
 (defn osm-relation-id-role->tag [relation-id role]
   (if role
     (str osm-gen-relation-prefix relation-id ":" role)
     (str osm-gen-relation-prefix relation-id)))
 (defn osm-way-index->tag [way-id index] (str osm-gen-way-prefix way-id ":" index))
+
+(def osmconvert-relation-offset (long (* 2 (Math/pow 10 15))))
+(def osmconvert-way-offset (long (Math/pow 10 15)))
 
 (defn osm-node->location [osm-node]
   {
@@ -100,7 +106,14 @@
    :latitude (:latitude osm-node)
    :tags (conj
           (osm-node-tags->tags (:id osm-node) (:tags osm-node))
-          (osm-node-id->tag (:id osm-node)))})
+          (let [id (:id osm-node)]
+            (cond
+              (> id osmconvert-relation-offset)
+              (osm-relation-id->tag (- id osmconvert-relation-offset))
+              (> id osmconvert-way-offset)
+              (osm-way-id->tag (- id osmconvert-way-offset))
+              :else
+              (osm-node-id->tag (:id osm-node)))))})
 
 (def map-osm-node->location (map osm-node->location))
 
@@ -551,6 +564,26 @@
           id))
      tags))))
 
+(defn tags->way-id [tags]
+  (first
+   (filter
+    some?
+    (map
+     #(if-let [[osm n-r-w id] (.split % ":")]
+        (if (and (= osm "osm-gen") (= n-r-w "w"))
+          id))
+     tags))))
+
+(defn tags->relation-id [tags]
+  (first
+   (filter
+    some?
+    (map
+     #(if-let [[osm n-r-w id] (.split % ":")]
+        (if (and (= osm "osm-gen") (= n-r-w "r"))
+          id))
+     tags))))
+
 (defn tags->wikidata-id [tags]
   (first
    (filter
@@ -571,7 +604,12 @@
    "oms:amenity=public_bath" tag/tag-beach
    "osm:amenity=place_of_worship" tag/tag-church
    "osm:natural=peak" tag/tag-mountain
-   "osm:tourism=hotel" tag/tag-sleep})
+   "osm:tourism=hotel" tag/tag-sleep
+   "osm:barrier=city_wall" tag/tag-history
+   "osm:tourism=attraction" tag/tag-tourism
+   "osm:tourism=yes" tag/tag-tourism
+   "osm:toursim=viewport" tag/tag-view
+   "osm:aeroway=aerodrome" tag/tag-airport})
 
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
@@ -674,6 +712,18 @@
                        "osm"
                        (str "https://openstreetmap.org/node/" id)))
            tags))
+       (fn [tags]
+         (if-let [id (tags->way-id tags)]
+           (conj tags (tag/url-tag
+                       "osm"
+                       (str "https://openstreetmap.org/way/" id)))
+           tags))
+       (fn [tags]
+         (if-let [id (tags->relation-id tags)]
+           (conj tags (tag/url-tag
+                       "osm"
+                       (str "https://openstreetmap.org/relation/" id)))
+           tags))       
        (fn [tags]
          (into
           tags
@@ -929,3 +979,125 @@
     (out-fn)
     (context/set-state context "completion")))
 
+(defn read-pbf-tags
+  [tags]
+  (reduce
+   (fn [tag-map tag]
+     (assoc
+      tag-map
+      (.getKey tag)
+      (.getValue tag)))
+   {}
+   tags))
+
+(defn read-entity-type
+  [type]
+  (cond
+    (= type org.openstreetmap.osmosis.core.domain.v0_6.EntityType/Bound)
+    :bound
+    (= type org.openstreetmap.osmosis.core.domain.v0_6.EntityType/Node)
+    :node
+    (= type org.openstreetmap.osmosis.core.domain.v0_6.EntityType/Way)
+    :way
+    (= type org.openstreetmap.osmosis.core.domain.v0_6.EntityType/Relation)
+    :relation
+    :else
+    (throw (ex-info "unknown type" {:type type}))))
+
+(defn read-pbf-node
+  [container]
+  (let [entity (.getEntity container)]
+    {
+     :type :node
+     :id (.getId entity)
+     :longitude (.getLongitude entity)
+     :latitude (.getLatitude entity)
+     :tags (read-pbf-tags (.getTags entity))}))
+
+(defn read-pbf-way
+  [container]
+  (let [entity (.getEntity container)]
+    {
+     :type :way
+     :id (.getId entity)
+     :tags (read-pbf-tags (.getTags entity))
+     :nodes (map
+             (fn [way-node]
+               {
+                :type :node-ref
+                :id (.getNodeId way-node)})
+             (.getWayNodes entity))}))
+
+(defn read-pbf-relation
+  [container]
+  (let [entity (.getEntity container)]
+    {
+     :type :relation
+     :id (.getId entity)
+     :tags (read-pbf-tags (.getTags entity))
+     :members (map
+               (fn [member]
+                 {
+                  :type :member
+                  :ref-type (name (read-entity-type (.getMemberType member)))
+                  :ref (.getMemberId member)
+                  :role (let [role (.getMemberRole member)]
+                          (if (empty? role)
+                            nil
+                            role))})
+               (.getMembers entity))}))
+
+(defn read-osm-pbf-go
+  "Reads osm pbf and emits nodes, ways and relations to specific channels. If
+  given channel is nil emit will be ignored.
+  note: structure of data returned should mimic one returned by reading xml
+  using read-osm-go.
+  todo: support stopping, currently whole pbf must be read"
+  [context path node-ch way-ch relation-ch]
+  (let [sink (reify
+               org.openstreetmap.osmosis.core.task.v0_6.Sink
+               (initialize [this conf])
+               (process [this entity]
+                 (context/set-state context "step")
+                 (cond
+                   (instance?
+                    org.openstreetmap.osmosis.core.container.v0_6.NodeContainer
+                    entity)
+                   (do
+                      (context/counter context "node-in")
+                      (when node-ch
+                        (async/>!! node-ch (read-pbf-node entity))
+                        (context/counter context "node-out")))
+                   (instance?
+                    org.openstreetmap.osmosis.core.container.v0_6.WayContainer
+                    entity)
+                   (do
+                     (context/counter context "way-in")
+                     (when way-ch
+                       (async/>!! way-ch (read-pbf-way entity))
+                       (context/counter context "way-out")))
+                   (instance?
+                    org.openstreetmap.osmosis.core.container.v0_6.RelationContainer
+                    entity)
+                   (do
+                     (context/counter context "relation-in")
+                     (when relation-ch
+                       (async/>!! relation-ch (read-pbf-relation entity))
+                       (context/counter context "relation-out")))
+                   :else
+                   (context/counter context "error-unknown-type")))
+               (complete [this])
+               (close [this]))]
+    (async/thread
+      (context/set-state context "init")
+      (with-open [is (fs/input-stream path)]
+        (let [reader (new crosby.binary.osmosis.OsmosisReader is)]
+          (.setSink reader sink)
+          (.run reader)))
+      (when node-ch
+        (async/close! node-ch))
+      (when way-ch
+        (async/close! way-ch))
+      (when relation-ch
+        (async/close! relation-ch))
+      (context/set-state context "completion"))))
