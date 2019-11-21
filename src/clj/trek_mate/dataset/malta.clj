@@ -33,16 +33,20 @@
 ;;; contains locations with merged tags from ways and routes
 (def osm-merge-path (path/child dataset-path "osm-merge"))
 
-
 ;; flatten relations and ways to nodes
 ;; osmconvert \
 ;; 	/Users/vanja/dataset/geofabrik.de/malta-latest.osm.pbf \
 ;; 	--all-to-nodes \
 ;; 	-o=/Users/vanja/my-dataset/extract/malta2019/all-node.pbf
-
 (def osm-all-node-path (path/child
                         env/*global-my-dataset-path*
                         "extract" "malta2019" "all-node.pbf"))
+
+(def osm-pbf-path (path/child
+                   env/*global-dataset-path*
+                   "geofabrik.de"
+                   "malta-latest.osm.pbf"))
+
 
 
 
@@ -59,7 +63,7 @@
    ["osm:wikidata=Q21476646" [tag/tag-todo "@malta2019"]]
    ["osm:wikidata=Q7314418" [tag/tag-todo "@malta2019"]]
    ["osm:wikidata=Q1438745" [tag/tag-todo "@malta2019" "@todo-mapping"]]
-   ["" [tag/tag-todo "@malta2019"]]
+   ["osm:wikidata=Q576800" [tag/tag-todo "@malta2019"]]
    ["" [tag/tag-todo "@malta2019"]]
    ["" [tag/tag-todo "@malta2019"]]
    ["" [tag/tag-todo "@malta2019"]]
@@ -105,8 +109,6 @@
             "#hotel"
             "!Palazzo Leonardo"
             (tag/url-tag "booking" "https://www.booking.com/hotel/mt/palazzo-leonard-no-2-triq-is-suq-floriana.html")))
-
-
 
 #_(do
   (clj-common.json/write-to-stream
@@ -203,13 +205,6 @@
   (alter-var-root #'geocache-pipeline (constantly (channel-provider))))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 (defr geocache-seq geocache-prepare-seq)
-
-
-(def osm-pbf-path (path/child
-                   env/*global-dataset-path*
-                   "geofabrik.de"
-                   "malta-latest.osm.pbf"))
-
 
 (def node-seq nil)
 
@@ -339,12 +334,7 @@
       (.contains search-string (.toLowerCase query)))
     search-list)))
 
-(search-fn "Q44632")
-(search-fn "Q191098")
-
-;; Q191098
-;; not working, why keywords are only one word ...
-;; add serbian title for comino
+#_(search-fn "Q44632")
 
 (defn extract-keywords [osm-tag-seq]
   (reduce
@@ -368,7 +358,6 @@
        keywords))
    #{}
    osm-tag-seq))
-
 (defn index-osm-node [node]
   (let [keywords (extract-keywords (:tags node))]
     (when (not (empty? keywords))
@@ -378,7 +367,7 @@
          (clojure.string/join " " keywords)
          location]))))
 
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -404,7 +393,7 @@
 
 #_(run! println (take 100 (map first search-list)))
 
-(web/register-dotstore :malta-search (constantly indexing-location-seq))
+#_(web/register-dotstore :malta-search (constantly indexing-location-seq))
 
 (web/register-map
  :malta-wikidata
@@ -419,6 +408,9 @@
                      (web/create-osm-external-raster-tile-fn)))
                    (dot/create-tagstore-in-memory 13 16 wikidata-prepare-seq)
                    draw/color-red)})
+
+
+
 
 
 (web/register-dotstore
