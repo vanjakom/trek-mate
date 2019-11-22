@@ -56,6 +56,16 @@
    (into #{} (map as/as-string tag-seq))))
 
 (def beograd (wikidata/id->location :Q3711))
+
+
+#_(storage/import-location-v2-seq-handler
+ (list
+  (add-tag
+   (overpass/way-id->location 406727784)
+   "milan igraonica"
+   "@milan")))
+
+;; homoljske planine
 (def mladenovac (wikidata/id->location :Q167858))
 (def pozarevac (wikidata/id->location :Q199942))
 (def smederevo (wikidata/id->location :Q190774))
