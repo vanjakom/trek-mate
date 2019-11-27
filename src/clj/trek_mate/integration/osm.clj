@@ -262,19 +262,12 @@
 (defn tags->name [tags]
   (first
    (filter
-    #(when-let [[osm n-r-w way tag value] (.split % ":")]
-       (if (or
-            (and
-             (= osm "osm")
-             (= n-r-w "n")
-             (= tag "name"))
-            (and
-             (= osm "osm")
-             (= n-r-w "w")
-             (= tag "name")
-             (contains? tags (osm-way-index->tag way 0))))
-         value))
-    tags)))
+    some?
+    (map
+     #(if-let [[tag name] (.split % "=")]
+        (if (= tag "osm:name")
+          name))
+     tags))))
 
 (defn tags->highway-set [tags]
   (into
@@ -609,6 +602,7 @@
    "osm:tourism=attraction" tag/tag-tourism
    "osm:tourism=yes" tag/tag-tourism
    "osm:toursim=viewport" tag/tag-view
+   "osm:tourism=museum" tag/tag-museum
    "osm:aeroway=aerodrome" tag/tag-airport})
 
 ;;; simplistic for start, to understand scope
@@ -628,7 +622,7 @@
       [
        (fn [tags]
          (if-let [name (tags->name tags)]
-           (conj tags name)
+           (conj tags (tag/name-tag name))
            tags))
        
        (fn [tags]

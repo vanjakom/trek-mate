@@ -280,6 +280,10 @@
   (if (tag/url-tag? tag)
     (html-href (tag/url-tag->url tag) (tag/url-tag->title tag))
     tag))
+(defn name-tag->html [tag]
+  (if (tag/name-tag? tag)
+    (str "<b>" (.substring tag 1) "</b>")
+    tag))
 
 (defn location->web-location [location]
   {
@@ -304,7 +308,8 @@
                            " "
                            (map
                             (comp
-                             url-tag->html)
+                             url-tag->html
+                             name-tag->html)
                             (:properties feature)))
               pin-url (let [pin-seq (pin/calculate-pins
                                      (:properties feature))]
