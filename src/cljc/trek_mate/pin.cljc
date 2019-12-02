@@ -41,6 +41,7 @@
 
 ;;; global places
 (def airport-pin "airport_pin")
+(def bus-pin "bus_pin")
 (def border-pin "border_pin")
 (def highway-pin "highway_pin")
 
@@ -118,6 +119,7 @@
 (defn global-trigger [tags]
   (or
    (if (contains? tags tag/tag-airport) airport-pin)
+   (if (contains? tags tag/tag-bus) bus-pin)
    (if (contains? tags tag/tag-border) border-pin)
    (if (contains? tags tag/tag-highway) highway-pin)
    (if (contains? tags tag/tag-city) city-pin)

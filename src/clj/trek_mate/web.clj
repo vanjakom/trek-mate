@@ -310,7 +310,46 @@
                             (comp
                              url-tag->html
                              name-tag->html)
-                            (:properties feature)))
+                            (sort
+                             (reify
+                               java.util.Comparator
+                               (compare [this one two]
+                                 (let [one-name (.startsWith one "!")
+                                       two-name (.startsWith two "!")
+                                       one-tag (.startsWith one "#")
+                                       two-tag (.startsWith two "#")
+                                       one-personal (.startsWith one "@")
+                                       two-personal (.startsWith two "@")
+                                       one-url (.startsWith one "|")
+                                       two-url (.startsWith two "|")]
+                                   (cond
+                                     (and one-name two-name)
+                                     (.compareTo one two)
+                                     (and one-name (not two-name))
+                                     -1
+                                     (and (not one-name) two-name)
+                                     1
+                                     (and one-tag two-tag)
+                                     (.compareTo one two)
+                                     (and one-tag (not two-tag))
+                                     -1
+                                     (and (not one-tag) two-tag)
+                                     1
+                                     (and one-personal two-personal)
+                                     (.compareTo one two)
+                                     (and one-personal (not two-personal))
+                                     -1
+                                     (and (not one-personal) two-personal)
+                                     1
+                                     (and one-url two-url)
+                                     (.compareTo one two)
+                                     (and one-url (not two-url))
+                                     -1
+                                     (and (not one-url) two-url)
+                                     1
+                                     :else
+                                     (.compareTo one two)))))
+                             (:properties feature))))
               pin-url (let [pin-seq (pin/calculate-pins
                                      (:properties feature))]
                         (str "/pin/" (first pin-seq) "/" (second pin-seq)))]

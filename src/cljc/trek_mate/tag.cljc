@@ -124,6 +124,7 @@
 (def tag-border "#border")
 (def tag-highway "#highway")
 (def tag-airport "#airport")
+(def tag-bus "#bus")
 (def tag-weekend "#weekend")
 (def tag-museum "#museum")
 (def tag-art "#art")

@@ -1,5 +1,15 @@
 # trek-mate project
 
+# build of clojure script part
+trek-mate app is depending on target/core.js file
+
+build with
+```
+lein cljsbuild once
+```
+
+add cljsbuild to list of lein plugins
+
 # setup
 trek-mate project depends on two other open source projects clj-common ( colletion of useful functions ) and clj-geo ( importing and visualization functions ).
 

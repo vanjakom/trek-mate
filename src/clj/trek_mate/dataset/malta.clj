@@ -224,6 +224,68 @@
    System/out)
   (println))
 
+(def bus-location-prepare-seq nil)
+(def bus-location-pipeline nil)
+#_(let [context (context/create-state-context)
+      context-thread (context/create-state-context-reporting-thread context 3000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "0_read")
+   resource-controller
+   osm-merge-path
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "1_filter")
+   (channel-provider :filter-in)
+   (comp
+    (filter
+     (fn [location]
+       (some?
+        (first
+         (filter
+          (fn [tag]
+            (if-let [[osm n-r-w node tag value] (.split tag ":")]
+              (and
+               (= osm "osm")
+               (= n-r-w "n")
+               (= tag "highway")
+               (= value "bus_stop"))))
+          (:tags location))))))
+    (map #(add-tag % "#bus"))
+    (map
+     (fn [location]
+       (update-in
+        location
+        [:tags]
+        (fn [tags]
+          (reduce
+           (fn [tags tag]
+             (let [tags (conj tags tag)]
+               (if-let [[osm n-r-w id tag value] (.split tag ":")]
+                (cond
+                  (and (= osm "osm") (= n-r-w "n") (= tag "ref"))
+                  (conj tags (tag/name-tag value))
+                  (and (= osm "osm") (= n-r-w "r") (= tag "ref"))
+                  (conj tags (str "#bus-" value))
+                  :else
+                  tags)
+                tags)))
+           #{}
+           tags))))))
+   (channel-provider :capture-in))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture-in)
+   (var bus-location-prepare-seq))
+  (alter-var-root #'bus-location-pipeline (constantly (channel-provider))))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(remove-cache 'bus-location-seq)
+(defr bus-location-seq bus-location-prepare-seq)
+
+#_(storage/import-location-v2-seq-handler bus-location-seq)
+
+(web/register-dotstore :malta-bus (constantly bus-location-seq))
 
 (def geocache-prepare-seq nil)
 (def geocache-pipeline nil)

@@ -1,3 +1,11 @@
+::-webkit-scrollbar {
+    display: none;
+}
+
+.content {
+    white-space: nowrap;
+    overflow: hidden;
+}
 
 .map {
     position: absolute;
@@ -15,6 +23,8 @@
     bottom: 300px;
     width: 250px;
     background-color: yellow;
+    overflow-y: scroll;
+    scrollbar-width: none;
 }
 
 .menu-dotstore {
@@ -24,6 +34,8 @@
     width: 250px;
     height: 200px;
     background-color: green;
+    overflow-y: scroll;
+    scrollbar-width: none;
 }
 
 .status {
@@ -33,4 +45,8 @@
     left: 0px;
     height: 100px;
     background-color: yellow;
+    overflow-y: scroll;
+    scrollbar-width: none;
+    white-space: normal;
+    overflow-wrap: break-word;
 }

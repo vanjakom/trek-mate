@@ -590,6 +590,7 @@
 (def osm-tag-mapping
   {
    "osm:place=town" tag/tag-city
+   "osm:place=city" tag/tag-city
    "osm:place=village" tag/tag-village
    "osm:natural=water" tag/tag-water
    "osm:waterway=stream" tag/tag-creek
