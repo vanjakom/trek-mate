@@ -597,6 +597,7 @@
    "osm:waterway=waterfall" tag/tag-waterfall
    "oms:amenity=public_bath" tag/tag-beach
    "osm:amenity=place_of_worship" tag/tag-church
+   "osm:amenity=restaurant" tag/tag-eat
    "osm:natural=peak" tag/tag-mountain
    "osm:tourism=hotel" tag/tag-sleep
    "osm:barrier=city_wall" tag/tag-history
@@ -703,21 +704,36 @@
            tags))
        (fn [tags]
          (if-let [id (tags->node-id tags)]
-           (conj tags (tag/url-tag
-                       "osm"
-                       (str "https://openstreetmap.org/node/" id)))
+           (conj
+            tags
+            (tag/url-tag
+             "osm node view"
+             (str "https://openstreetmap.org/node/" id))
+            (tag/url-tag
+             "edit with id"
+             (str "https://preview.ideditor.com/master/#id=n" id)))
            tags))
        (fn [tags]
          (if-let [id (tags->way-id tags)]
-           (conj tags (tag/url-tag
-                       "osm"
-                       (str "https://openstreetmap.org/way/" id)))
+           (conj
+            tags
+            (tag/url-tag
+             "osm way view"
+             (str "https://openstreetmap.org/way/" id))
+            (tag/url-tag
+             "edit with id"
+             (str "https://preview.ideditor.com/master/#id=w" id)))
            tags))
        (fn [tags]
          (if-let [id (tags->relation-id tags)]
-           (conj tags (tag/url-tag
-                       "osm"
-                       (str "https://openstreetmap.org/relation/" id)))
+           (conj
+            tags
+            (tag/url-tag
+             "osm relation view"
+             (str "https://openstreetmap.org/relation/" id))
+            (tag/url-tag
+             "edit with id"
+             (str "https://preview.ideditor.com/master/#id=r" id)))
            tags))       
        (fn [tags]
          (into

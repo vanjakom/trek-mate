@@ -498,6 +498,7 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
   :search-fn #'search-fn})
 
 #_(def node-seq nil)

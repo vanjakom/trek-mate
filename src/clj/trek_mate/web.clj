@@ -110,6 +110,12 @@
 (def create-osm-external-raster-tile-fn
   (partial create-external-raster-tile-fn "https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
 
+(def create-osm-srbija-cir-tile-fn
+  (partial create-external-raster-tile-fn "http://ue.cache.osmsrbija.iz.rs/cir/{z}/{x}/{y}.png"))
+
+(def create-osm-srbija-lat-tile-fn
+  (partial create-external-raster-tile-fn "http://ue.cache.osmsrbija.iz.rs/lat/{z}/{x}/{y}.png"))
+
 (defn create-mapbox-external-raster-tile-fn
   [username style access-token]
   (create-external-raster-tile-fn
@@ -224,6 +230,28 @@
         (let [buffer-output-stream (io/create-buffer-output-stream)]
           (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
+
+(defn tile-vector-dotstore-fn
+  [dotstore-fn-seq]
+  (fn [zoom x y]
+    (let [[min-longitude max-longitude min-latitude max-latitude]
+          (tile-math/tile->location-bounds [zoom x y])
+          location-test-fn (fn [location]
+                             (let [[_ location-x location-y]
+                                   (tile-math/zoom->location->tile zoom location)]
+                               (and
+                                (= x location-x)
+                                (= y location-y))))]
+      (reduce
+       (fn [location-seq location]
+         (if (location-test-fn location)
+           (conj location-seq location)
+           location-seq))
+       '()
+       (mapcat
+        (fn [dotstore-fn]
+          (dotstore-fn min-longitude max-longitude min-latitude max-latitude))
+        dotstore-fn-seq)))))
 
 (defonce active-dotstore (atom {}))
 #_(alter-var-root (var active-dotstore) (constantly (atom {})))
@@ -542,6 +570,28 @@
         (.printStackTrace e)
         {:status 500})))
    (compojure.core/GET
+    "/tile/vector/:name/:zoom/:x/:y"
+    [name zoom x y]
+    (try
+      (if-let [map (get (deref configuration) name)]
+        (if-let [location-seq ((:vector-tile-fn map)
+                               (as/as-long zoom)
+                               (as/as-long x)
+                               (as/as-long y))]
+          {
+           :status 200
+           :headers {
+                     "ContentType" "application/json"}
+           :body (json/write-to-string
+                  (enrich-locations
+                   (geojson/location-seq->geojson
+                    location-seq)))}
+          {:status 404})
+        {:status 404})
+      (catch Throwable e
+        (.printStackTrace e)
+        {:status 500})))
+   #_(compojure.core/GET
     "/tile/data/:name/:zoom/:x/:y"
     [name zoom x y]
     (if-let [data-tile-fn (get-in @configuration [name :data-tile-fn])]

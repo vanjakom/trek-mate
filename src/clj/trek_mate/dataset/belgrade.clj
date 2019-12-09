@@ -26,6 +26,12 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+;; !!!!!!!!!!!!!!!!
+;; use serbia.clj
+;; migrate data to
+;; !!!!!!!!!!!!!!!!
+
+
 (def dataset-path (path/child env/*data-path* "belgrade"))
 (def geojson-path (path/child dataset-path "locations.geojson"))
 
