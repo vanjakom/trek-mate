@@ -2,6 +2,7 @@
   (:use
    clj-common.clojure)
   (:require
+   [clojure.core.async :as async]
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -14,6 +15,7 @@
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
@@ -60,6 +62,137 @@
 (def belgrade-all-node-path (path/child dataset-path "belgrade-node.pbf"))
 ;; nodes 2012888
 ;; nodes with tags 343830
+
+;; split pbf into node, way, relation seq, keep original data
+
+(def belgrade-pbf-path (path/child dataset-path "belgrade-latest.osm.pbf"))
+(def belgrade-node-path (path/child dataset-path "belgrade-osm-node"))
+(def belgrade-way-path (path/child dataset-path "belgrade-osm-way"))
+(def belgrade-way-with-location-path (path/child
+                                      dataset-path
+                                      "belgrade-osm-way-with-location"))
+(def belgrade-way-tile-path (path/child dataset-path "belgrade-osm-way-tile"))
+(def belgrade-relation-path (path/child dataset-path "belgrade-osm-relation"))
+#_(let [context  (context/create-state-context)
+      channel-provider (pipeline/create-channels-provider)
+      context-thread (context/create-state-context-reporting-thread
+                      context
+                      3000)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   belgrade-pbf-path
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in))
+  (pipeline/write-edn-go
+   (context/wrap-scope context "node")
+   belgrade-node-path
+   (channel-provider :node-in))
+  (pipeline/write-edn-go
+   (context/wrap-scope context "way")
+   belgrade-way-path
+   (channel-provider :way-in))
+  (pipeline/write-edn-go
+   (context/wrap-scope context "relation")
+   belgrade-relation-path
+   (channel-provider :relation-in)))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+;; node.edn out = 1716231
+;; way.edn out = 293924
+;; relation.edn out = 2748
+
+(def way-with-location-pipeline nil)
+(let [context (context/create-state-context)
+      context-thread (context/create-state-context-reporting-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "way-read")
+   belgrade-way-path
+   (channel-provider :way-in))
+
+  #_(pipeline/take-go
+   (context/wrap-scope context "take")
+   10
+   (channel-provider :way-in)
+   (channel-provider :way-take))
+  
+  (pipeline/read-edn-go
+   (context/wrap-scope context "node-read")
+   belgrade-node-path
+   (channel-provider :node-in))
+
+  (osm/position-way-go
+   (context/wrap-scope context "position-way")
+   (channel-provider :way-in)
+   (channel-provider :node-in)
+   (channel-provider :way-out))
+  
+  (pipeline/write-edn-go
+   (context/wrap-scope context "way-write")
+   belgrade-way-with-location-path
+   (channel-provider :way-out))
+
+  (alter-var-root #'way-with-location-pipeline (constantly (channel-provider))))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(pipeline/stop-pipeline (:node-in way-with-location-pipeline))
+
+(def tile-way-pipeline nil)
+(let [context (context/create-state-context)
+      context-thread (context/create-state-context-reporting-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read")
+   belgrade-way-with-location-path
+   (channel-provider :way-in))
+
+  (osm/tile-way-go
+   (context/wrap-scope context "tile")
+   13
+   (fn [[zoom x y]]
+     (let [channel (async/chan)]
+       (pipeline/write-edn-go
+        (context/wrap-scope context (str zoom "/" x "/" y))
+        resource-controller
+        (path/child belgrade-way-tile-path zoom x y)
+        channel)
+       channel))
+   (channel-provider :way-in))
+  (alter-var-root #'way-with-location-pipeline (constantly (channel-provider))))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(pipeline/stop-pipeline (:way-in way-with-location-pipeline))
+
+
+;; todo, missing logic to skip locations which are outside
+;; probably have it somewhere in dot, to use set-point instead of poly
+;; just offset points instead of rem
+
+(with-open [is (fs/input-stream (path/child belgrade-way-tile-path "13" "4561" "2951"))
+            os (fs/output-stream ["tmp" "out.png"])]
+  (let [context (draw/create-image-context 256 256)]
+    (draw/write-background context draw/color-white)
+    (doseq [way (edn/input-stream->seq is)]
+      (draw/draw-poly
+       context
+       (map
+        (comp
+         #(hash-map :x (rem (first %) 256) :y (rem (second %) 256))
+         (tile-math/zoom->location->point 13))
+        (:locations way))
+       draw/color-black))
+    (draw/write-png-to-stream
+     context
+     os)))
+
+
+#_(with-open [is (fs/input-stream (path/child belgrade-way-tile-path "13" "4561" "2951"))
+            os (fs/output-stream ["tmp" "out.geojson"])]
+  (json/write-to-stream
+  (clj-geo.import.geojson/way-seq->geojson
+   (edn/input-stream->seq is))
+  os))
+
+
 
 ;; todo copy
 ;; requires data-cache-path to be definied, maybe use *ns*/data-cache-path to

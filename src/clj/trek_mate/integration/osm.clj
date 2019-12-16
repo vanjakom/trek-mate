@@ -1112,3 +1112,129 @@
       (when relation-ch
         (async/close! relation-ch))
       (context/set-state context "completion"))))
+
+(defn position-way-go
+  "Reads in all ways into inverse index, then iterates over nodes replacing
+  node refs with coordinates. Once all nodes are consumed writes ways out.
+  Note: loads all ways into memory
+  Note: appends :locations to way containing seq of longitude and latitudes"
+  [context way-in node-in way-out]
+  (async/go
+    (context/set-state context "init")
+    (let [[index way-map]
+          (loop [way (async/<! way-in)
+                 index {}
+                 way-map {}]
+            (if way
+              (do
+                (context/counter context "way-in")
+                (context/set-state context "indexing")
+                (recur
+                 (async/<! way-in)
+                 (reduce
+                   (fn [index node]
+                     (update-in
+                      index
+                      [(:id node)]
+                      (fn [way-seq]
+                        (if way-seq
+                          (conj way-seq (:id way))
+                          (list (:id way))))))
+                   index
+                   (:nodes way))
+                 (assoc
+                   way-map
+                   (:id way)
+                   way)))
+              [index way-map]))]
+      (context/set-state context "mapping")
+      (loop [node (async/<! node-in)
+             way-map way-map]
+        (if node
+          (do
+            (context/counter context "node-in")
+            (if-let [way-seq (get index (:id node))]
+              (recur
+               (async/<! node-in)
+               (reduce
+                (fn [way-map way-id]
+                  (update-in
+                   way-map
+                   [way-id]
+                   (fn [way]
+                     (update-in
+                      way
+                      [:locations]
+                      (fn [locations]
+                        (map
+                         (fn [node-ref location]
+                           (if (= (:id node) (:id node-ref))
+                             (select-keys node [:longitude :latitude])
+                             location))
+                         (:nodes way)
+                         (or
+                          locations
+                          (repeat (count (:nodes way)) nil))))))))
+                way-map
+                way-seq))
+              (recur
+               (async/<! node-in)
+               way-map)))
+          (do
+           (context/set-state context "reporting")
+           (loop [way (first (vals way-map))
+                  rest-of-way-seq (rest (vals way-map))]
+             (when way
+               (context/counter context "reporting")
+               (if (not (empty? (filter #(nil? %) (:locations way))))
+                 (context/counter context "missing-location"))
+               (when (async/>! way-out way)
+                 (context/counter context "way-out")
+                 (recur
+                  (first rest-of-way-seq)
+                  (rest rest-of-way-seq))))))))
+      (async/close! way-out)
+      (context/set-state context "completion"))))
+
+(defn tile-way-go
+  "Takes in way enriched with locations and splits them to static zoom
+  Note: tile-out-fn will be used to obtain channel to which ways will be
+  written, once split is finish.
+  Note: keeps all prepared ways in memory."
+  [context zoom tile-out-fn way-with-location-in]
+  (async/go
+    (context/set-state context "init")
+    (let [split-map (loop [way (async/<! way-with-location-in)
+                           split-map {}]
+                      (if way
+                        (do
+                          (context/set-state context "splitting")
+                          (context/counter context "way-in")
+                          (recur
+                           (async/<! way-with-location-in)
+                           (reduce
+                            (fn [split-map location]
+                              (let [tile (tile-math/zoom->location->tile
+                                          zoom
+                                          location)]
+                                (update-in
+                                 split-map
+                                 [tile]
+                                 (fn [way-set]
+                                   (conj
+                                    (or way-set #{})
+                                    way)))))
+                            split-map
+                            (filter some? (:locations way)))))
+                        split-map))]
+      (context/set-state context "writing")
+      (doseq [[tile way-seq] split-map]
+        (let [tile-out (tile-out-fn tile)]
+          (doseq [way way-seq]
+            (async/>! tile-out way )
+            (context/counter context "way-out"))
+          (async/close! tile-out))
+        (context/counter context "tile-out")))
+    (context/set-state context "close")))
+
+
