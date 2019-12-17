@@ -30,6 +30,79 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+(def dataset-path (path/child
+                   env/*global-my-dataset-path*
+                   "extract"
+                   "mine"))
+
+;; todo copy
+;; requires data-cache-path to be definied, maybe use *ns*/data-cache-path to
+;; allow defr to be defined in clj-common
+(def data-cache-path (path/child dataset-path "data-cache"))
+(defmacro defr [name body]
+  `(let [restore-path# (path/child data-cache-path ~(str name))]
+     (if (fs/exists? restore-path#)
+       (def ~name (with-open [is# (fs/input-stream restore-path#)]
+                    (edn/read-object is#)))
+       (def ~name (with-open [os# (fs/output-stream restore-path#)]
+                    (let [data# ~body]
+                      (edn/write-object os# data#)
+                      data#))))))
+
+(defn remove-cache [symbol]
+  (fs/delete (path/child data-cache-path (name symbol))))
+
+#_(remove-cache 'geocache-seq)
+
+(defr location-map
+  (reduce
+   (fn [location-map location]
+     (let [location-id (util/location->location-id location)]
+       (update-in
+        location-map
+        [location-id]
+        (fn [old-location]
+          (if old-location
+            (do
+              (report "multiple location")
+              
+              (report old-location)
+              (report location)
+              
+              (call-and-pass
+               report
+               (assoc
+                location
+                :tags
+                (clojure.set/union (:tags location) (:tags old-location)))))
+            location)))))
+   {}
+   (map
+    (fn [location-request]
+      {
+       :longitude (:longitude (:location location-request))
+       :latitude (:latitude (:location location-request))
+       :tags (into #{} (:tags location-request))})
+    (storage/location-request-seq-from-backup env/*trek-mate-user*))))
+
+(defr belgrade (wikidata/id->location :Q3711))
+
+(web/register-map
+ "mine"
+ {
+  :configuration {
+                  
+                  :longitude (:longitude belgrade)
+                  :latitude (:latitude belgrade)
+                  :zoom 12}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/create-osm-external-raster-tile-fn)))
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly (vals location-map))])
+  :search-fn nil})
+
+
+
 (def dataset-path (path/child env/*data-path* "mine"))
 (def data-cache-path (path/child dataset-path "data-cache"))
 (def track-backup-path (path/child
@@ -62,60 +135,7 @@
 (data-cache (var frankfurt) (wikidata/id->location :Q1794))
 (restore-data-cache (var frankfurt))
 
-(def ^:dynamic *cloudkit-client*
-  (ck-client/auth-server-to-server
-   (assoc
-    (ck-client/create-client "iCloud.com.mungolab.trekmate")
-    :environment
-    "production")
-   (jvm/environment-variable "TREK_MATE_CK_PROD_KEY")
-   (jvm/environment-variable "TREK_MATE_CK_PROD_ID")))
 
-(defn create-location-request-v1-seq
-  []
-  (ck-client/records-query-all
-   *cloudkit-client*
-   "LocationRequestV1"
-   []
-   [(ck-sort/ascending-system ck-model/created-timestamp)]))
-
-(def location-request-seq nil)
-#_(data-cache
- (var location-request-seq)
- (doall (create-location-request-v1-seq)))
-#_(data-cache (var location-request-seq) [])
-(restore-data-cache (var location-request-seq))
-
-(def location-map
-  (reduce
-   (fn [location-map location]
-     (let [location-id (util/location->location-id location)]
-       (update-in
-        location-map
-        [location-id]
-        (fn [old-location]
-          (if old-location
-            (do
-              (report "multiple location")
-              
-              (report old-location)
-              (report location)
-              
-              (call-and-pass
-               report
-               (assoc
-                location
-                :tags
-                (clojure.set/union (:tags location) (:tags old-location)))))
-            location)))))
-   {}
-   (doall (map
-           (fn [location-request]
-             {
-              :longitude (:longitude (:location location-request))
-              :latitude (:latitude (:location location-request))
-              :tags (into #{} (:tags location-request))})
-           location-request-seq))))
 
 ;;; show map
 
@@ -125,6 +145,9 @@
     belgrade]
    (vals location-map)))
 
+
+
+;; create 
 
 ;; filtering of all tracks
 ;; tracks are located under my-dataset, trek-mate.storage is used for backup from CK

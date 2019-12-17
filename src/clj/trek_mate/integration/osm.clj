@@ -5,6 +5,7 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.localfs :as fs]
@@ -1235,6 +1236,83 @@
             (context/counter context "way-out"))
           (async/close! tile-out))
         (context/counter context "tile-out")))
-    (context/set-state context "close")))
+    (context/set-state context "completion")))
+
+(defn render-way-tile-go
+  "Renders ways comming from channel to specified tile. Filters out of scope
+  locations. Once rendering is finished newly created image context will be sent
+  to out."
+  [context [zoom x y :as tile] way-in image-context-out]
+  (async/go
+    (context/set-state context "init")
+    (let [image-context (draw/create-image-context 256 256)
+          min-x (* 256 x)
+          max-x (* 256 (inc x))
+          min-y (* 256 y)
+          max-y (* 256 (inc y))
+          location-fn (tile-math/zoom-->location->point zoom)]
+      (draw/write-background image-context draw/color-white)
+      (loop [way (async/<! way-in)]
+       (if way
+         (do
+           (context/set-state context "step")
+           (context/counter context "way-in")
+           (doseq [[[px1 py1 :as p1] [px2 py2 :as p2]]
+                   (partition
+                    2
+                    1
+                    (map
+                     location-fn
+                     (filter some? (:locations way))))]
+             (context/counter context "location-pair-in")
+             (when
+                 (or
+                  (and (>= px1 min-x) (< px1 max-x) (>= py1 min-y) (< py1 max-y))
+                  (and (>= px2 min-x) (< px2 max-x) (>= py2 min-y) (< py2 max-y)))
+               (context/counter context "location-pair-render")
+               (let [x1 (- px1 min-x)
+                     y1 (- py1 min-y)
+                     x2 (- px2 min-x)
+                     y2 (- py2 min-y)
+                     dx (- x2 x1)
+                     dy (- y2 y1)]
+                 #_(println px1 x1 py1 y1 px2 x2 py2 y2 dx dy)
+                 (if (not (and (= dx 0) (= dy 0)))
+                   (if (or (= dx 0) (> (Math/abs (float (/ dy dx))) 1))
+                     (if (< dy 0)
+                       (doseq [y (range y2 (inc y1))]
+                         #_(println (int (+ x1 (/ (* (- y y1) dx) dy))) (int y))
+                         (draw/set-point-safe
+                          image-context
+                          draw/color-black
+                          (int (+ x1 (/ (* (- y y1) dx) dy)))
+                          (int y)))
+                       (doseq [y (range y1 (inc y2))]
+                         #_(println (int (+ x1 (/ (* (- y y1) dx) dy))) (int y))
+                         (draw/set-point-safe
+                          image-context
+                          draw/color-black
+                          (int (+ x1 (/ (* (- y y1) dx) dy)))
+                          (int y))))
+                     (if (< dx 0)
+                       (doseq [x (range x2 (inc x1))]
+                         #_(println (int x) (int (+ y1 (* (/ dy dx) (- x x1)))))
+                         (draw/set-point-safe
+                          image-context
+                          draw/color-black
+                          (int x)
+                          (int (+ y1 (* (/ dy dx) (- x x1))))))
+                       (doseq [x (range x1 (inc x2))]
+                         #_(println (int x) (int (+ y1 (* (/ dy dx) (- x x1)))))
+                         (draw/set-point-safe
+                          image-context
+                          draw/color-black
+                          (int x)
+                          (int (+ y1 (* (/ dy dx) (- x x1))))))))))))
+           (recur (async/<! way-in)))
+         (do
+           (async/>! image-context-out image-context)
+           (async/close! image-context-out)
+           (context/set-state context "completion")))))))
 
 

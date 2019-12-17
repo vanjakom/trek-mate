@@ -37,6 +37,10 @@
 (def track-backup-path
   (path/child env/*global-my-dataset-path* "trek-mate" "cloudkit" "track"))
 
+(def location-request-backup-path
+  (path/child env/*global-my-dataset-path* "trek-mate" "cloudkit" "location-request"))
+
+
 (defn create-tile->cloudkit-tile-v1 [path]
   (fn [[zoom x y]]
     (assoc
@@ -360,6 +364,62 @@
       :tags (into #{} (:tags track))})
    (:locations track)))
 
+(defn cloudkit-location-request-seq
+  ([] (cloudkit-location-request-seq 0))
+  ([from-timestamp]
+   (client/records-query-all
+    client-prod
+    "LocationRequestV1"
+    [(filter/greater "___createTime" from-timestamp)]
+    [(sort/ascending "___createTime")])))
+
+
+(defn backup-location-requests [from-timestamp]
+  (let [[max-timestamp per-user-map ]
+        (reduce
+         (fn [[max-timestamp per-user-map] request]
+           [
+            (max (:timestamp (:created (meta request))) max-timestamp)
+            (update-in
+             per-user-map
+             [(:userRecordName (:created (meta request)))]
+             (fn [request-seq]
+               (conj
+                (or
+                 request-seq
+                 [])
+                request)))])
+         [Long/MIN_VALUE {}]
+         (cloudkit-location-request-seq from-timestamp))]
+    (doseq [[user request-seq] per-user-map]
+      (with-open [os (fs/output-stream (path/child
+                                        location-request-backup-path
+                                        user
+                                        from-timestamp))]
+        (doseq [request request-seq]
+          (json/write-to-line-stream request os))))
+    (println "backup done, max timestamp:" max-timestamp)))
+
+(defn location-request-seq-from-backup
+  [user]
+  (mapcat
+   (fn [path]
+     (with-open [is (fs/input-stream path)]
+       (doall
+        (json/read-lines-keyworded is))))
+   (fs/list (path/child location-request-backup-path user))))
+
+
+;; ----------- location backup ---------------
+;; call to backup latest location requests, once backup is done prepare
+;; write down next timestamp
+
+;; next timestamp 1576576198085
+#_(backup-location-requests 1572251631966)
+#_(backup-location-requests 0)
+
+
+;; ----------- track backup --------------
 ;; run latest prepared command, once finished prepare new command by using
 ;; latest timestamp reported to stdout
 #_(backup-tracks 0)

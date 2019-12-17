@@ -185,6 +185,66 @@
      os)))
 
 
+(let [context (context/create-state-context)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+    (pipeline/read-edn-go
+     (context/wrap-scope context "read")
+     resource-controller
+     (path/child belgrade-way-tile-path "13" "4561" "2951")
+     (channel-provider :way-in))
+
+    #_(pipeline/take-go
+     (context/wrap-scope context "take")
+     2
+     (channel-provider :way-in)
+     (channel-provider :way-take))
+    
+    (osm/render-way-tile-go
+     (context/wrap-scope context "render")
+     [13 4561 2951]
+     (channel-provider :way-in)
+     (channel-provider :context-out))
+
+    (if-let [image-context (pipeline/wait-on-channel
+                            (context/wrap-scope context "wait")
+                            (channel-provider :context-out)
+                            30000)]
+      (with-open [os (fs/output-stream ["tmp" "out.png"])]
+        (draw/write-png-to-stream image-context os)))
+    (context/print-state-context context))
+
+;; different zoom
+(let [context (context/create-state-context)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+    (pipeline/read-edn-go
+     (context/wrap-scope context "read")
+     resource-controller
+     (path/child belgrade-way-tile-path "13" "4561" "2951")
+     (channel-provider :way-in))
+
+    #_(pipeline/take-go
+     (context/wrap-scope context "take")
+     2
+     (channel-provider :way-in)
+     (channel-provider :way-take))
+    
+    (osm/render-way-tile-go
+     (context/wrap-scope context "render")
+     [14 9122 5902]
+     (channel-provider :way-in)
+     (channel-provider :context-out))
+
+    (if-let [image-context (pipeline/wait-on-channel
+                            (context/wrap-scope context "wait")
+                            (channel-provider :context-out)
+                            10000)]
+      (with-open [os (fs/output-stream ["tmp" "out-1.png"])]
+        (draw/write-png-to-stream image-context os)))
+    (context/print-state-context context))
+
+
 #_(with-open [is (fs/input-stream (path/child belgrade-way-tile-path "13" "4561" "2951"))
             os (fs/output-stream ["tmp" "out.geojson"])]
   (json/write-to-stream
