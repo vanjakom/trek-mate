@@ -5,6 +5,8 @@
   (:require
    compojure.core
    [clj-common.http-server :as server]
+   [clj-common.context :as context]
+   [clj-common.pipeline :as pipeline]
    [clj-common.http :as http]
    [clj-common.jvm :as jvm]
    [clj-common.2d :as draw]
@@ -20,7 +22,7 @@
    [trek-mate.env :as env]
    [trek-mate.pin :as pin]
    [trek-mate.tag :as tag]
-   [trek-mate.integration.osm :as osm-integration]))
+   [trek-mate.integration.osm :as osm]))
 
 ;;; todo
 ;;; 20190204 change signature of tile-fn to return image instead of input stream this would
@@ -252,6 +254,59 @@
         (fn [dotstore-fn]
           (dotstore-fn min-longitude max-longitude min-latitude max-latitude))
         dotstore-fn-seq)))))
+
+(defn tile-overlay-way-split-render-fn
+  [original-tile-fn width-color-fn way-split-path split-zoom]
+  (fn [zoom x y]
+    (if-let [tile-is (original-tile-fn zoom x y)]
+      (if (>= zoom split-zoom)
+        (let [background-image-context (draw/input-stream->image-context tile-is)
+              image-context (draw/create-image-context 256 256)]
+          (draw/draw-image image-context [127 127] background-image-context)
+          (let [[source-zoom source-x source-y]
+                (first (tile-math/zoom->tile->tile-seq split-zoom [zoom x y]))
+                context (context/create-state-context)
+                channel-provider (pipeline/create-channels-provider)
+                resource-controller (pipeline/create-trace-resource-controller context)]
+            (pipeline/read-edn-go
+             (context/wrap-scope context "read")
+             resource-controller
+             (path/child way-split-path source-zoom source-x source-y)
+             (channel-provider :way-in))
+
+            #_(pipeline/take-go
+               (context/wrap-scope context "take")
+               2
+               (channel-provider :way-in)
+               (channel-provider :way-take))
+    
+            (osm/render-way-tile-go
+             (context/wrap-scope context "render")
+             image-context
+             width-color-fn
+             [zoom x y]
+             (channel-provider :way-in)
+             (channel-provider :context-out))
+
+            (pipeline/wait-on-channel
+             (context/wrap-scope context "wait")
+             (channel-provider :context-out)
+             60000)
+            (context/print-state-context context)
+            (let [buffer-output-stream (io/create-buffer-output-stream)]
+              (draw/write-png-to-stream image-context buffer-output-stream)
+              (io/buffer-output-stream->input-stream buffer-output-stream))))
+        tile-is))))
+
+(defn create-tile-from-way-split-fn
+  "Creates rendering fn suitable for map tile rendering"
+  [way-split-path split-zoom]
+  (tile-overlay-way-split-render-fn
+   (create-empty-raster-tile-fn)
+   (constantly [1 draw/color-black])
+   way-split-path
+   split-zoom))
+
 
 (defonce active-dotstore (atom {}))
 #_(alter-var-root (var active-dotstore) (constantly (atom {})))

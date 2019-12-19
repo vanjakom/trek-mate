@@ -252,7 +252,9 @@
    (edn/input-stream->seq is))
   os))
 
-
+(with-open [os (fs/output-stream ["tmp" "out-1.png"])]
+  (draw/write-png-to-stream
+   ((create-way-render-fn belgrade-way-tile-path 13) [13 4562 2951]) os))
 
 ;; todo copy
 ;; requires data-cache-path to be definied, maybe use *ns*/data-cache-path to
@@ -347,9 +349,51 @@
                   :zoom 13}
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
-                    (web/create-osm-external-raster-tile-fn)))
+                    (web/create-tile-from-way-split-fn belgrade-way-tile-path 13)))
   :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
   :search-fn nil})
+
+(web/register-map
+ "belgrade-cycle"
+ {
+  :configuration {
+                  
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 13}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/tile-overlay-way-split-render-fn
+                     (web/create-osm-external-raster-tile-fn)
+                     (fn [way]
+                       (let [tags (:tags way)]
+                         (cond
+                           (= (get tags "highway") "cycleway")
+                           [2 draw/color-blue]
+
+                           (and
+                            (= (get tags "highway") "footway")
+                            (= (get tags "bicycle") "designated"))
+                           [2 draw/color-blue]
+
+                           (and
+                            (contains? tags "highway")
+                            (= (get tags "bicycle") "designated"))
+                           [2 (draw/color 0 191 255)]
+                           
+                           (= (get tags "bicycle") "no")
+                           [2 draw/color-red]
+
+                           (contains? tags "bicycle")
+                           [2 draw/color-yellow]
+                           :else
+                           nil)))
+                     belgrade-way-tile-path
+                     13)))
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
+  :search-fn nil})
+
+
 
 (web/create-server)
 

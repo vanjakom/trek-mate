@@ -198,8 +198,9 @@
 	    setStatus (
 		"{:longitude " + Number (e.latlng.lng).toFixed (5) +
 		" :latitude " + Number (e.latlng.lat).toFixed (5)  +
-		" <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "'>osm</a>" +
-		    " <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "'>iD</a>")
+		" <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" +
+		" <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" +
+	        " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=18' target='_blank'>mapillary</a>")
 	})
 
       
