@@ -395,6 +395,15 @@
 
 
 
+
+(count
+ (zoom->zoom->tile-seq->tile-seq
+  12
+  18
+  (tile-math/calculate-tile-seq
+   12
+   20.31544 20.55679 44.72308 44.89334)))
+
 (web/create-server)
 
 ;; process fns, add new approaches on top
