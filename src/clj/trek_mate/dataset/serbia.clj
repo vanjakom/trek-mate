@@ -22,6 +22,7 @@
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.render :as render]
    [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]
@@ -136,6 +137,7 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 #_(pipeline/stop-pipeline (:node-in way-with-location-pipeline))
 
+;; prepare way split
 (def tile-way-pipeline nil)
 (let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
@@ -353,7 +355,7 @@
   :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
   :search-fn nil})
 
-(web/register-map
+#_(web/register-map
  "belgrade-cycle"
  {
   :configuration {
@@ -598,3 +600,51 @@
   :search-fn nil})
 
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+;; prepare zuce track for osm mapping
+
+(with-open [is (fs/input-stream (path/child
+                                 storage/track-backup-path
+                                 env/*trek-mate-user*
+                                 "1576936664.json"))]
+  (let [location-seq (storage/track->location-seq
+                      (json/read-keyworded is))]
+    (web/register-raster-tile
+     "zuce"
+     (render/create-transparent-tile-fn-from-way
+      location-seq
+      3
+      draw/color-red))))
+
+(web/register-raster-tile
+ "tile-number"
+ (render/create-tile-number-tile-fn))
+
+(web/register-raster-tile
+ "belgrade-bicycle"
+ (render/create-way-split-tile-fn
+  belgrade-way-tile-path
+  13
+  (fn [way]
+    (let [tags (:tags way)]
+      (cond
+        (= (get tags "highway") "cycleway")
+        [2 draw/color-blue]
+
+        (and
+         (= (get tags "highway") "footway")
+         (= (get tags "bicycle") "designated"))
+        [2 draw/color-blue]
+
+        (and
+         (contains? tags "highway")
+         (= (get tags "bicycle") "designated"))
+        [2 (draw/color 0 191 255)]
+        
+        (= (get tags "bicycle") "no")
+        [2 draw/color-red]
+
+        (contains? tags "bicycle")
+        [2 draw/color-yellow]
+        :else
+        nil)))))

@@ -35,6 +35,11 @@
                    "extract"
                    "mine"))
 
+;; work on location list
+;; Q3533204 - Triangle building, Paris
+;; Q189476 - Abraj Al Bait towers, Mecca
+
+
 ;; todo copy
 ;; requires data-cache-path to be definied, maybe use *ns*/data-cache-path to
 ;; allow defr to be defined in clj-common
@@ -256,3 +261,33 @@
 
 
 (web/create-server)
+
+;; prepare track split
+;; using same logic as for way split in osm, serbia dataset
+
+(def tile-track-pipeline nil)
+;; code taken from serbia osm split
+#_(let [context (context/create-state-context)
+      context-thread (context/create-state-context-reporting-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read")
+   belgrade-way-with-location-path
+   (channel-provider :way-in))
+
+  (osm/tile-way-go
+   (context/wrap-scope context "tile")
+   13
+   (fn [[zoom x y]]
+     (let [channel (async/chan)]
+       (pipeline/write-edn-go
+        (context/wrap-scope context (str zoom "/" x "/" y))
+        resource-controller
+        (path/child belgrade-way-tile-path zoom x y)
+        channel)
+       channel))
+   (channel-provider :way-in))
+  (alter-var-root #'way-with-location-pipeline (constantly (channel-provider))))
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(pipeline/stop-pipeline (:way-in way-with-location-pipeline))

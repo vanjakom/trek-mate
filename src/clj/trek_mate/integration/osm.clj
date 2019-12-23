@@ -1238,6 +1238,7 @@
         (context/counter context "tile-out")))
     (context/set-state context "completion")))
 
+;; todo use render/ specific line rendering
 (defn render-way-tile-go
   "Renders ways comming from channel to specified tile. Filters out of scope
   locations. Once rendering is finished true will be sent to result ch."

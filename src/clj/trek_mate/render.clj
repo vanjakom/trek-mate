@@ -5,12 +5,135 @@
    clj-common.clojure)
   (:require
    [clj-common.2d :as draw]
+   [clj-common.context :as context]
    [clj-common.io :as io]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.math.tile :as tile-math]
-   [trek-mate.env :as env]))
+   [trek-mate.env :as env]
+   [trek-mate.integration.osm :as osm]))
+
+;;; take 2, isolating code for tile rendering
+
+(defn render-location-seq
+  [image-context width color [zoom x y :as tile] location-seq]
+  (let [min-x (* 256 x)
+        max-x (* 256 (inc x))
+        min-y (* 256 y)
+        max-y (* 256 (inc y))
+        location-fn (tile-math/zoom-->location->point zoom)]
+    (doseq [[[px1 py1 :as p1] [px2 py2 :as p2]]
+           (partition
+            2
+            1
+            (map
+             location-fn
+             location-seq))]
+     (when
+         (or
+          (and (>= px1 min-x) (< px1 max-x) (>= py1 min-y) (< py1 max-y))
+          (and (>= px2 min-x) (< px2 max-x) (>= py2 min-y) (< py2 max-y)))
+         (let [x1 (- px1 min-x)
+               y1 (- py1 min-y)
+               x2 (- px2 min-x)
+               y2 (- py2 min-y)
+               dx (- x2 x1)
+               dy (- y2 y1)]
+           #_(println px1 x1 py1 y1 px2 x2 py2 y2 dx dy)
+           (if (not (and (= dx 0) (= dy 0)))
+             (if (or (= dx 0) (> (Math/abs (float (/ dy dx))) 1))
+               (if (< dy 0)
+                 (doseq [y (range y2 (inc y1))]
+                   #_(println (int (+ x1 (/ (* (- y y1) dx) dy))) (int y))
+                   (draw/set-point-width-safe
+                    image-context
+                    color
+                    width
+                    (int (+ x1 (/ (* (- y y1) dx) dy)))
+                    (int y)))
+                 (doseq [y (range y1 (inc y2))]
+                   #_(println (int (+ x1 (/ (* (- y y1) dx) dy))) (int y))
+                   (draw/set-point-width-safe
+                    image-context
+                    color
+                    width
+                    (int (+ x1 (/ (* (- y y1) dx) dy)))
+                    (int y))))
+               (if (< dx 0)
+                 (doseq [x (range x2 (inc x1))]
+                   #_(println (int x) (int (+ y1 (* (/ dy dx) (- x x1)))))
+                   (draw/set-point-width-safe
+                    image-context
+                    color
+                    width
+                    (int x)
+                    (int (+ y1 (* (/ dy dx) (- x x1))))))
+                 (doseq [x (range x1 (inc x2))]
+                   #_(println (int x) (int (+ y1 (* (/ dy dx) (- x x1)))))
+                   (draw/set-point-width-safe
+                    image-context
+                    color
+                    width
+                    (int x)
+                    (int (+ y1 (* (/ dy dx) (- x x1))))))))))))))
+
+(defn create-tile-fn-from-way
+  [location-seq width color]
+  (fn [image-context [zoom x y :as tile]]
+    (render-location-seq image-context width color tile location-seq)))
+
+(defn create-transparent-tile-fn-from-way
+  [location-seq width color]
+  (let [render-fn (create-tile-fn-from-way location-seq width color)]
+    (fn [image-context [zoom x y :as tile]]
+      (draw/write-background image-context draw/color-transparent)
+      (render-fn image-context tile))))
+
+(defn create-tile-number-tile-fn
+  []
+  (fn [image-context [zoom x y :as tile]]
+    (draw/write-background image-context draw/color-transparent)
+    (draw/draw-poly
+     image-context
+     [{:x 0 :y 0} {:x 255 :y 0} {:x 255 :y 255} {:x 0 :y 255}]
+     draw/color-black)
+    (draw/draw-text image-context draw/color-black (str zoom "/" x "/" y) 20 20)))
+
+(defn create-way-split-tile-fn
+  [way-split-path split-zoom width-color-fn]
+  (fn [image-context [zoom x y :as tile]]
+    (when (>= zoom split-zoom)
+      (let [[source-zoom source-x source-y]
+            (first (tile-math/zoom->tile->tile-seq split-zoom [zoom x y]))
+            context (context/create-state-context)
+            channel-provider (pipeline/create-channels-provider)
+            resource-controller (pipeline/create-trace-resource-controller context)]
+        (pipeline/read-edn-go
+         (context/wrap-scope context "read")
+         resource-controller
+         (path/child way-split-path source-zoom source-x source-y)
+         (channel-provider :way-in))
+
+        #_(pipeline/take-go
+           (context/wrap-scope context "take")
+           2
+           (channel-provider :way-in)
+           (channel-provider :way-take))
+        
+        (osm/render-way-tile-go
+         (context/wrap-scope context "render")
+         image-context
+         width-color-fn
+         [zoom x y]
+         (channel-provider :way-in)
+         (channel-provider :context-out))
+
+        (pipeline/wait-on-channel
+         (context/wrap-scope context "wait")
+         (channel-provider :context-out)
+         60000)
+        (context/print-state-context context)))))
 
 ;;; todo deprecated
 ;;; see if there is useful code to keep

@@ -255,7 +255,8 @@
           (dotstore-fn min-longitude max-longitude min-latitude max-latitude))
         dotstore-fn-seq)))))
 
-(defn tile-overlay-way-split-render-fn
+;; use render/create-way-split-tile-fn
+#_(defn tile-overlay-way-split-render-fn
   [original-tile-fn width-color-fn way-split-path split-zoom]
   (fn [zoom x y]
     (if-let [tile-is (original-tile-fn zoom x y)]
@@ -539,6 +540,18 @@
 (defn unregister-map [name]
   (swap! configuration dissoc name))
 
+(defn register-raster-tile [name tile-fn]
+  (swap!
+   configuration
+   assoc
+   name
+   {:raster-tile-fn
+    (fn [zoom x y]
+      (let [image-context (draw/create-image-context 256 256)]
+        (tile-fn image-context [zoom x y])
+        (let [buffer-output-stream (io/create-buffer-output-stream)]
+          (draw/write-png-to-stream image-context buffer-output-stream)
+          (io/buffer-output-stream->input-stream buffer-output-stream))))}))
 
 (def handler
   (compojure.core/routes
