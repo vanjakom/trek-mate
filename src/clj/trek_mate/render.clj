@@ -106,15 +106,18 @@
     (when (>= zoom split-zoom)
       (let [[source-zoom source-x source-y]
             (first (tile-math/zoom->tile->tile-seq split-zoom [zoom x y]))
+            tile-path (path/child way-split-path source-zoom source-x source-y)
             context (context/create-state-context)
             channel-provider (pipeline/create-channels-provider)
             resource-controller (pipeline/create-trace-resource-controller context)]
-        (pipeline/read-edn-go
-         (context/wrap-scope context "read")
-         resource-controller
-         (path/child way-split-path source-zoom source-x source-y)
-         (channel-provider :way-in))
+        (when (fs/exists? tile-path)
+         (pipeline/read-edn-go
+          (context/wrap-scope context "read")
+          resource-controller
+          tile-path
+          (channel-provider :way-in))
 
+         
         #_(pipeline/take-go
            (context/wrap-scope context "take")
            2
@@ -133,7 +136,7 @@
          (context/wrap-scope context "wait")
          (channel-provider :context-out)
          60000)
-        (context/print-state-context context)))))
+        (context/print-state-context context))))))
 
 ;;; todo deprecated
 ;;; see if there is useful code to keep

@@ -2,6 +2,8 @@
   (:use
    clj-common.clojure)
   (:require
+   [clojure.core.async :as async]
+   
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.2d :as draw]
@@ -25,7 +27,7 @@
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.storage :as storage]
-   
+   [trek-mate.render :as render]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
@@ -110,9 +112,6 @@
 
 (def dataset-path (path/child env/*data-path* "mine"))
 (def data-cache-path (path/child dataset-path "data-cache"))
-(def track-backup-path (path/child
-                        env/*global-my-dataset-path* "trek-mate" "cloudkit"
-                        "track" env/*trek-mate-user*))
 
 ;;; data caching fns, move them to clj-common if they make sense
 (defn data-cache
@@ -264,17 +263,21 @@
 
 ;; prepare track split
 ;; using same logic as for way split in osm, serbia dataset
-
-(def tile-track-pipeline nil)
+(def track-backup-path (path/child
+                        env/*global-my-dataset-path* "trek-mate" "cloudkit"
+                        "track" env/*trek-mate-user*))
+(def track-split-path (path/child dataset-path "track-split"))
+(def track-split-pipeline nil)
 ;; code taken from serbia osm split
-#_(let [context (context/create-state-context)
+(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
-  (pipeline/read-edn-go
+  (pipeline/read-json-path-seq-go
    (context/wrap-scope context "read")
-   belgrade-way-with-location-path
-   (channel-provider :way-in))
+   resource-controller
+   (fs/list track-backup-path)
+   (channel-provider :track-in))
 
   (osm/tile-way-go
    (context/wrap-scope context "tile")
@@ -284,10 +287,21 @@
        (pipeline/write-edn-go
         (context/wrap-scope context (str zoom "/" x "/" y))
         resource-controller
-        (path/child belgrade-way-tile-path zoom x y)
+        (path/child track-split-path zoom x y)
         channel)
        channel))
-   (channel-provider :way-in))
-  (alter-var-root #'way-with-location-pipeline (constantly (channel-provider))))
+   (channel-provider :track-in))
+  (alter-var-root #'track-split-pipeline (constantly (channel-provider))))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
-#_(pipeline/stop-pipeline (:way-in way-with-location-pipeline))
+#_(pipeline/stop-pipeline (:track-in track-split-pipeline))
+
+(pipeline/closed? (:track-in track-split-pipeline))
+
+
+(web/register-raster-tile
+ "tracks"
+ (render/create-way-split-tile-fn
+  ["Users" "vanja" "my-dataset-temp" "track-split"]
+  13
+  (constantly [1 draw/color-red])))
+

@@ -299,7 +299,7 @@
               (io/buffer-output-stream->input-stream buffer-output-stream))))
         tile-is))))
 
-(defn create-tile-from-way-split-fn
+#_(defn create-tile-from-way-split-fn
   "Creates rendering fn suitable for map tile rendering"
   [way-split-path split-zoom]
   (tile-overlay-way-split-render-fn
