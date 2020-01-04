@@ -19,7 +19,17 @@
                   :tag
                   (get-in
                    geocache-content
-                   [:groundspeak:logs :content 0 :content]))]
+                   [:groundspeak:logs :content 0 :content]))
+        logs (map
+              (fn [log]
+                (into
+                 {}
+                 (map
+                  #(vector (:tag %) (first (:content %)))
+                  (:content log))))
+              (get-in
+               geocache-content
+               [:groundspeak:logs :content]))]
     (with-meta
       {
        :longitude (Double/parseDouble (:lon (:attrs wpt)))
@@ -29,7 +39,8 @@
        :type (first (:content (:groundspeak:type geocache-content)))
        :hint (first (:content (:groundspeak:encoded_hints geocache-content)))
        :last-log-date (get-in last-log [:groundspeak:date :content 0])
-       :last-log-type (get-in last-log [:groundspeak:type :content 0])}
+       :last-log-type (get-in last-log [:groundspeak:type :content 0])
+       :logs logs}
       {
        ::type :geocache})))
 
@@ -116,6 +127,34 @@
               (= (:type geocache) "Traditional Cache") "#traditional-cache"
               :else nil)]))})
 
+(defn myfind-geocache->location [geocache]
+  (let [log (last (:logs geocache))
+        date (:groundspeak:date log)
+        date-tag (str
+                  "@"
+                  (.substring date 0 4)
+                  (.substring date 5 7)
+                  (.substring date 8 10))]
+    {
+    :longitude (:longitude geocache)
+    :latitude (:latitude geocache)
+    :tags (into
+           #{}
+           (filter
+            some?
+            [
+             "#geocaching.com"
+             tag/tag-geocache
+             (str "geocaching:id:" (:code geocache))
+             (tag/name-tag (:name geocache))
+             (tag/url-tag
+              (:code geocache)
+              (str
+               "https://www.geocaching.com/seek/cache_details.aspx?wp="
+               (:code geocache)))
+             date-tag
+             (when (not (= (:groundspeak:type log) "Found it")) "@dnf")]))}))
+
 (defn gpx-path->location [gpx-path]
   (with-open [is (fs/input-stream gpx-path)]
     (let [geocache (:geocache (extract (gpx/read-stream is)))]
@@ -149,9 +188,39 @@
       (async/close! out)
       (context/set-state context "completion"))))
 
+
+(defn my-find-go
+  "Reads given pocket query geocaches and emits them to channel"
+  [context path out]
+  (async/go
+    (context/set-state context "init")
+    (with-open [input-stream (fs/input-stream path)]
+      (loop [geocaches (map
+                        myfind-geocache->location
+                        (map
+                         extract-geocache-wpt
+                         (filter
+                          #(= (:tag %) :wpt)
+                          (:content (gpx/read-stream input-stream)))))]
+        (when-let [geocache (first geocaches)]
+          (context/set-state context "step")
+          (context/counter context "in")
+          (when (async/>! out geocache)
+            (context/counter context "out")
+            (recur (rest geocaches)))))
+      (async/close! out)
+      (context/set-state context "completion"))))
+
 (defn location->gc-number
   [location]
   (first
+   (filter
+    some?
+    (map
+     #(when (.startsWith % "geocaching:id:")
+        (.substring % (.length "geocaching:id:")))
+     (:tags location))))
+  #_(first
    (filter
     #(and
       (.startsWith % "GC")
