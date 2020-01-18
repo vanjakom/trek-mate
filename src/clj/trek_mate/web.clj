@@ -244,6 +244,7 @@
                                (and
                                 (= x location-x)
                                 (= y location-y))))]
+      ;; why not just filter?
       (reduce
        (fn [location-seq location]
          (if (location-test-fn location)
@@ -609,6 +610,17 @@
        :body (jvm/resource-as-stream ["web" "map.html"])}
       {
        :status 404}))
+   ;; testing handler
+   (compojure.core/GET
+    "/map/:name"
+    [name]
+    (if-let [map (get (deref configuration) name)]
+      {
+       :status 200
+       :body (jvm/resource-as-stream ["web" "map-canvas.html"])}
+      {
+       :status 404}))
+   
    (compojure.core/GET
     "/configuration/:name"
     [name]

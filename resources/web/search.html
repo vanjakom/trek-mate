@@ -218,6 +218,10 @@
 				      selected = result
 				  })
 			  })
+
+			  if (locations.features.length == 0) {
+			      resultList.innerHTML = " no results"
+			  }
 		      },
 		      function () {})
 	      }

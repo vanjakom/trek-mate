@@ -172,9 +172,6 @@
    (var geocache-prepare-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-
-
-
 (first (filter #(contains? (:tags %) "geocaching:id:GC45E2Y")  geocache-prepare-seq))
 
 (defr geocache-seq geocache-prepare-seq)
