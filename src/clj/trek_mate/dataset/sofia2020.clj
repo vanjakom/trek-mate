@@ -248,6 +248,8 @@
 ;; node 6993496027 - basecamp outdoor
 ;; no poi - XCoSports Bulgaria OOD
 ;; node 6670013289 - k2
+;; way 155447771 - Q43282 - Hram Svetog Aleksandra Nevskog
+
 
 (def location-seq
   (take
