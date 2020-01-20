@@ -59,6 +59,10 @@
 	  white-space: normal;
 	  overflow-wrap: break-word;
       }
+
+      .leaflet-tile-container canvas {
+	  pointer-events: auto;
+      }
     </style>
   </head>
   <body>
@@ -93,116 +97,146 @@
       map.setView([45, 0], 4)
       map.setMaxBounds ([[-90,-180],[90,180]])
 
+      const latlngToTilePixel = (latlng, zoom) => {
+	  const layerPoint = map.options.crs.latLngToPoint(latlng, zoom).floor()
+	  const tile = layerPoint.divideBy(256).floor()
+	  const tileCorner = tile.multiplyBy(256).subtract(map.getPixelOrigin())
+	  const tilePixel = layerPoint.subtract(map.getPixelOrigin()).subtract(tileCorner)
+
+	  return tilePixel
+      }
+      
       jsonGet(
 	  "/configuration/" + mapId,
 	  function (configuration) {
 	      map.setView (
 		  [configuration.latitude, configuration.longitude],
 		  configuration.zoom)
+
+
+
+	      L.tileLayer(
+		  "/tile/raster/" + mapId + "/{z}/{x}/{y}",
+		  {
+		      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+		      maxZoom: 18,
+		      bounds:[[-90,-180], [90,180]],
+		      noWrap: true
+		  }).addTo(map)
+
+	      L.MarkerLoader = L.GridLayer.extend({
+		  initialize: function(url, options) {
+		      this._url = url;
+		      L.GridLayer.prototype.initialize.call(this, options);
+		  },
+
+		  createTile: function(coords, done) {
+		      var tile = L.DomUtil.create('canvas', 'leaflet-tile');
+		      var size = this.getTileSize();
+		      tile.width = size.x;
+		      tile.height = size.y;
+		      		      
+		      var tileUrl = L.Util.template(this._url, L.extend(coords, this.options));
+		      fetch(tileUrl).then(function(response) {
+			  var ctx = tile.getContext('2d');
+
+			  response.json().then(data => {
+			      var dots = data.features.map(function (location) {
+				  var id = location.properties.id
+				  var tags = location.properties.tags
+
+				  var tilePixel = latlngToTilePixel(
+				      {
+					  lng: location.geometry.coordinates[0],
+					  lat: location.geometry.coordinates[1]},
+				      coords.z)
+
+				  var dot = {
+				      longitude: location.geometry.coordinates[0],
+				      latitude: location.geometry.coordinates[1],
+				      tags: location.properties.tags,
+				      description: location.properties.description,
+				      pin: location.properties.pin,
+				      x: tilePixel.x,
+				      y: tilePixel.y
+				  }
+				  return dot
+			      })
+
+			      ctx.fillStyle = "#cc0000";
+			      ctx.beginPath();
+			      dots.forEach(function(dot) {
+				  ctx.moveTo(dot.x, dot.y)
+				  ctx.arc(dot.x, dot.y, 4, 0, 2 * Math.PI)
+			      })
+			      ctx.fill()
+
+			      tile.addEventListener(
+				  "click",
+				  function(e) {
+				      console.log(e)
+				      var found = false
+				      for (const index in dots) {
+					  var dot = dots[index]
+					  if (Math.abs(e.layerX - dot.x) < 5 && Math.abs(e.layerY - dot.y) < 5) {
+					      setStatus (
+						  dot.description + " " +
+						  "{:longitude " + Number (dot.longitude).toFixed (5) +
+						  " :latitude " + Number (dot.latitude).toFixed (5)  +
+						  " <a href='http://openstreetmap.org/#map=18/" + dot.latitude + "/" + dot.longitude + "' target='_blank'>view osm</a>" +
+						  " <a href='https://preview.ideditor.com/master/#map=18/" + dot.latitude + "/" + dot.longitude + "' target='_blank'>iD</a>" +
+						  " <a href='https://www.mapillary.com/app/?focus=map&lat=" + dot.latitude + "&lng=" + dot.longitude + "&z=18' target='_blank'>mapillary</a>")
+					      found = true
+					      break
+					  }
+				      }
+				      if (!found) {
+					  var pointXY = L.point(
+					      e.layerX + size.x * coords.x ,
+					      e.layerY + size.y * coords.y);
+					  console.log(pointXY)
+					  var location = map.unproject(pointXY, coords.z);
+					  setStatus (
+					          "{:longitude " + Number (location.lng).toFixed (5) +
+						  " :latitude " + Number (location.lat).toFixed (5)  +
+						  " <a href='http://openstreetmap.org/#map=18/" + location.lat + "/" + location.lng + "' target='_blank'>view osm</a>" +
+						  " <a href='https://preview.ideditor.com/master/#map=18/" + location.lat + "/" + location.lng + "' target='_blank'>iD</a>" +
+						  " <a href='https://www.mapillary.com/app/?focus=map&lat=" + location.lat + "&lng=" + location.lng + "&z=18' target='_blank'>mapillary</a>")
+				      }
+				  });
+			      done(null, tile);
+			  })});
+
+		      return tile;
+		  }
+	      });
+
+	      var markerLoader = new L.MarkerLoader(
+		  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
+		  {
+		      maxZoom: 18,
+		      bounds: [[-90,-180], [90, 180]],
+		      noWrap: true
+		  })
+	      markerLoader.addTo(map)
+
+	      /*
+	      map.on (
+		  "click",
+		  function (e) {
+		      setStatus (
+			  "{:longitude " + Number (e.latlng.lng).toFixed (5) +
+			      " :latitude " + Number (e.latlng.lat).toFixed (5)  +
+			      " <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" +
+			      " <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" +
+			      " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=18' target='_blank'>mapillary</a>")
+		  })
+	      */
+	      
 	  },
 	  function () {})
       
-      L.tileLayer(
-	  "/tile/raster/" + mapId + "/{z}/{x}/{y}",
-	  {
-	      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
-	      maxZoom: 18,
-	      bounds:[[-90,-180], [90,180]],
-	      noWrap: true
-	  }).addTo(map)
-
-      L.GridLayer.MarkerLoader = L.GridLayer.extend({
-	  initialize: function(url, options) {
-              this._url = url;
-              this._markerStore = {};
-              L.GridLayer.prototype.initialize.call(this, options);
-	      this.on("tileunload", function(tileEvent) {
-		  var key = this._tileCoordsToKey(tileEvent.coords)
-		  if (this._markerStore[key]) {
-		      console.log("remove marker")
-		      this._markerStore[key].remove()
-		      delete this._markerStore[key]
-		  }
-		  
-		  console.log("remove" + key)
-	      })
-	  },
-
-	  createTile: function(coords, done) {
-              var key = this._tileCoordsToKey(coords);
-              var data = {
-		  x: coords.x,
-		  y: coords.y,
-		  z: coords.z
-              };
-              var tileUrl = L.Util.template(this._url, L.extend(data, this.options));
-	      var markerStore = this._markerStore
-
-              fetch(tileUrl).then(function(response) {
-		  response.json().then(data => {
-		      var markers = data.features.map(function (location) {
-			  var id = location.properties.id
-			  var tags = location.properties.tags
-			      
-			  var icon = L.icon({
-			      iconUrl: location.properties.pin,
-			      iconSize: [25,25],
-			      iconAnchor: [12.5,12.5]})
-			  var marker = L.marker(
-			      [
-				  location.geometry.coordinates[1],
-				  location.geometry.coordinates[0]],
-			      {icon: icon})
-			  marker.on (
-			      "click",
-			      function (e) {
-				  setStatus (location.properties.description)
-			      })
-			  return marker
-		      })
-
-		      var group = L.layerGroup(markers)
-		      group.addTo(map)
-		      markerStore[key] = group
-		  
-		      done();
-		  })});
-
-	      return L.DomUtil.create('div');
-	  },
-
-	  /*
-	  _removeTile: function(key) {
-	      if (this._markerStore[key]) {
-		  this._markerStore[key].remove();
-		  delete this._markerStore[key];
-	      }
-
-              return L.GridLayer.prototype._removeTile(key);
-	  }
-	  */
-      });
-
-      var markerLoader = new L.GridLayer.MarkerLoader(
-	  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
-	  {
-	      maxZoom: 18,
-	      bounds: [[-90,-180], [90, 180]],
-	      noWrap: true
-	  })
-      markerLoader.addTo(map)
-
-      map.on (
-	"click",
-	function (e) {
-	    setStatus (
-		"{:longitude " + Number (e.latlng.lng).toFixed (5) +
-		" :latitude " + Number (e.latlng.lat).toFixed (5)  +
-		" <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" +
-		" <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" +
-	        " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=18' target='_blank'>mapillary</a>")
-	})
-
+      
       
       //initialize ();
     </script>

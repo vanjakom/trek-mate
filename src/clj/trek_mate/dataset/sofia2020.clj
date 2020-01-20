@@ -158,8 +158,7 @@
 #_(count search-list) ; 21335
 
 ;; prepare mappings
-(def )
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -196,7 +195,7 @@
 ;; prepare geocaches
 
 (def geocache-prepare-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (geocaching/pocket-query-go
@@ -238,10 +237,9 @@
    (var geocache-prepare-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(count geocache-prepare-seq) ; 2376
+#_(count geocache-prepare-seq) ; 2376
 
 (defr geocache-seq geocache-prepare-seq)
-
 
 (def hotel (overpass/node-id->location 2586978571))
 (defr sofia (wikidata/id->location :Q472))
@@ -251,11 +249,12 @@
 ;; no poi - XCoSports Bulgaria OOD
 ;; node 6670013289 - k2
 
-
-
 (def location-seq
-  (take 1 (concat
+  (take
+   1000
+   (concat
     (list
+     sofia
      hotel)
     geocache-seq)))
 

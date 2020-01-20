@@ -612,7 +612,7 @@
        :status 404}))
    ;; testing handler
    (compojure.core/GET
-    "/map/:name"
+    "/map-canvas/:name"
     [name]
     (if-let [map (get (deref configuration) name)]
       {
