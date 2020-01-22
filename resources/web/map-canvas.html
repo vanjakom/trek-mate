@@ -178,7 +178,7 @@
 				      var found = false
 				      for (const index in dots) {
 					  var dot = dots[index]
-					  if (Math.abs(e.layerX - dot.x) < 5 && Math.abs(e.layerY - dot.y) < 5) {
+					  if (Math.abs(e.offsetX - dot.x) < 5 && Math.abs(e.offsetY - dot.y) < 5) {
 					      setStatus (
 						  dot.description + " " +
 						  "{:longitude " + Number (dot.longitude).toFixed (5) +
@@ -192,8 +192,8 @@
 				      }
 				      if (!found) {
 					  var pointXY = L.point(
-					      e.layerX + size.x * coords.x ,
-					      e.layerY + size.y * coords.y);
+					      e.offsetX + size.x * coords.x ,
+					      e.offsetY + size.y * coords.y);
 					  console.log(pointXY)
 					  var location = map.unproject(pointXY, coords.z);
 					  setStatus (
