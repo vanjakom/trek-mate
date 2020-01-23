@@ -602,6 +602,13 @@
 
    ;; map specific handlers
    (compojure.core/GET
+    "/map-test"
+    [name]
+      {
+       :status 200
+       :body (jvm/resource-as-stream ["web" "map-test.html"])})
+   
+   (compojure.core/GET
     "/map/:name"
     [name]
     (if-let [map (get (deref configuration) name)]
