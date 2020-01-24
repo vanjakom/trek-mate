@@ -563,7 +563,7 @@
     {
      :status 200
      :headers {
-               "ContentType" "text/javascript"}
+               "Content-Type" "text/javascript"}
      :body (jvm/resource-as-stream ["web" "lib" "core.js"])})
    (compojure.core/GET
     "/style.css"
@@ -571,7 +571,7 @@
     {
      :status 200
      :headers {
-               "ContentType" "text/csst"}
+               "Content-Type" "text/css"}
      :body (jvm/resource-as-stream ["web" "style.css"])})
 
    ;; global handlers
@@ -582,7 +582,7 @@
       {
        :status 200
        :headers {
-                 "ContentType" "image/png"}
+                 "Content-Type" "image/png"}
        :body image}
       {:status 404}))
    (compojure.core/GET
@@ -595,7 +595,7 @@
        {
         :status 200
         :headers {
-                  "ContentType" "application/json"}
+                  "Content-Type" "application/json"}
         :body (json/write-to-string
                (geojson/location-seq->geojson dot-seq))}
        {:status 404})))
@@ -634,6 +634,8 @@
     (if-let [map (get (deref configuration) name)]
       {
        :status 200
+       :headers {
+                 "Content-Type" "application/json"}
        :body (json/write-to-string (:configuration map))}
       {
        :status 404}))
@@ -649,7 +651,7 @@
           {
            :status 200
            :headers {
-                     "ContentType" "image/png"}
+                     "Content-Type" "image/png"}
            :body input-stream}
           {:status 404})
         {:status 404})
@@ -668,7 +670,7 @@
           {
            :status 200
            :headers {
-                     "ContentType" "application/json"}
+                     "Content-Type" "application/json"}
            :body (json/write-to-string
                   (enrich-locations
                    (geojson/location-seq->geojson

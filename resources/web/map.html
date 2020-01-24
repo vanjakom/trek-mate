@@ -88,9 +88,98 @@
 	  document.getElementById ("status").innerHTML = status
       }
 
+      // stores currently active tiles and assigned markers ...
+      var tileStore = new Map()
+      
+      L.GridLayer.MarkerLoader = L.GridLayer.extend({
+	  initialize: function(url, options) {
+              this._url = url
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this.on("tileunload", function(tileEvent) {
+		  var key = tileEvent.coords.z + "/" + tileEvent.coords.x + "/" + tileEvent.coords.y
+		  var tile = this._markerStore.get(key)
+		  if (tile) {
+		      this.tileStore.delete(key)
+		      // todo delete markers
+		  }
+	      })
+	  },
+
+	  createTile: function(coords, done) {
+	      var key = tileEvent.coords.z + "/" + tileEvent.coords.x + "/" + tileEvent.coords.y
+              var tile = tileStore.get(key)
+
+	      if (tile == nil) {
+		  var tileUrl = L.Util.template(this._url, L.extend(data, this.options))
+		  fetch(tileUrl).then(function(response) {
+		      response.json().then(data => {
+			  tileStore.set(key, data.features)
+			  var markers = data.features.map(function (location) {
+			      var id = location.properties.id
+			      var tags = location.properties.tags
+			      
+			      var icon = L.icon({
+				  iconUrl: location.properties.pin,
+				  iconSize: [25,25],
+				  iconAnchor: [12.5,12.5]})
+			      var marker = L.marker(
+				  [
+				      location.geometry.coordinates[1],
+				      location.geometry.coordinates[0]],
+				  {icon: icon})
+			      marker.on (
+				  "click",
+				  function (e) {
+				      setStatus (location.properties.description)
+				  })
+			      return marker
+			  })
+
+			  var group = L.layerGroup(markers)
+			  group.addTo(map)
+			  markerStore[key] = group
+			  
+			  done()
+		      })})
+	      }
+
+	      return L.DomUtil.create('div')
+	  },
+      })
+            
+      L.TileBoundsLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+              var key = coords.z + "/" + coords.x + "/" + coords.y
+
+	      var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.strokeStyle = this._color
+	      ctx.fillStyle = this._color
+	      ctx.font = "15px Arial"
+	      ctx.lineWidth = 1
+	      ctx.beginPath()
+	      ctx.rect(0, 0, 255, 255)
+	      ctx.fillText(key, 5, 20)
+	      ctx.stroke()
+	      
+	      return tile
+	  },
+      });
+
+
+      // setup
+      
       var mapId = window.location.pathname.split ("/").last()
       var map = L.map("map", {maxBoundsViscosity: 1.0})
-      map.setView([45, 0], 4)
       map.setMaxBounds ([[-90,-180],[90,180]])
 
       jsonGet(
@@ -99,112 +188,45 @@
 	      map.setView (
 		  [configuration.latitude, configuration.longitude],
 		  configuration.zoom)
+
+	      L.tileLayer(
+		  "/tile/raster/" + mapId + "/{z}/{x}/{y}",
+		  {
+		      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+		      maxZoom: 18,
+		      bounds:[[-90,-180], [90,180]],
+		      noWrap: true
+		  }).addTo(map)
+
+	      new L.TileBoundsLayer(
+		  {
+		      maxZoom: 18,
+		      bounds: [[-90,-180], [90, 180]],
+		      noWrap: true,
+		      color: "rgba(0, 0, 0, 0.9"}).addTo(map)
+
+	      new L.GridLayer.MarkerLoader(
+		  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
+		  {
+		      maxZoom: 18,
+		      bounds: [[-90,-180], [90, 180]],
+		      noWrap: true
+		  }).addTo(map)
+
+	      map.on (
+		  "click",
+		  function (e) {
+		      setStatus (
+			  "{:longitude " + Number (e.latlng.lng).toFixed (5) +
+			      " :latitude " + Number (e.latlng.lat).toFixed (5)  +
+			      " <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" +
+			      " <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" +
+			      " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=18' target='_blank'>mapillary</a>")
+		  })
 	  },
 	  function () {})
       
-      L.tileLayer(
-	  "/tile/raster/" + mapId + "/{z}/{x}/{y}",
-	  {
-	      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
-	      maxZoom: 18,
-	      bounds:[[-90,-180], [90,180]],
-	      noWrap: true
-	  }).addTo(map)
 
-      L.GridLayer.MarkerLoader = L.GridLayer.extend({
-	  initialize: function(url, options) {
-              this._url = url;
-              this._markerStore = {};
-              L.GridLayer.prototype.initialize.call(this, options);
-	      this.on("tileunload", function(tileEvent) {
-		  var key = this._tileCoordsToKey(tileEvent.coords)
-		  if (this._markerStore[key]) {
-		      console.log("remove marker")
-		      this._markerStore[key].remove()
-		      delete this._markerStore[key]
-		  }
-		  
-		  console.log("remove" + key)
-	      })
-	  },
-
-	  createTile: function(coords, done) {
-              var key = this._tileCoordsToKey(coords);
-              var data = {
-		  x: coords.x,
-		  y: coords.y,
-		  z: coords.z
-              };
-              var tileUrl = L.Util.template(this._url, L.extend(data, this.options));
-	      var markerStore = this._markerStore
-
-              fetch(tileUrl).then(function(response) {
-		  response.json().then(data => {
-		      var markers = data.features.map(function (location) {
-			  var id = location.properties.id
-			  var tags = location.properties.tags
-			      
-			  var icon = L.icon({
-			      iconUrl: location.properties.pin,
-			      iconSize: [25,25],
-			      iconAnchor: [12.5,12.5]})
-			  var marker = L.marker(
-			      [
-				  location.geometry.coordinates[1],
-				  location.geometry.coordinates[0]],
-			      {icon: icon})
-			  marker.on (
-			      "click",
-			      function (e) {
-				  setStatus (location.properties.description)
-			      })
-			  return marker
-		      })
-
-		      var group = L.layerGroup(markers)
-		      group.addTo(map)
-		      markerStore[key] = group
-		  
-		      done();
-		  })});
-
-	      return L.DomUtil.create('div');
-	  },
-
-	  /*
-	  _removeTile: function(key) {
-	      if (this._markerStore[key]) {
-		  this._markerStore[key].remove();
-		  delete this._markerStore[key];
-	      }
-
-              return L.GridLayer.prototype._removeTile(key);
-	  }
-	  */
-      });
-
-      var markerLoader = new L.GridLayer.MarkerLoader(
-	  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
-	  {
-	      maxZoom: 18,
-	      bounds: [[-90,-180], [90, 180]],
-	      noWrap: true
-	  })
-      markerLoader.addTo(map)
-
-      map.on (
-	"click",
-	function (e) {
-	    setStatus (
-		"{:longitude " + Number (e.latlng.lng).toFixed (5) +
-		" :latitude " + Number (e.latlng.lat).toFixed (5)  +
-		" <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" +
-		" <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" +
-	        " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=18' target='_blank'>mapillary</a>")
-	})
-
-      
-      //initialize ();
     </script>
   </body>
 </html>

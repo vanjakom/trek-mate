@@ -115,7 +115,6 @@
       
       L.TileBoundsLayer = L.GridLayer.extend({
 	  initialize: function(options) {
-              this._markerStore = new Map()
               L.GridLayer.prototype.initialize.call(this, options)
 	      this._color = options.color
 	  },

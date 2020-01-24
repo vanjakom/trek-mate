@@ -270,9 +270,7 @@
                   :longitude (:longitude sofia)
                   :latitude (:latitude sofia)
                   :zoom 13}
-  :raster-tile-fn (web/tile-border-overlay-fn
-                   (web/tile-number-overlay-fn
-                    (web/create-osm-external-raster-tile-fn)))
+  :raster-tile-fn (web/create-osm-external-raster-tile-fn)
   ;; do not use constantly because it captures location variable
   :vector-tile-fn (web/tile-vector-dotstore-fn [(fn [_ _ _ _] location-seq)])
   :search-fn #'search-fn})
