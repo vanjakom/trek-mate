@@ -15,13 +15,14 @@
    [clj-common.localfs :as fs]
    [clj-common.json :as json]
    [clj-common.as :as as]
-   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.tile :as tile]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.pin :as pin]
+   [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
+   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.osm :as osm]))
 
 ;;; todo
@@ -556,6 +557,58 @@
 
 (def handler
   (compojure.core/routes
+
+   ;; v2 handlers
+   (compojure.core/GET
+    "/view/map-test"
+    [name]
+    {
+     :status 200
+     :body (jvm/resource-as-stream ["web" "map-test.html"])})
+
+   (compojure.core/GET
+    "/view/track/:id"
+    [id]
+    (if (fs/exists? (path/child
+                     storage/track-backup-path
+                     env/*trek-mate-user*
+                     (str id ".json")))
+      {
+       :status 200
+       :body (jvm/resource-as-stream ["web" "dataset-track.html"])}
+      {
+       :status 404}))
+
+   (compojure.core/GET
+    "/data/track/:id"
+    [id]
+    (let [track-path (path/child
+                      storage/track-backup-path
+                      env/*trek-mate-user*
+                      (str id ".json"))]
+      (if (fs/exists? track-path)
+        (do
+          (with-open [is (fs/input-stream track-path)]
+            (let [track (json/read-keyworded is)]
+              {
+               :status 200
+               :headers {
+                         "Content-Type" "application/json"}
+               :body (json/write-to-string
+                      (geojson/track->geojson track))})))
+        {:status 404})))
+   
+   (compojure.core/GET
+    "/map/:name"
+    [name]
+    (if-let [map (get (deref configuration) name)]
+      {
+       :status 200
+       :body (jvm/resource-as-stream ["web" "map.html"])}
+      {
+       :status 404}))
+
+   
    ;; support handlers
    (compojure.core/GET
     "/lib/core.js"
@@ -601,12 +654,6 @@
        {:status 404})))
 
    ;; map specific handlers
-   (compojure.core/GET
-    "/map-test"
-    [name]
-      {
-       :status 200
-       :body (jvm/resource-as-stream ["web" "map-test.html"])})
    
    (compojure.core/GET
     "/map/:name"

@@ -1232,7 +1232,7 @@
       (doseq [[tile way-seq] split-map]
         (let [tile-out (tile-out-fn tile)]
           (doseq [way way-seq]
-            (async/>! tile-out way )
+            (async/>! tile-out way)
             (context/counter context "way-out"))
           (async/close! tile-out))
         (context/counter context "tile-out")))

@@ -307,6 +307,12 @@
     (get (string/split tag (re-pattern "\\|")) 3)
     nil))
 
+(defn wikidata-tag [wikidata-id]
+  (str "wikidata:" wikidata-id))
+
+(defn geonames-tag [geonames-id]
+  (str "geonames:" geonames-id))
+
 ;;; test for url tag
 (let [tag (url-tag "TrekMate website" "http://www.trek-mate.eu")]
   (test
