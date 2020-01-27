@@ -1,0 +1,236 @@
+<head>
+  <<html>
+    <title>Map</title>
+    <!--<link rel="stylesheet" href="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/css/ol.css" type="text/css">-->
+    <!--<script type= "text/javascript" src= "https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script>-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>
+
+    <!-- leaflet for debug -->
+    <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet-src.js" crossorigin=""></script>
+    <!-- leaflet for production -->
+    <!-- <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js" crossorigin=""></script> -->
+    <script type= "text/javascript" src= "/lib/core.js"></script>
+    <style>
+      ::-webkit-scrollbar {
+	  display: none;
+      }
+      .content {
+	  white-space: nowrap;
+	  overflow: hidden;
+      }
+      
+      .map {
+	  position: absolute;
+	  left:0px;
+	  top:0px;
+	  right: 0px;
+	  bottom: 0px;
+	  cursor: crosshair;
+      }
+
+      .menu {
+	  position: absolute;
+	  right: 0px;
+	  top: 0px;
+	  bottom: 0px;
+	  width: 250px;
+	  overflow-y: scroll;
+	  scrollbar-width: none;
+      }
+
+      .button {
+	  width: 240px;
+	  height: 40px;
+	  text-align: center;
+	  line-height: 40px;
+	  margin: 5px;
+	  background-color: yellow;
+	  /* prevent selection */
+	  -webkit-touch-callout: none; /* iOS Safari */
+	  -webkit-user-select: none; /* Safari */
+	  -khtml-user-select: none; /* Konqueror HTML */
+	  -moz-user-select: none; /* Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+          user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome and Opera */
+	  cursor: pointer;
+      }
+
+      .status {
+	  position: absolute;
+	  right: 0px;
+	  top: 100px;
+	  bottom: 0px;
+	  width: 240px;
+	  padding: 5px;
+	  overflow-y: scroll;
+	  scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!--<div id= "overlay" style= "width:20px;height:20px;">A</div>-->
+    <div id="content" class="content">
+      <div id="map" class="map"></div>
+      <div id="menu" class="menu">
+	<div id="button1" class="button" onclick="button1()">button 1</div>
+	<div id="button2" class="button" onclick="button2()">button 2</div>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+    <script type= "text/javascript">
+      // specific
+      function setStatus (status) {
+	  document.getElementById("status").innerHTML = status
+      }
+      function appendStatus (status) {
+	  var current = document.getElementById("status").innerHTML
+	  document.getElementById("status").innerHTML = status + "</br>" + current
+      }
+
+      var map = L.map(
+	  "map",
+	  {
+	      maxBoundsViscosity: 1.0,
+	      renderer: L.canvas()})      
+      map.setMaxBounds ([[-90,-180],[90,180]])
+
+      var params = window.location.hash
+      if (params) {
+	  var splits = params.substring(5).split("/")
+	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
+      } else {
+	  map.setView([45, 0], 4)
+	  window.location.hash = "#map=4/45/0"
+      }
+            
+      L.tileLayer(
+	  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+	  {
+	      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+	      maxZoom: 18,
+	      bounds:[[-90,-180], [90,180]],
+	      noWrap: true
+	  }).addTo(map)
+      
+      L.TileBoundsLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+              var key = coords.z + "/" + coords.x + "/" + coords.y
+
+	      var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.strokeStyle = this._color
+	      ctx.fillStyle = this._color
+	      ctx.font = "15px Arial"
+	      ctx.lineWidth = 1
+	      ctx.beginPath()
+	      ctx.rect(0, 0, 255, 255)
+	      ctx.fillText(key, 5, 20)
+	      ctx.stroke()
+	      
+	      return tile
+	  },
+      });
+
+      new L.TileBoundsLayer(
+	  {
+	      maxZoom: 18,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(0, 0, 0, 0.5"}).addTo(map)
+      
+      L.TileCheckerLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              this._markerStore = new Map();
+              L.GridLayer.prototype.initialize.call(this, options);
+	      this.on("tileunload", function(tileEvent) {
+		  var key =
+		      tileEvent.coords.z + "/" +
+		      tileEvent.coords.x + "/" +
+		      tileEvent.coords.y
+		  if (this._markerStore.get(key)) {
+		      this._markerStore.delete(key)
+		      appendStatus("removed " + key)
+		  } else {
+		      appendStatus("invalid key " + key)
+		  }
+	      })
+	  },
+
+	  createTile: function(coords, done) {
+              var key = coords.z + "/" + coords.x + "/" + coords.y
+	      this._markerStore.set(key, coords)
+
+	      return L.DomUtil.create('div');
+	  },
+      });
+
+      var tileChecker = new L.TileCheckerLayer(
+	  {
+	      maxZoom: 18,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      tileChecker.addTo(map)
+
+      map.on (
+	"click",
+	function (e) {
+	    appendStatus(
+		Number (e.latlng.lng).toFixed(5) + ", " + Number (e.latlng.lat).toFixed(5) + "</br>" +
+		    Number (e.latlng.lat).toFixed(5) + ", " + Number (e.latlng.lng).toFixed(5) + "</br>" +
+		" <a href='http://openstreetmap.org/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a></br>" +
+		" <a href='https://preview.ideditor.com/master/#map=18/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a></br>" +
+	        " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=18' target='_blank'>mapillary</a></br>")
+	})
+
+      map.on(
+	  "moveend",
+	  function() {
+	      window.location.hash = "#map=" + map.getZoom() + "/" + map.getCenter().lat + "/" + map.getCenter().lng
+	  })
+
+      function button1(event) {
+	  var tiles = Array.from(tileChecker._markerStore.values())
+	  tiles.sort(function(e1, e2) {
+	      if (e1.z == e2.z) {
+		  if (e1.x == e2.x) {
+		      return e2.y - e1.y
+		  } else {
+		      return e2.x - e1.x
+		  }
+	      } else {
+		  return e2.z - e1.z
+	      }})
+		     
+	  tiles.forEach(function(tile) {
+	      appendStatus(tile.z + "/" + tile.x + "/" + tile.y)
+	  })
+      }
+
+      function button2(event) {
+	  appendCities()
+	  appendStatus("clear")
+      }
+
+      function appendCities() {
+	  	  appendStatus("<a href='#' onclick='map.setView([45, 0], 4)'>World</a>")
+	  appendStatus("<a href='#' onclick='map.setView([48.89362, 11.27197], 6)'>Europe</a>")
+	  appendStatus("<a href='#' onclick='map.setView([42.44119, 18.62766], 12)'>Herceg Novi</a>")
+	  appendStatus("<a href='#' onclick='map.setView([43.88998, 20.39063], 8)'>Serbia</a>")
+	  appendStatus("<a href='#' onclick='map.setView([44.80522, 20.42908], 13)'>Beograd</a>")
+      }
+
+      appendCities()
+    </script>
+  </body>
+</html>
