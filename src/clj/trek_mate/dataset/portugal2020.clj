@@ -35,5 +35,32 @@
 ;; 	--all-to-nodes \
 ;; 	-o=/Users/vanja/my-dataset-temp/portugal-node.pbf
 
+;; Portugal, Q45, r295480
+
+;; all places in portugal
+;; nwr[place][wikidata](area:3600295480);
+;; out center;
+
+(def serra-da-estrela
+  (let [location (overpass/node-id->location 5172661705)]
+    (assoc
+     location
+     :tags
+     (osm-tags->tags (:osm location)))))
+
+(defn osm-tags->tags [osm-tags]
+  (reduce
+   (fn [tags rule]
+     (let [tag-or-many (rule osm-tags)]
+       (if (string? tag-or-many)
+         (conj tags tag-or-many)
+         (into tags (filter some? tag-or-many)))))
+   #{}
+   [
+    #(when (= (get % "natural") "mountain_range") tag/tag-mountain)]))
+
+serra-da-estrela
+
+(into #{} "abc")
 
 

@@ -2,6 +2,7 @@
   (:use
    clj-common.clojure)
   (:require
+   clojure.walk
    [clj-common.as :as as]
    [clj-common.http :as http]
    [clj-common.json :as json]
@@ -18,6 +19,7 @@
                   "\n"
                   "out center;"))]
     (println query)
+    ;; todo stringify tags on arrival, possible issue with tags which cannot be keywords
     (json/read-keyworded
      (http/get-as-stream
       (str
@@ -37,20 +39,20 @@
 (defn node->location
   [element]
   {
-     :longitude (:lon element)
-     :latitude (:lat element)
-     :tags (conj
-            (osm/osm-tags->tags (:tags element))
-            (str osm/osm-gen-node-prefix (:id element)))})
+   :longitude (:lon element)
+   :latitude (:lat element)
+   :osm-id (str "n" (:id element))
+   :osm (clojure.walk/stringify-keys (:tags element))})
 
 (defn way->single-location
   [element]
   {
-     :longitude (:lon (:center element))
-     :latitude (:lat (:center element))
-     :tags (conj
-            (osm/osm-tags->tags (:tags element))
-            (str osm/osm-gen-way-prefix (:id element)))})
+   :longitude (:lon (:center element))
+   :latitude (:lat (:center element))
+   :osm-id (str "w" (:id element))
+   :tags (conj
+          (osm/osm-tags->tags (:tags element))
+          (str osm/osm-gen-way-prefix (:id element)))})
 
 (defn way->location-seq
   [element]
