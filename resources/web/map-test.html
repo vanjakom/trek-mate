@@ -95,9 +95,8 @@
 	      renderer: L.canvas()})      
       map.setMaxBounds ([[-90,-180],[90,180]])
 
-      var params = window.location.hash
-      if (params) {
-	  var splits = params.substring(5).split("/")
+      if (window.location.hash) {
+	  var splits = window.location.hash.substring(5).split("/")
 	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
       } else {
 	  map.setView([45, 0], 4)
@@ -198,6 +197,12 @@
 	  function() {
 	      window.location.hash = "#map=" + map.getZoom() + "/" + map.getCenter().lat + "/" + map.getCenter().lng
 	  })
+
+      window.onhashchange = function() {
+	  console.log("change")
+	  var splits = window.location.hash.substring(5).split("/")
+	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
+      }
 
       function button1(event) {
 	  var tiles = Array.from(tileChecker._markerStore.values())
