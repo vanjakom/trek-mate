@@ -41,13 +41,6 @@
 ;; nwr[place][wikidata](area:3600295480);
 ;; out center;
 
-(def serra-da-estrela
-  (let [location (overpass/node-id->location 5172661705)]
-    (assoc
-     location
-     :tags
-     (osm-tags->tags (:osm location)))))
-
 (defn osm-tags->tags [osm-tags]
   (reduce
    (fn [tags rule]
@@ -57,7 +50,44 @@
          (into tags (filter some? tag-or-many)))))
    #{}
    [
-    #(when (= (get % "natural") "mountain_range") tag/tag-mountain)]))
+    (fn [osm-tags]
+      (if-let [name (get osm-tags "name:en")]
+        (tag/name-tag name)
+        (if-let [name (get osm-tags "name")]
+          (tag/name-tag name)
+          nil)))
+    #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
+    #(when (= (get % "place") "town") tag/tag-city)
+    #(when (= (get % "place") "city") tag/tag-city)]))
+
+(defn extract-tags [location]
+  (assoc
+     location
+     :tags
+     (osm-tags->tags (:osm location))))
+
+;; cities
+;; nwr[~"^name(:.*)?$"~"^Faro$"](area:3600295480);
+
+(def porto
+  (extract-tags (overpass/node-id->location 2986300166)))
+(def lisbon
+  (extract-tags (overpass/node-id->location 265958490)))
+(def faro
+  (extract-tags (overpass/node-id->location 25254936)))
+(def sintra
+  (extract-tags (overpass/node-id->location 25611733)))
+
+(def monsaraz
+  (extract-tags (overpass/node-id->location 373461757)))
+
+;; villages
+
+;; nature
+(def serra-da-estrela
+  (extract-tags (overpass/node-id->location 5172661705)))
+
+
 
 serra-da-estrela
 
