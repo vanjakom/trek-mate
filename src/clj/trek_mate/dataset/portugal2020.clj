@@ -41,6 +41,14 @@
 ;; nwr[place][wikidata](area:3600295480);
 ;; out center;
 
+(defn add-tag
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
+
 (defn osm-tags->tags [osm-tags]
   (reduce
    (fn [tags rule]
@@ -58,7 +66,8 @@
           nil)))
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
     #(when (= (get % "place") "town") tag/tag-city)
-    #(when (= (get % "place") "city") tag/tag-city)]))
+    #(when (= (get % "place") "city") tag/tag-city)
+    #(when (= (get % "place") "village") tag/tag-village)]))
 
 (defn extract-tags [location]
   (assoc
@@ -78,10 +87,23 @@
 (def sintra
   (extract-tags (overpass/node-id->location 25611733)))
 
-(def monsaraz
-  (extract-tags (overpass/node-id->location 373461757)))
-
 ;; villages
+
+(def monsaraz
+  (add-tag
+   (extract-tags (overpass/node-id->location 373461757))
+   (tag/url-tag "instagram" "https://www.instagram.com/explore/tags/monsarazportugal/")))
+(def braga
+  (extract-tags (overpass/node-id->location 24960107)))
+(def monsanto
+  (add-tag
+   (extract-tags (overpass/node-id->location 371426674))
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/monsanto/")))
+(def obidos
+  (extract-tags (overpass/node-id->location 2620015278)))
+(def mertola
+  (extract-tags (overpass/node-id->location 255654259)))
+
 
 ;; nature
 (def serra-da-estrela

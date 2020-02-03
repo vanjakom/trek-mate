@@ -73,8 +73,15 @@
 
 (defn remove-cache [symbol]
   (fs/delete (path/child data-cache-path (name symbol))))
-
 #_(remove-cache 'geocache-seq)
+
+(defn add-tag
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
 
 ;; holder of currently running task
 (def active-pipeline nil)
