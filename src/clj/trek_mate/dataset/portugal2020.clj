@@ -103,6 +103,51 @@
   (extract-tags (overpass/node-id->location 2620015278)))
 (def mertola
   (extract-tags (overpass/node-id->location 255654259)))
+(def marvao
+  (extract-tags (overpass/node-id->location 25612849)))
+(def ericeira
+  (extract-tags (overpass/node-id->location 130035599)))
+(def castelo-rodrigo
+  (add-tag
+   (extract-tags (overpass/node-id->location 439452088))
+   "#wikidata"
+   "Q1048976"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/castelo-rodrigo/")))
+(def sortelha
+  (add-tag
+   (extract-tags (overpass/node-id->location 1893052222))
+   "#wikidata"
+   "Q2120360" ;; parish
+   "Q5049831" ;; castle
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/sortelha/")))
+(def nazare
+  (extract-tags (overpass/node-id->location 25278374)))
+(def almeida
+  (add-tag
+   (extract-tags (overpass/node-id->location 25277740))
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/almeida/")))
+(def alvaro
+  (add-tag
+   (extract-tags (overpass/node-id->location 1765080756))
+   "#wikidata"
+   "Q250789"))
+
+
+;; process, lookup on wikidata, switch to overpass
+;; [out:json];
+;; (
+;;   //nwr[~"^name(:.*)?$"~"^Nazare$"](area:3600295480);
+;;   nwr[wikidata=Q250789];
+;;   //node[place]({{bbox}});
+;; );
+;; out geom;
+
+
+;; todo add one more extract tag layer, which extracts urls from trek mate tags, propagate wikidata to trek-mate tags
+;; write documentation about my tagging, to TAGGING.md in trek-mate directory
+
+;; todo
+;; filter historic=castle, wikidata links ...
 
 
 ;; nature
@@ -114,5 +159,11 @@
 serra-da-estrela
 
 (into #{} "abc")
+
+(def location-seq
+  [
+   porto lisbon faro sintra
+   monsaraz braga monsanto obidos mertola marvao ericeira castelo-rodrigo sortelha
+   nazare almeida alvaro])
 
 
