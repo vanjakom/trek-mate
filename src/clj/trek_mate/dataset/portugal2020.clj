@@ -36,6 +36,7 @@
 ;; 	-o=/Users/vanja/my-dataset-temp/portugal-node.pbf
 
 ;; Portugal, Q45, r295480
+(def portugal (overpass/node-id->location 2377028247))
 
 ;; all places in portugal
 ;; nwr[place][wikidata](area:3600295480);
@@ -67,7 +68,8 @@
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
     #(when (= (get % "place") "town") tag/tag-city)
     #(when (= (get % "place") "city") tag/tag-city)
-    #(when (= (get % "place") "village") tag/tag-village)]))
+    #(when (= (get % "place") "village") tag/tag-village)
+    #(when (= (get % "place") "hamlet") tag/tag-village)]))
 
 (defn extract-tags [location]
   (assoc
@@ -77,6 +79,8 @@
 
 ;; cities
 ;; nwr[~"^name(:.*)?$"~"^Faro$"](area:3600295480);
+
+
 
 (def porto
   (extract-tags (overpass/node-id->location 2986300166)))
@@ -131,9 +135,54 @@
    (extract-tags (overpass/node-id->location 1765080756))
    "#wikidata"
    "Q250789"))
+(def belmonte
+  (add-tag
+   (extract-tags (overpass/node-id->location 25269014))
+   "#wikidata"
+   "Q816115"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/belmonte/")))
+(def castelo-mendo
+  (add-tag
+   (extract-tags (overpass/node-id->location 2081050231))
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/castelo-mendo/")))
+(def castelo-novo
+  (add-tag
+   (extract-tags (overpass/node-id->location 2088966959))
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/castelo-novo/")
+   "#wikidata"
+   "Q1024355"))
+(def idanha-a-velha
+  (add-tag
+   (extract-tags (overpass/node-id->location 4554409508))
+   "#wikidata"
+   "Q1026697"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/idanha-a-velha/")))
+(def linhares
+  (add-tag
+   (extract-tags (overpass/node-id->location 432915952))
+   "#wikidata"
+   "Q24142"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/linhares-da-beira/")))
+(def marialva
+  (add-tag
+   (extract-tags (overpass/node-id->location 439657742))
+   "#wikidata"
+   "Q670426"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/marialva/")))
+(def poidao
+  (add-tag
+   (extract-tags (overpass/node-id->location 907022125))
+   "#wikidata"
+   "Q3233"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/piodao/")))
+(def transoco
+  (add-tag
+   (extract-tags (overpass/node-id->location 25277735))
+   "#wikidata"
+   "Q686868"
+   (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/trancoso/")))
 
-
-;; process, lookup on wikidata, switch to overpass
+;; Process, lookup on wikidata, switch to overpass
 ;; [out:json];
 ;; (
 ;;   //nwr[~"^name(:.*)?$"~"^Nazare$"](area:3600295480);
@@ -164,6 +213,24 @@ serra-da-estrela
   [
    porto lisbon faro sintra
    monsaraz braga monsanto obidos mertola marvao ericeira castelo-rodrigo sortelha
-   nazare almeida alvaro])
+   nazare almeida alvaro belmonte castelo-mendo castelo-novo idanha-a-velha linhares
+   marialva poidao transoco])
+
+
+(web/register-map
+ "portugal2020"
+ {
+  :configuration {
+                  
+                  :longitude (:longitude portugal)
+                  :latitude (:latitude portugal)
+                  :zoom 7}
+  :raster-tile-fn (web/create-osm-external-raster-tile-fn)
+  ;; do not use constantly because it captures location variable
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(fn [_ _ _ _] location-seq)])
+  :search-fn nil})
+
+(web/create-server)
+
 
 
