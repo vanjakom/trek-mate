@@ -204,6 +204,15 @@
   (extract-tags (overpass/node-id->location 5172661705)))
 
 
+;; todo
+;; trek-mate
+;; mapillary integration
+;; I'm working on v2 of application which will be open source app for map exploration with support for OSM editing and it would be nice to have Mapillary integration
+;; mungolab
+;; http://trek-mate.eu
+;; http://integration.trek-mate.eu/mapillary/callback
+
+
 
 serra-da-estrela
 
