@@ -50,9 +50,15 @@
    :longitude (:lon (:center element))
    :latitude (:lat (:center element))
    :osm-id (str "w" (:id element))
-   :tags (conj
-          (osm/osm-tags->tags (:tags element))
-          (str osm/osm-gen-way-prefix (:id element)))})
+   :osm (clojure.walk/stringify-keys (:tags element))})
+
+(defn relation->single-location
+  [element]
+  {
+   :longitude (:lon (:center element))
+   :latitude (:lat (:center element))
+   :osm-id (str "r" (:id element))
+   :osm (clojure.walk/stringify-keys (:tags element))})
 
 (defn way->location-seq
   [element]
@@ -70,6 +76,8 @@
 (defn element->single-location
   [element]
   (cond
+    (= (:type element) "relation")
+    (relation->single-location element)
     (= (:type element) "way")
     (way->single-location element)
     (= (:type element) "node")
@@ -91,8 +99,12 @@
   (if-let [nodes (:elements (request (str "way(id:" way-id ");\nnode(w);")))]
     (doall (map element->single-location nodes))))
 
-(def a (request (str "way(id:" 113863079 ");\nnode(w);")))
-(keys (:elements a))
+(defn relation-id->location [relation-id]
+  (if-let [relation (first (:elements (request (str "relation(id:" relation-id ");"))))]
+    (element->single-location relation)))
+
+#_(def a (request (str "way(id:" 113863079 ");\nnode(w);")))
+#_(keys (:elements a))
 
 (defn locations-with-tags
   [& tag-seq]

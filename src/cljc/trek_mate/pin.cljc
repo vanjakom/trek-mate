@@ -113,8 +113,7 @@
    (if (contains? tags tag/tag-art) art-pin)
    (if (contains? tags tag/tag-shopping) shopping-pin)
    (if (contains? tags tag/tag-parking) parking-pin)
-   (if (contains? tags tag/tag-toll-station) toll-pin)
-   (if (contains? tags tag/tag-visit) visit-pin)))
+   (if (contains? tags tag/tag-toll-station) toll-pin)))
 
 (defn global-trigger [tags]
   (or
@@ -143,6 +142,9 @@
    (if (contains? tags tag/tag-crossroad) crossroad-pin)
    (if (contains? tags tag/tag-road) road-pin)))
 
+(defn personal-trigger [tags]
+  (or
+   (if (contains? tags tag/tag-visit) visit-pin)))
 
 (defn calculate-pins
   "For given set of tags calculates pins to display. First returned pin is base one, Rest of
@@ -160,6 +162,7 @@
      global-trigger
      outdoor-trigger
      integration-trigger
+     personal-trigger
      
      ;; no tags pin
      (fn [tags]

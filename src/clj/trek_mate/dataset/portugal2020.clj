@@ -69,7 +69,12 @@
     #(when (= (get % "place") "town") tag/tag-city)
     #(when (= (get % "place") "city") tag/tag-city)
     #(when (= (get % "place") "village") tag/tag-village)
-    #(when (= (get % "place") "hamlet") tag/tag-village)]))
+    #(when (= (get % "place") "hamlet") tag/tag-village)
+
+    #(when (= (get % "place") "square") tag/tag-history)
+    
+    #(when (= (get % "historic") "monument") tag/tag-history)
+    #(when (= (get % "tourism") "attraction") tag/tag-tourism)]))
 
 (defn extract-tags [location]
   (assoc
@@ -84,8 +89,18 @@
 
 (def porto
   (extract-tags (overpass/node-id->location 2986300166)))
+
 (def lisbon
   (extract-tags (overpass/node-id->location 265958490)))
+(def ultramar
+  (extract-tags (overpass/way-id->location 664143166)))
+(def rosio
+  (extract-tags (overpass/relation-id->location 9218818)))
+(def baixa
+  (extract-tags (overpass/way-id->location 394631209)))
+(def torre-de-belem
+  (extract-tags (overpass/way-id->location 24341353)))
+
 (def faro
   (extract-tags (overpass/node-id->location 25254936)))
 (def sintra
@@ -219,11 +234,14 @@ serra-da-estrela
 (into #{} "abc")
 
 (def location-seq
-  [
-   porto lisbon faro sintra
-   monsaraz braga monsanto obidos mertola marvao ericeira castelo-rodrigo sortelha
-   nazare almeida alvaro belmonte castelo-mendo castelo-novo idanha-a-velha linhares
-   marialva poidao transoco])
+  (map
+   #(add-tag % tag/tag-visit)
+   [
+    porto lisbon faro sintra
+    ultramar rosio baixa torre-de-belem
+    monsaraz braga monsanto obidos mertola marvao ericeira castelo-rodrigo sortelha
+    nazare almeida alvaro belmonte castelo-mendo castelo-novo idanha-a-velha linhares
+    marialva poidao transoco]))
 
 
 (web/register-map
