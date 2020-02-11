@@ -307,11 +307,23 @@
     (get (string/split tag (re-pattern "\\|")) 3)
     nil))
 
+(defn link-tag
+  ([namespace identifier note]
+   (str "|link|" namespace "|" identifier "|" note))
+  ([namespace identifier]
+   (str "|link|" namespace "|" identifier)))
+
 (defn wikidata-tag [wikidata-id]
-  (str "wikidata:" wikidata-id))
+  (link-tag "wikidata" wikidata-id))
+
+;; todo, language prefix, where should go
+(defn wikipedia-tag [wikipedia]
+  (link-tag "wikipedia" wikipedia))
 
 (defn geonames-tag [geonames-id]
-  (str "geonames:" geonames-id))
+  (link-tag "geonames" geonames-id))
+
+
 
 ;;; test for url tag
 (let [tag (url-tag "TrekMate website" "http://www.trek-mate.eu")]

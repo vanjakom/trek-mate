@@ -555,6 +555,11 @@
           (draw/write-png-to-stream image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))}))
 
+(def resource-map (atom {}))
+(defn register-resource [name value]
+  (swap! resource-map update-in [name] (constantly value))
+  nil)
+
 (def handler
   (compojure.core/routes
 
@@ -608,6 +613,16 @@
       {
        :status 404}))
 
+
+   ;; debugging handlers
+   (compojure.core/GET
+    "/resource/:name"
+    [name]
+    {
+     :status 200
+     :headers {
+               "Content-Type" "application/json"}
+     :body (json/write-to-string (get (deref resource-map) name))})
    
    ;; support handlers
    (compojure.core/GET

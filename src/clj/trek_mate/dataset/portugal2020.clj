@@ -74,7 +74,9 @@
     #(when (= (get % "place") "square") tag/tag-history)
     
     #(when (= (get % "historic") "monument") tag/tag-history)
-    #(when (= (get % "tourism") "attraction") tag/tag-tourism)]))
+    #(when (= (get % "tourism") "attraction") tag/tag-tourism)
+    #(when (= (get % "tourism") "museum") tag/tag-museum)
+    #(when (contains? % "heritage") tag/tag-history)]))
 
 (defn extract-tags [location]
   (assoc
@@ -89,6 +91,25 @@
 
 (def porto
   (extract-tags (overpass/node-id->location 2986300166)))
+(def ponte-luis
+  (extract-tags (overpass/relation-id->location 1712632)))
+(def casa-da-musica
+  (extract-tags (overpass/way-id->location 603359226)))
+(def porto-town-hall
+  (extract-tags (overpass/way-id->location 3012085)))
+(def porto-cathedral
+  (extract-tags (overpass/way-id->location 210461448)))
+(def porto-market
+  (extract-tags (overpass/relation-id->location 3046626)))
+(def porto-book-store
+  (extract-tags (overpass/way-id->location 229270821)))
+(def porto-photography
+  (extract-tags (overpass/node-id->location 4586091689)))
+(def porto-ribeira
+  (extract-tags (overpass/node-id->location 2087123283)))
+(def porto-serralves
+  (extract-tags (overpass/way-id->location 167487344)))
+
 
 (def lisbon
   (extract-tags (overpass/node-id->location 265958490)))
@@ -217,7 +238,8 @@
 ;; nature
 (def serra-da-estrela
   (extract-tags (overpass/node-id->location 5172661705)))
-
+(def cabo-sao-vicente
+  (extract-tags (overpass/node-id->location 5003941303)))
 
 ;; todo
 ;; trek-mate
@@ -229,19 +251,23 @@
 
 
 
-serra-da-estrela
-
-(into #{} "abc")
-
 (def location-seq
   (map
    #(add-tag % tag/tag-visit)
    [
-    porto lisbon faro sintra
+    porto
+    ponte-luis casa-da-musica porto-town-hall porto-cathedral porto-market
+    porto-book-store porto-photography porto-ribeira porto-serralves
+    
+    ponte-luis
+    lisbon 
     ultramar rosio baixa torre-de-belem
+    faro sintra
     monsaraz braga monsanto obidos mertola marvao ericeira castelo-rodrigo sortelha
     nazare almeida alvaro belmonte castelo-mendo castelo-novo idanha-a-velha linhares
-    marialva poidao transoco]))
+    marialva poidao transoco
+
+    serra-da-estrela cabo-sao-vicente]))
 
 
 (web/register-map

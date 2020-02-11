@@ -2,6 +2,7 @@
   (:use clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [clojure.xml :as xml]
    [clj-common.context :as context]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
@@ -30,19 +31,16 @@
               (get-in
                geocache-content
                [:groundspeak:logs :content]))]
-    (with-meta
-      {
-       :longitude (Double/parseDouble (:lon (:attrs wpt)))
-       :latitude (Double/parseDouble (:lat (:attrs wpt)))
-       :code (first (:content (:name content)))
-       :name (first (:content (:groundspeak:name geocache-content)))
-       :type (first (:content (:groundspeak:type geocache-content)))
-       :hint (first (:content (:groundspeak:encoded_hints geocache-content)))
-       :last-log-date (get-in last-log [:groundspeak:date :content 0])
-       :last-log-type (get-in last-log [:groundspeak:type :content 0])
-       :logs logs}
-      {
-       ::type :geocache})))
+    {
+     :longitude (Double/parseDouble (:lon (:attrs wpt)))
+     :latitude (Double/parseDouble (:lat (:attrs wpt)))
+     :code (first (:content (:name content)))
+     :name (first (:content (:groundspeak:name geocache-content)))
+     :type (first (:content (:groundspeak:type geocache-content)))
+     :hint (first (:content (:groundspeak:encoded_hints geocache-content)))
+     :last-log-date (get-in last-log [:groundspeak:date :content 0])
+     :last-log-type (get-in last-log [:groundspeak:type :content 0])
+     :logs logs}))
 
 #_(extract (gpx/read-stream
           (clj-common.localfs/input-stream
@@ -80,7 +78,7 @@
         "/Users/vanja/dataset/geocaching.com/pocket-query/budapest/22004440_budapest-1.gpx")))))))) 
 ; #{"Virtual Cache" "Earthcache" "Unknown Cache" "Multi-cache" "Traditional Cache"}
 
-(defn extract-waypoint-wpt [wpt]
+#_(defn extract-waypoint-wpt [wpt]
   (let [content (view/seq->map :tag (:content wpt))]
     (with-meta
       {
@@ -90,17 +88,19 @@
       {
        ::type :waypoint})))
 
-(defn extract [geocache-gpx]
+#_(defn extract [geocache-gpx]
   (let [wpts (filter #(= (:tag %1) :wpt) (:content geocache-gpx))]
     {
       :geocache (extract-geocache-wpt (first wpts))
       :waypoints (map extract-waypoint-wpt (rest wpts))}))
 
-;;; prepared to be used with dot, no need for personal tags
-(defn geocache->location [geocache]
+(defn geocache->location
+  "Works on results of extract-geocache-wpt"
+  [geocache]
   {
    :longitude (:longitude geocache)
    :latitude (:latitude geocache)
+   :geocaching geocache
    :tags (into
           #{}
           (filter
@@ -108,18 +108,18 @@
            [
             "#geocaching.com"
             tag/tag-geocache
-            (str "geocaching:id:" (:code geocache))
+            (:code geocache)
             (tag/name-tag (:name geocache))
             (tag/url-tag
              (:code geocache)
              (str
               "https://www.geocaching.com/seek/cache_details.aspx?wp="
-              (:code geocache)) )
-            (when-let [hint (:hint geocache)]  (str "geocaching:hint:" hint))
-            (str "geocaching:last-log-date:" (:last-log-date geocache))
-            (str "geocaching:last-log:" (:last-log-type geocache))
+              (:code geocache)))
+            (tag/link-tag "geocaching" (:code geocache))
+            (when-let [hint (:hint geocache)]  (str "hint:" hint))
+            (str "last found:" (:last-log-date geocache))
             (when (= (:last-log-type geocache) "Found it") "#last-found")
-            (str "geocaching:type:" (:type geocache))
+            (:type geocache)
             (cond
               (= (:type geocache) "Virtual Cache") "#virtual-cache"
               (= (:type geocache) "Earthcache") "#earth-cache"
@@ -127,7 +127,9 @@
               (= (:type geocache) "Traditional Cache") "#traditional-cache"
               :else nil)]))})
 
-(defn myfind-geocache->location [geocache]
+(defn myfind-geocache->location
+  "Works on results of extract-geocache-wpt"
+  [geocache]
   (let [log (last (:logs geocache))
         date (:groundspeak:date log)
         date-tag (str
@@ -136,28 +138,31 @@
                   (.substring date 5 7)
                   (.substring date 8 10))]
     {
-    :longitude (:longitude geocache)
-    :latitude (:latitude geocache)
-    :tags (into
-           #{}
-           (filter
-            some?
-            [
-             "#geocaching.com"
-             tag/tag-geocache
-             (str "geocaching:id:" (:code geocache))
-             (tag/name-tag (:name geocache))
-             (tag/url-tag
+     :longitude (:longitude geocache)
+     :latitude (:latitude geocache)
+     :geocaching geocache
+     :tags (into
+            #{}
+            (filter
+             some?
+             [
+              "#geocaching.com"
+              tag/tag-geocache
               (:code geocache)
-              (str
-               "https://www.geocaching.com/seek/cache_details.aspx?wp="
-               (:code geocache)))
-             date-tag
-             (when (not (= (:groundspeak:type log) "Found it")) "@dnf")]))}))
+              (tag/name-tag (:name geocache))
+              (tag/url-tag
+               (:code geocache)
+               (str
+                "https://www.geocaching.com/seek/cache_details.aspx?wp="
+                (:code geocache)))
+              (tag/link-tag "geocaching" (:code geocache))
+              date-tag
+              (when (not (= (:groundspeak:type log) "Found it")) "@dnf")]))}))
 
-(defn gpx-path->location [gpx-path]
+;; intented for single file geocache, not used currently
+#_(defn gpx-path->location [gpx-path]
   (with-open [is (fs/input-stream gpx-path)]
-    (let [geocache (:geocache (extract (gpx/read-stream is)))]
+    (let [geocache (:geocache (extract (xml/parse is)))]
       {
        :longitude (:longitude geocache)
        :latitude (:latitude geocache)
@@ -178,7 +183,7 @@
                          extract-geocache-wpt
                          (filter
                           #(= (:tag %) :wpt)
-                          (:content (gpx/read-stream input-stream)))))]
+                          (:content (xml/parse input-stream)))))]
         (when-let [geocache (first geocaches)]
           (context/set-state context "step")
           (context/counter context "in")
@@ -201,7 +206,7 @@
                          extract-geocache-wpt
                          (filter
                           #(= (:tag %) :wpt)
-                          (:content (gpx/read-stream input-stream)))))]
+                          (:content (xml/parse input-stream)))))]
         (when-let [geocache (first geocaches)]
           (context/set-state context "step")
           (context/counter context "in")
@@ -211,7 +216,7 @@
       (async/close! out)
       (context/set-state context "completion"))))
 
-(defn location->gc-number
+#_(defn location->gc-number
   [location]
   (first
    (filter

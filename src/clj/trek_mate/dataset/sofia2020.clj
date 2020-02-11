@@ -164,44 +164,58 @@
 #_(search-fn "Q472")
 #_(count search-list) ; 21335
 
-;; prepare mappings
-#_(let [context (context/create-state-context)
-      context-thread (context/create-state-context-reporting-thread context 3000)
+
+;; prepare geocaches
+
+(def geocache-prepare-seq nil)
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread
+                      context
+                      5000)        
       channel-provider (pipeline/create-channels-provider)]
-  (osm/read-osm-pbf-go
-   (context/wrap-scope context "read-node")
-   sofia-all-node-path
-   (channel-provider :mapping-in)
-   nil
-   nil)
-
-
-  (pipeline/funnel-go
-   (context/wrap-scope context "funnel")
-   [
-    (channel-provider :funnel-in-1)
-    (channel-provider :funnel-in-2)
-    (channel-provider :funnel-in-3)] 
-   (channel-provider :close-in))
-
-  (pipeline/after-fn-go
-   (context/wrap-scope context "close-thread")
-   (channel-provider :close-in)
-   #(clj-common.jvm/interrupt-thread "context-reporting-thread")
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "read")
+   (path/child
+    env/*global-my-dataset-path*
+    "geocaching.com" "list" "sofia-dimitrovgrad.gpx")
    (channel-provider :capture-in))
-    
+      
   (pipeline/capture-var-seq-atomic-go
    (context/wrap-scope context "capture")
    (channel-provider :capture-in)
    (var geocache-prepare-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
+(take 5 geocache-prepare-seq)
+
+(require 'clojure.xml)
+(with-open [is (fs/input-stream
+                (path/child
+                 env/*global-my-dataset-path*
+                 "geocaching.com" "list" "sofia-dimitrovgrad.gpx"))]
+  (def data (clojure.xml/parse is)))
+
+(keys data)
+(into #{} (map :tag (:content data)))
+
+(count (filter #(= (:tag %) :wpt) (:content data)))
 
 
+(count
+ (into
+  #{}
+  (map
+   (fn [geocache]
+     (first
+      (filter
+       (fn [tag]
+         (.startsWith tag "geocaching:id:"))
+       (:tags geocache))))
+   geocache-prepare-seq)))
 
-;; prepare geocaches
+(web/register-resource "data" (take 5 geocache-prepare-seq))
 
-(def geocache-prepare-seq nil)
+
 #_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
