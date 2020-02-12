@@ -2,7 +2,10 @@
   (:use clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [net.cgrand.enlive-html :as html]
+   
    [clojure.xml :as xml]
+   [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
@@ -193,7 +196,6 @@
       (async/close! out)
       (context/set-state context "completion"))))
 
-
 (defn my-find-go
   "Reads given pocket query geocaches and emits them to channel"
   [context path out]
@@ -215,6 +217,40 @@
             (recur (rest geocaches)))))
       (async/close! out)
       (context/set-state context "completion"))))
+
+(defn extract-favorite-from-list-scrap
+  "Currently requires export of DOM from Firefox, inspect one of favorite points.
+  Find matching tbody ( xpath: /html/body/div[1]/div/div/div/section/div[4]/div[2]/table/tbody ).
+  Save inner HTML in file and give as input, file should contain <tr> elements"
+  [input-stream]
+  (doall
+   (map
+    (fn [geocache]
+      (try
+        (let [geocache-id (.trim
+                           (second
+                            (.split
+                             (first
+                              (:content
+                               (first
+                                (filter
+                                 #(= (:class (:attrs %)) "geocache-code")
+                                 (get-in geocache [:content 1 :content 0 :content 1 :content])))))
+                             "\\|")))
+              favorite-points (try
+                                (as/as-long (get-in geocache [:content 3 :content 0]))
+                                (catch Exception e 0))]
+          {
+           :geocache-id geocache-id
+           :favorite-points favorite-points})
+        (catch Exception e
+          (throw (ex-info "unable to parse cache" {:geocache geocache} e)))))
+    (filter
+     (fn [geocache]
+       (not (= (:class (:attrs geocache)) "inactive-cache ")))
+     (get-in
+      (html/html-resource input-stream)
+      [0 :content 0 :content 0 :content 0 :content])))))
 
 #_(defn location->gc-number
   [location]

@@ -3,6 +3,8 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [net.cgrand.enlive-html :as html]
+   
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -13,6 +15,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-common.view :as view]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
    [clj-geo.math.tile :as tile-math]
@@ -172,14 +175,32 @@
       context-thread (pipeline/create-state-context-reporting-finite-thread
                       context
                       5000)        
-      channel-provider (pipeline/create-channels-provider)]
+      channel-provider (pipeline/create-channels-provider)
+      favorite-map (with-open [is (fs/input-stream
+                                   (path/child
+                                    env/*global-my-dataset-path*
+                                    "geocaching.com" "web" "sofia-dimitrovgrad-list.tbody"))]
+                     (view/seq->map
+                      :geocache-id
+                      (geocaching/extract-favorite-from-list-scrap is)))]
   (geocaching/pocket-query-go
    (context/wrap-scope context "read")
    (path/child
     env/*global-my-dataset-path*
     "geocaching.com" "list" "sofia-dimitrovgrad.gpx")
-   (channel-provider :capture-in))
+   (channel-provider :favorite-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "favorite")
+   (channel-provider :favorite-in)
+   (map
+    (fn [geocache]
+
+;; todo
       
+      ))
+   (channel-provider :capture-in))
+  
   (pipeline/capture-var-seq-atomic-go
    (context/wrap-scope context "capture")
    (channel-provider :capture-in)
@@ -194,6 +215,15 @@
                  env/*global-my-dataset-path*
                  "geocaching.com" "list" "sofia-dimitrovgrad.gpx"))]
   (def data (clojure.xml/parse is)))
+
+
+
+
+
+
+(class data)
+(count data)
+(class (first data))
 
 (keys data)
 (into #{} (map :tag (:content data)))
@@ -214,6 +244,41 @@
    geocache-prepare-seq)))
 
 (web/register-resource "data" (take 5 geocache-prepare-seq))
+(web/register-resource
+ "data"
+ (:content (first (:content (first (:content (first (:content (first data)))))))))
+
+(web/register-resource
+ "geocache"
+ (doall
+  (map
+   (fn [geocache]
+    
+     (try
+       (let [geocache-id (.trim
+                          (second
+                           (.split
+                            (first
+                             (:content
+                              (first
+                               (filter
+                                #(= (:class (:attrs %)) "geocache-code")
+                                (get-in geocache [:content 1 :content 0 :content 1 :content])))))
+                            "\\|")))
+             favorite-points (try
+                               (as/as-long (get-in geocache [:content 3 :content 0]))
+                               (catch Exception e 0))]
+         {
+          :geocache-id geocache-id
+          :favorite-points favorite-points})
+       (catch Exception e
+         (web/register-resource "failed" geocache)
+         (throw (ex-info "unable to parse cache" {:geocache geocache} e)))))
+   (filter
+    (fn [geocache]
+      (not (= (:class (:attrs geocache)) "inactive-cache ")))
+    (get-in data [0 :content 0 :content 0 :content 0 :content])))))
+
 
 
 #_(let [context (context/create-state-context)
