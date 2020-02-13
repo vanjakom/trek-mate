@@ -50,112 +50,77 @@
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
 
-(defn osm-tags->tags [osm-tags]
-  (reduce
-   (fn [tags rule]
-     (let [tag-or-many (rule osm-tags)]
-       (if (string? tag-or-many)
-         (conj tags tag-or-many)
-         (into tags (filter some? tag-or-many)))))
-   #{}
-   [
-    (fn [osm-tags]
-      (if-let [name (get osm-tags "name:en")]
-        (tag/name-tag name)
-        (if-let [name (get osm-tags "name")]
-          (tag/name-tag name)
-          nil)))
-    #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
-    #(when (= (get % "place") "town") tag/tag-city)
-    #(when (= (get % "place") "city") tag/tag-city)
-    #(when (= (get % "place") "village") tag/tag-village)
-    #(when (= (get % "place") "hamlet") tag/tag-village)
-
-    #(when (= (get % "place") "square") tag/tag-history)
-    
-    #(when (= (get % "historic") "monument") tag/tag-history)
-    #(when (= (get % "tourism") "attraction") tag/tag-tourism)
-    #(when (= (get % "tourism") "museum") tag/tag-museum)
-    #(when (contains? % "heritage") tag/tag-history)]))
-
-(defn extract-tags [location]
-  (assoc
-     location
-     :tags
-     (osm-tags->tags (:osm location))))
 
 ;; cities
 ;; nwr[~"^name(:.*)?$"~"^Faro$"](area:3600295480);
 
-
-
 (def porto
-  (extract-tags (overpass/node-id->location 2986300166)))
+  (osm/extract-tags (overpass/node-id->location 2986300166)))
 (def ponte-luis
-  (extract-tags (overpass/relation-id->location 1712632)))
+  (osm/extract-tags (overpass/relation-id->location 1712632)))
 (def casa-da-musica
-  (extract-tags (overpass/way-id->location 603359226)))
+  (osm/extract-tags (overpass/way-id->location 603359226)))
 (def porto-town-hall
   (extract-tags (overpass/way-id->location 3012085)))
 (def porto-cathedral
-  (extract-tags (overpass/way-id->location 210461448)))
+  (osm/extract-tags (overpass/way-id->location 210461448)))
 (def porto-market
-  (extract-tags (overpass/relation-id->location 3046626)))
+  (osm/extract-tags (overpass/relation-id->location 3046626)))
 (def porto-book-store
-  (extract-tags (overpass/way-id->location 229270821)))
+  (osm/extract-tags (overpass/way-id->location 229270821)))
 (def porto-photography
-  (extract-tags (overpass/node-id->location 4586091689)))
+  (osm/extract-tags (overpass/node-id->location 4586091689)))
 (def porto-ribeira
-  (extract-tags (overpass/node-id->location 2087123283)))
+  (osm/extract-tags (overpass/node-id->location 2087123283)))
 (def porto-serralves
-  (extract-tags (overpass/way-id->location 167487344)))
+  (osm/extract-tags (overpass/way-id->location 167487344)))
 
 
 (def lisbon
-  (extract-tags (overpass/node-id->location 265958490)))
+  (osm/extract-tags (overpass/node-id->location 265958490)))
 (def ultramar
-  (extract-tags (overpass/way-id->location 664143166)))
+  (osm/extract-tags (overpass/way-id->location 664143166)))
 (def rosio
-  (extract-tags (overpass/relation-id->location 9218818)))
+  (osm/extract-tags (overpass/relation-id->location 9218818)))
 (def baixa
-  (extract-tags (overpass/way-id->location 394631209)))
+  (osm/extract-tags (overpass/way-id->location 394631209)))
 (def torre-de-belem
-  (extract-tags (overpass/way-id->location 24341353)))
+  (osm/extract-tags (overpass/way-id->location 24341353)))
 
 (def faro
-  (extract-tags (overpass/node-id->location 25254936)))
+  (osm/extract-tags (overpass/node-id->location 25254936)))
 (def sintra
-  (extract-tags (overpass/node-id->location 25611733)))
+  (osm/extract-tags (overpass/node-id->location 25611733)))
 
 ;; villages
 
 (def monsaraz
   (add-tag
-   (extract-tags (overpass/node-id->location 373461757))
+   (osm/extract-tags (overpass/node-id->location 373461757))
    (tag/url-tag "instagram" "https://www.instagram.com/explore/tags/monsarazportugal/")))
 (def braga
-  (extract-tags (overpass/node-id->location 24960107)))
+  (osm/extract-tags (overpass/node-id->location 24960107)))
 (def monsanto
   (add-tag
-   (extract-tags (overpass/node-id->location 371426674))
+   (osm/extract-tags (overpass/node-id->location 371426674))
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/monsanto/")))
 (def obidos
-  (extract-tags (overpass/node-id->location 2620015278)))
+  (osm/extract-tags (overpass/node-id->location 2620015278)))
 (def mertola
-  (extract-tags (overpass/node-id->location 255654259)))
+  (osm/extract-tags (overpass/node-id->location 255654259)))
 (def marvao
-  (extract-tags (overpass/node-id->location 25612849)))
+  (osm/extract-tags (overpass/node-id->location 25612849)))
 (def ericeira
-  (extract-tags (overpass/node-id->location 130035599)))
+  (osm/extract-tags (overpass/node-id->location 130035599)))
 (def castelo-rodrigo
   (add-tag
-   (extract-tags (overpass/node-id->location 439452088))
+   (osm/extract-tags (overpass/node-id->location 439452088))
    "#wikidata"
    "Q1048976"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/castelo-rodrigo/")))
 (def sortelha
   (add-tag
-   (extract-tags (overpass/node-id->location 1893052222))
+   (osm/extract-tags (overpass/node-id->location 1893052222))
    "#wikidata"
    "Q2120360" ;; parish
    "Q5049831" ;; castle
@@ -164,56 +129,56 @@
   (extract-tags (overpass/node-id->location 25278374)))
 (def almeida
   (add-tag
-   (extract-tags (overpass/node-id->location 25277740))
+   (osm/extract-tags (overpass/node-id->location 25277740))
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/almeida/")))
 (def alvaro
   (add-tag
-   (extract-tags (overpass/node-id->location 1765080756))
+   (osm/extract-tags (overpass/node-id->location 1765080756))
    "#wikidata"
    "Q250789"))
 (def belmonte
   (add-tag
-   (extract-tags (overpass/node-id->location 25269014))
+   (osm/extract-tags (overpass/node-id->location 25269014))
    "#wikidata"
    "Q816115"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/belmonte/")))
 (def castelo-mendo
   (add-tag
-   (extract-tags (overpass/node-id->location 2081050231))
+   (osm/extract-tags (overpass/node-id->location 2081050231))
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/castelo-mendo/")))
 (def castelo-novo
   (add-tag
-   (extract-tags (overpass/node-id->location 2088966959))
+   (osm/extract-tags (overpass/node-id->location 2088966959))
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/castelo-novo/")
    "#wikidata"
    "Q1024355"))
 (def idanha-a-velha
   (add-tag
-   (extract-tags (overpass/node-id->location 4554409508))
+   (osm/extract-tags (overpass/node-id->location 4554409508))
    "#wikidata"
    "Q1026697"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/idanha-a-velha/")))
 (def linhares
   (add-tag
-   (extract-tags (overpass/node-id->location 432915952))
+   (osm/extract-tags (overpass/node-id->location 432915952))
    "#wikidata"
    "Q24142"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/linhares-da-beira/")))
 (def marialva
   (add-tag
-   (extract-tags (overpass/node-id->location 439657742))
+   (osm/extract-tags (overpass/node-id->location 439657742))
    "#wikidata"
    "Q670426"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/marialva/")))
 (def poidao
   (add-tag
-   (extract-tags (overpass/node-id->location 907022125))
+   (osm/extract-tags (overpass/node-id->location 907022125))
    "#wikidata"
    "Q3233"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/piodao/")))
 (def transoco
   (add-tag
-   (extract-tags (overpass/node-id->location 25277735))
+   (osm/extract-tags (overpass/node-id->location 25277735))
    "#wikidata"
    "Q686868"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/trancoso/")))
@@ -237,9 +202,9 @@
 
 ;; nature
 (def serra-da-estrela
-  (extract-tags (overpass/node-id->location 5172661705)))
+  (osm/extract-tags (overpass/node-id->location 5172661705)))
 (def cabo-sao-vicente
-  (extract-tags (overpass/node-id->location 5003941303)))
+  (osm/extract-tags (overpass/node-id->location 5003941303)))
 
 ;; todo
 ;; trek-mate

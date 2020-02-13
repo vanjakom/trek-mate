@@ -608,6 +608,46 @@
    "osm:tourism=museum" tag/tag-museum
    "osm:aeroway=aerodrome" tag/tag-airport})
 
+;; once more tagging
+(defn osm-tags->tags [osm-tags]
+  (reduce
+   (fn [tags rule]
+     (let [tag-or-many (rule osm-tags)]
+       (if (string? tag-or-many)
+         (conj tags tag-or-many)
+         (into tags (filter some? tag-or-many)))))
+   #{}
+   [
+    (fn [osm-tags]
+      (if-let [name (get osm-tags "name:en")]
+        (tag/name-tag name)
+        (if-let [name (get osm-tags "name")]
+          (tag/name-tag name)
+          nil)))
+    #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
+    #(when (= (get % "place") "town") tag/tag-city)
+    #(when (= (get % "place") "city") tag/tag-city)
+    #(when (= (get % "place") "village") tag/tag-village)
+    #(when (= (get % "place") "hamlet") tag/tag-village)
+
+    #(when (= (get % "place") "square") tag/tag-history)
+
+    #(when (= (get % "amenity") "place_of_worship") tag/tag-church)
+    
+    #(when (= (get % "historic") "monument") tag/tag-history)
+    #(when (= (get % "tourism") "attraction") tag/tag-tourism)
+    #(when (= (get % "tourism") "museum") tag/tag-museum)
+    #(when (= (get % "tourism") "hotel") tag/tag-hotel)
+    #(when (contains? % "heritage") tag/tag-history)]))
+
+(defn extract-tags [location]
+  (assoc
+     location
+     :tags
+     (osm-tags->tags (:osm location))))
+
+
+
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
   (update-in

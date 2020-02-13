@@ -195,10 +195,33 @@
    (channel-provider :favorite-in)
    (map
     (fn [geocache]
-
-;; todo
-      
-      ))
+      (let [geocache-id (get-in geocache [:geocaching :code])
+            favorite-points (:favorite-points (get favorite-map geocache-id))]
+        (cond
+          (nil? favorite-points)
+          (do
+            (context/increment-counter "favorite-null")
+            geocache)
+          (> favorite-points 1000)
+          (do
+            (context/increment-counter "favorite-1k")
+            (update-in geocache [:tags] conj "#favorite-1k" "#favorite"))
+          (> favorite-points 100)
+          (do
+            (context/increment-counter "favorite-100")
+            (update-in geocache [:tags] conj "#favorite-100" "#favorite"))
+          (> favorite-points 10)
+          (do
+            (context/increment-counter "favorite-10")
+            (update-in geocache [:tags] conj "#favorite-10" "#favorite"))
+          (> favorite-points 1)
+          (do
+            (context/increment-counter "favorite")
+            (update-in geocache [:tags] conj "#favorite"))
+          :else
+          (do
+            (context/increment-counter "favorite-zero")
+            geocache)))))
    (channel-provider :capture-in))
   
   (pipeline/capture-var-seq-atomic-go
@@ -207,7 +230,7 @@
    (var geocache-prepare-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(take 5 geocache-prepare-seq)
+(def geocache (first geocache-prepare-seq)) 
 
 (require 'clojure.xml)
 (with-open [is (fs/input-stream
@@ -217,36 +240,30 @@
   (def data (clojure.xml/parse is)))
 
 
+(count (into #{} (filter #(= (:tag %) :wpt) (:content data))))
+
+(into #{}  (map :tag (:content (first (filter #(= (:tag %) :wpt) (:content data))))))
+
+(web/register-resource
+ "geocache"
+ (view/seq->map :tag (:content (first (filter #(= (:tag %) :wpt) (:content data))))))
 
 
-
-
-(class data)
-(count data)
-(class (first data))
-
-(keys data)
-(into #{} (map :tag (:content data)))
-
-(count (filter #(= (:tag %) :wpt) (:content data)))
-
-
-(count
+(run!
+ println
  (into
   #{}
   (map
-   (fn [geocache]
-     (first
-      (filter
-       (fn [tag]
-         (.startsWith tag "geocaching:id:"))
-       (:tags geocache))))
-   geocache-prepare-seq)))
+   #(get-in % [:type :content 0])
+   (map
+    (partial view/seq->map :tag)
+    (map
+     :content
+     (filter #(= (:tag %) :wpt) (:content data)))))))
 
-(web/register-resource "data" (take 5 geocache-prepare-seq))
-(web/register-resource
- "data"
- (:content (first (:content (first (:content (first (:content (first data)))))))))
+
+(first )
+
 
 (web/register-resource
  "geocache"
@@ -326,9 +343,15 @@
 #_(count geocache-prepare-seq) ; 2376
 
 (defr geocache-seq geocache-prepare-seq)
+#_(remove-cache 'geocache-seq)
+(count geocache-seq)
 
-(def hotel (overpass/node-id->location 2586978571))
-(defr sofia (wikidata/id->location :Q472))
+(def hotel-nis
+  (osm/extract-tags (overpass/way-id->location 772101676)))
+(def hotel
+  (osm/extract-tags (overpass/node-id->location 2586978571)))
+(def sofia
+  (osm/extract-tags (overpass/node-id->location 1700083447)))
 
 ;; poi
 ;; node 6993496027 - basecamp outdoor
@@ -336,15 +359,26 @@
 ;; node 6670013289 - k2
 ;; way 155447771 - Q43282 - Hram Svetog Aleksandra Nevskog
 
+(def central-baths
+  (osm/extract-tags (overpass/way-id->location 166213386)))
+(def nevsky-cathedral
+  (osm/extract-tags (overpass/way-id->location 155447771)))
+(def boyane-church
+  (osm/extract-tags (overpass/way-id->location 44890267)))
+(def synagogue
+  (osm/extract-tags (overpass/way-id->location 96646570)))
 
 (def location-seq
-  (take
-   1000
-   (concat
-    (list
-     sofia
-     hotel)
-    geocache-seq)))
+  (concat
+   [
+    hotel-nis
+    hotel
+    sofia
+    central-baths
+    nevsky-cathedral
+    boyane-church
+    synagogue]
+   geocache-seq))
 
 (count location-seq)
 
