@@ -61,7 +61,7 @@
 (def casa-da-musica
   (osm/extract-tags (overpass/way-id->location 603359226)))
 (def porto-town-hall
-  (extract-tags (overpass/way-id->location 3012085)))
+  (extract-tags (overpass/relation-id->location 3012085)))
 (def porto-cathedral
   (osm/extract-tags (overpass/way-id->location 210461448)))
 (def porto-market
@@ -234,6 +234,7 @@
 
     serra-da-estrela cabo-sao-vicente]))
 
+;; todo use dot/enrich-tags on locations
 
 (web/register-map
  "portugal2020"
@@ -252,3 +253,4 @@
 
 
 
+#_(run! #(println (:longitude %) (:latitude %) (:tags %)) location-seq)

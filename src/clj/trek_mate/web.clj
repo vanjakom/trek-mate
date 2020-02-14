@@ -391,7 +391,7 @@
      (map
       (fn [feature]
         (let [description (clojure.string/join
-                           " "
+                           "</br>"
                            (map
                             (comp
                              url-tag->html

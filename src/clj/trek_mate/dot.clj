@@ -124,6 +124,29 @@
 ;;; locations are stored on zoom level 16
 (def ^:dynamic *dot-zoom-level* 16)
 
+(defn enrich-tags
+  "To be used once tags are extracted from integration to enrich extracted
+  tags with tags that are assumend, example: #cafe -> #drink, #starbucks -> #cafe
+  Note: order is important"
+  [location]
+  (update-in
+   location
+   [:tags]
+   (fn [tags]
+     (reduce
+      (fn [tags extract-fn]
+        (if-let [tag (extract-fn tags)]
+          (conj tags tag)
+          tags))
+      tags
+      [
+       #(when (contains? % tag/tag-unesco) tag/tag-history)
+       #(when (contains? % "#starbucks") tag/tag-cafe)
+       #(when (contains? % tag/tag-cafe) tag/tag-drink)
+       #(when (contains? % tag/tag-mall) tag/tag-shopping)]))))
+
+#_(enrich-tags {:tags #{"#starbucks"}})
+
 (defn location->dot [location]
   (let [[x y] ((tile-math/zoom->location->point *dot-zoom-level*) location)]
     {:x x :y y :tags (:tags location)}))

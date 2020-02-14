@@ -103,10 +103,12 @@
    (if (contains? tags tag/tag-penny-press) penny-press-pin)))
 
 (defn urban-trigger [tags]
-  (or   
+  (or
+   (if (contains? tags tag/tag-hotel) sleep-pin)
    (if (contains? tags tag/tag-sleep) sleep-pin)
    (if (contains? tags tag/tag-eat) eat-pin)
    (if (contains? tags tag/tag-drink) drink-pin)
+   (if (contains? tags tag/tag-cafe) drink-pin)
    (if (contains? tags tag/tag-gas-station) gas-pin)
    (if (contains? tags tag/tag-church) church-pin)
    (if (contains? tags tag/tag-history) history-pin)

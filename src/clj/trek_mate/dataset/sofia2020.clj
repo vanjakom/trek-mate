@@ -22,6 +22,7 @@
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
+   [trek-mate.integration.opencaching :as opencaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
@@ -171,7 +172,7 @@
 ;; prepare geocaches
 
 (def geocache-prepare-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread
                       context
                       5000)        
@@ -183,7 +184,7 @@
                      (view/seq->map
                       :geocache-id
                       (geocaching/extract-favorite-from-list-scrap is)))]
-  (geocaching/pocket-query-go
+  (geocaching/list-gpx-go
    (context/wrap-scope context "read")
    (path/child
     env/*global-my-dataset-path*
@@ -230,121 +231,10 @@
    (var geocache-prepare-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(def geocache (first geocache-prepare-seq)) 
-
-(require 'clojure.xml)
-(with-open [is (fs/input-stream
-                (path/child
-                 env/*global-my-dataset-path*
-                 "geocaching.com" "list" "sofia-dimitrovgrad.gpx"))]
-  (def data (clojure.xml/parse is)))
-
-
-(count (into #{} (filter #(= (:tag %) :wpt) (:content data))))
-
-(into #{}  (map :tag (:content (first (filter #(= (:tag %) :wpt) (:content data))))))
-
-(web/register-resource
- "geocache"
- (view/seq->map :tag (:content (first (filter #(= (:tag %) :wpt) (:content data))))))
-
-
-(run!
- println
- (into
-  #{}
-  (map
-   #(get-in % [:type :content 0])
-   (map
-    (partial view/seq->map :tag)
-    (map
-     :content
-     (filter #(= (:tag %) :wpt) (:content data)))))))
-
-
-(first )
-
-
-(web/register-resource
- "geocache"
- (doall
-  (map
-   (fn [geocache]
-    
-     (try
-       (let [geocache-id (.trim
-                          (second
-                           (.split
-                            (first
-                             (:content
-                              (first
-                               (filter
-                                #(= (:class (:attrs %)) "geocache-code")
-                                (get-in geocache [:content 1 :content 0 :content 1 :content])))))
-                            "\\|")))
-             favorite-points (try
-                               (as/as-long (get-in geocache [:content 3 :content 0]))
-                               (catch Exception e 0))]
-         {
-          :geocache-id geocache-id
-          :favorite-points favorite-points})
-       (catch Exception e
-         (web/register-resource "failed" geocache)
-         (throw (ex-info "unable to parse cache" {:geocache geocache} e)))))
-   (filter
-    (fn [geocache]
-      (not (= (:class (:attrs geocache)) "inactive-cache ")))
-    (get-in data [0 :content 0 :content 0 :content 0 :content])))))
-
-
-
-#_(let [context (context/create-state-context)
-      context-thread (context/create-state-context-reporting-thread context 3000)
-      channel-provider (pipeline/create-channels-provider)]
-  (geocaching/pocket-query-go
-   (context/wrap-scope context "read-1")
-   (path/child
-    env/*global-my-dataset-path*
-    "geocaching.com" "pocket-query" "22898134_bulgaria-1.gpx")
-   (channel-provider :funnel-in-1))
-  (geocaching/pocket-query-go
-   (context/wrap-scope context "read-2")
-   (path/child
-    env/*global-my-dataset-path*
-    "geocaching.com" "pocket-query" "22898136_bulgaria-2.gpx")
-   (channel-provider :funnel-in-2))
-  (geocaching/pocket-query-go
-   (context/wrap-scope context "read-3")
-   (path/child
-    env/*global-my-dataset-path*
-    "geocaching.com" "pocket-query" "22898139_bulgaria-3.gpx")
-   (channel-provider :funnel-in-3))
-
-  (pipeline/funnel-go
-   (context/wrap-scope context "funnel")
-   [
-    (channel-provider :funnel-in-1)
-    (channel-provider :funnel-in-2)
-    (channel-provider :funnel-in-3)] 
-   (channel-provider :close-in))
-
-  (pipeline/after-fn-go
-   (context/wrap-scope context "close-thread")
-   (channel-provider :close-in)
-   #(clj-common.jvm/interrupt-thread "context-reporting-thread")
-   (channel-provider :capture-in))
-    
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :capture-in)
-   (var geocache-prepare-seq))
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-
-#_(count geocache-prepare-seq) ; 2376
 
 (defr geocache-seq geocache-prepare-seq)
 #_(remove-cache 'geocache-seq)
-(count geocache-seq)
+
 
 (def hotel-nis
   (osm/extract-tags (overpass/way-id->location 772101676)))
@@ -353,34 +243,110 @@
 (def sofia
   (osm/extract-tags (overpass/node-id->location 1700083447)))
 
-;; poi
-;; node 6993496027 - basecamp outdoor
-;; no poi - XCoSports Bulgaria OOD
-;; node 6670013289 - k2
-;; way 155447771 - Q43282 - Hram Svetog Aleksandra Nevskog
 
 (def central-baths
   (osm/extract-tags (overpass/way-id->location 166213386)))
 (def nevsky-cathedral
   (osm/extract-tags (overpass/way-id->location 155447771)))
 (def boyane-church
-  (osm/extract-tags (overpass/way-id->location 44890267)))
+  (dot/enrich-tags
+   (osm/extract-tags (overpass/way-id->location 44890267))))
 (def synagogue
   (osm/extract-tags (overpass/way-id->location 96646570)))
 
-(def location-seq
-  (concat
-   [
+
+(defr opengeocache-seq
+  (opencaching/api-de-search-bbox
+   23.02734 23.55537 42.42396 42.81152))
+
+
+;; poi
+;; node 6993496027 - basecamp outdoor
+;; no poi - XCoSports Bulgaria OOD
+;; node 6670013289 - k2
+(def outdoorstore-seq
+  (map
+   dot/enrich-tags
+   (map
+    osm/extract-tags
+    (overpass/query-dot-seq "(node(6993496027);node(6670013289);node(5934937639););"))))
+
+
+;; sofia relation 4283101
+#_(+ 4283101 3600000000) ; 3604283101
+;; sofia city relation 7276261
+#_(+ 7276261 3600000000) ; 3607276261
+
+(def starbucks-seq
+  (map
+   dot/enrich-tags
+   (map
+    osm/extract-tags
+    (overpass/query-dot-seq "nwr[\"brand:wikidata\"=\"Q37158\"](area:3604283101);"))))
+
+(def mall-seq
+  (map
+   dot/enrich-tags
+   (map
+    osm/extract-tags
+    (overpass/query-dot-seq "nwr[shop=mall](area:3607276261);"))))
+
+(count mall-seq)
+
+
+(def manual-location-seq
+  [
     hotel-nis
     hotel
     sofia
     central-baths
     nevsky-cathedral
     boyane-church
-    synagogue]
-   geocache-seq))
+    synagogue])
 
-(count location-seq)
+(def location-seq
+  (concat
+   manual-location-seq
+   starbucks-seq
+   mall-seq))
+
+(run!
+ println
+ (into
+  #{}
+  (filter
+   #(or
+     (.startsWith % "#")
+     (.startsWith % "@"))
+   (mapcat
+    :tags
+    location-seq))))
+;; #wherigo-cache
+;; #favorite
+;; #multi-cache
+;; #tourism
+;; #earth-cache
+;; #mistery-cache
+;; #last-found
+;; #city
+;; #virtual-cache
+;; #museum
+;; #church
+;; #hotel
+;; #favorite-10
+;; #geocaching.com
+;; #favorite-100
+;; #geocache
+;; #letterbox-cache
+;; #opencaching
+;; #traditional-cache
+;; #cito-cache
+
+(run! #(println (:longitude %) (:latitude %) (:tags %)) manual-location-seq)
+
+(storage/import-location-v2-seq-handler location-seq)
+(storage/import-location-v2-seq-handler geocache-seq)
+(storage/import-location-v2-seq-handler opengeocache-seq)
 
 (web/register-map
  "sofia2020"
@@ -393,6 +359,21 @@
   :raster-tile-fn (web/create-osm-external-raster-tile-fn)
   ;; do not use constantly because it captures location variable
   :vector-tile-fn (web/tile-vector-dotstore-fn [(fn [_ _ _ _] location-seq)])
+  :search-fn #'search-fn})
+
+
+(web/register-map
+ "sofia2020-geocache"
+ {
+  :configuration {
+                  
+                  :longitude (:longitude sofia)
+                  :latitude (:latitude sofia)
+                  :zoom 13}
+  :raster-tile-fn (web/create-osm-external-raster-tile-fn)
+  ;; do not use constantly because it captures location variable
+  :vector-tile-fn (web/tile-vector-dotstore-fn
+                   [(fn [_ _ _ _] (concat geocache-seq opengeocache-seq))])
   :search-fn #'search-fn})
 
 (web/create-server)

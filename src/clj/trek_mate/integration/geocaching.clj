@@ -97,6 +97,8 @@
       :geocache (extract-geocache-wpt (first wpts))
       :waypoints (map extract-waypoint-wpt (rest wpts))}))
 
+;; #{"Virtual Cache" "Earthcache" "Cache In Trash Out Event" "Wherigo Cache" "Unknown Cache" "Multi-cache" "Traditional Cache" "Letterbox Hybrid"}
+
 (defn geocache->location
   "Works on results of extract-geocache-wpt"
   [geocache]
@@ -126,8 +128,12 @@
             (cond
               (= (:type geocache) "Virtual Cache") "#virtual-cache"
               (= (:type geocache) "Earthcache") "#earth-cache"
+              (= (:type geocache) "Cache In Trash Out Event") "#cito-cache"
+              (= (:type geocache) "Wherigo Cache") "#wherigo-cache"
+              (= (:type geocache) "Unknown Cache") "#mistery-cache"
               (= (:type geocache) "Multi-cache") "#multi-cache"
               (= (:type geocache) "Traditional Cache") "#traditional-cache"
+              (= (:type geocache) "Letterbox Hybrid") "#letterbox-cache"
               :else nil)]))})
 
 (defn myfind-geocache->location
@@ -187,6 +193,35 @@
                          (filter
                           #(= (:tag %) :wpt)
                           (:content (xml/parse input-stream)))))]
+        (when-let [geocache (first geocaches)]
+          (context/set-state context "step")
+          (context/counter context "in")
+          (when (async/>! out geocache)
+            (context/counter context "out")
+            (recur (rest geocaches)))))
+      (async/close! out)
+      (context/set-state context "completion"))))
+
+(defn list-gpx-go
+  "Reads list gpx and extracts only geocaches to channel"
+  [context path out]
+  (async/go
+    (context/set-state context "init")
+    (with-open [input-stream (fs/input-stream path)]
+      (loop [geocaches (map
+                        geocache->location
+                        (map
+                         extract-geocache-wpt
+                         (filter
+                          (fn [wpt]
+                            (= (get-in
+                                (first
+                                 (filter #(= (:tag %) :sym) (:content wpt)))
+                                [:content 0])
+                               "Geocache"))
+                          (filter
+                           #(= (:tag %) :wpt)
+                           (:content (xml/parse input-stream))))))]
         (when-let [geocache (first geocaches)]
           (context/set-state context "step")
           (context/counter context "in")

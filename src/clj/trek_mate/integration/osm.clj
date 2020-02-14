@@ -633,12 +633,36 @@
     #(when (= (get % "place") "square") tag/tag-history)
 
     #(when (= (get % "amenity") "place_of_worship") tag/tag-church)
+    #(when (= (get % "amenity") "cafe") tag/tag-cafe)
     
     #(when (= (get % "historic") "monument") tag/tag-history)
     #(when (= (get % "tourism") "attraction") tag/tag-tourism)
     #(when (= (get % "tourism") "museum") tag/tag-museum)
     #(when (= (get % "tourism") "hotel") tag/tag-hotel)
-    #(when (contains? % "heritage") tag/tag-history)]))
+
+    #(when (contains? % "heritage") tag/tag-history)
+    #(when (= (get % "heritage:operator") "whc")
+       (if-let [ref (get % "ref:whc")]
+         [
+          tag/tag-unesco
+          (tag/link-tag "unesco" ref)
+          (tag/url-tag
+           "unesco site"
+           (str "https://whc.unesco.org/en/list/" ref))]
+         tag/tag-unesco))
+
+    #(when (= (get % "shop") "sports") tag/tag-shopping)
+    #(when (= (get % "shop") "outdoor") tag/tag-shopping)
+    #(when (= (get % "shop") "mall") tag/tag-mall)
+    
+    ;; general
+    #(when-let [website (get % "website")]
+       (tag/url-tag "website" website))
+    
+    ;; brands
+    #(when (= (get % "brand:wikidata") "Q37158") "#starbucks")
+    #(when (= (get % "brand") "Starbucks") "#starbucks")
+    ]))
 
 (defn extract-tags [location]
   (assoc

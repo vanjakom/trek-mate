@@ -11,7 +11,9 @@
 
 (def ^:dynamic *endpoint* "http://overpass-api.de/")
 
-(defn request [query]
+(defn request
+  "Performs qiven query asking for center output"
+  [query]
   (let [encoded (java.net.URLEncoder/encode
                  (str
                   "[out:json];\n"
@@ -165,3 +167,11 @@
        :else
        []))
    (:elements json-response)))
+
+(defn query-dot-seq
+  "Performs given query and reports center for each element returned
+  Note: relies on request fn to ask for center"
+  [query]
+  (map
+   element->single-location
+   (:elements (request query))))

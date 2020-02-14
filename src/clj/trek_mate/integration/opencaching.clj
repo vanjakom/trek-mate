@@ -82,7 +82,13 @@
               tag/tag-geocache
               "#opencaching"
               (:code geocache)
-              (:name geocache)
+              (tag/name-tag (:name geocache))
+              (tag/url-tag
+               (:code geocache)
+               (str
+                "https://www.opencaching.de/viewcache.php?wp="
+                (:code geocache)))
+            (tag/link-tag "opencaching.de" (:code geocache))
               (:status geocache)
               (:type geocache)
               (when-let [hint (:hint2 geocache)] (str "hint: " hint))]))}))
