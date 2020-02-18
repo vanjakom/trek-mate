@@ -97,6 +97,8 @@
        :latitude (:latitude (:location location-request))
        :tags (into #{} (:tags location-request))})
     (storage/location-request-seq-from-backup env/*trek-mate-user*))))
+(remove-cache 'location-map)
+(count location-map)
 
 (web/register-map
  "mine"

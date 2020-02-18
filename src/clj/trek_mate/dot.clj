@@ -142,6 +142,7 @@
       [
        #(when (contains? % tag/tag-unesco) tag/tag-history)
        #(when (contains? % "#starbucks") tag/tag-cafe)
+       #(when (contains? % "#costa") tag/tag-cafe)
        #(when (contains? % tag/tag-cafe) tag/tag-drink)
        #(when (contains? % tag/tag-mall) tag/tag-shopping)]))))
 

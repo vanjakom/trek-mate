@@ -274,7 +274,7 @@
 
 ;; sofia relation 4283101
 #_(+ 4283101 3600000000) ; 3604283101
-;; sofia city relation 7276261
+;; sofia extended relation 7276261
 #_(+ 7276261 3600000000) ; 3607276261
 
 (def starbucks-seq
@@ -283,6 +283,13 @@
    (map
     osm/extract-tags
     (overpass/query-dot-seq "nwr[\"brand:wikidata\"=\"Q37158\"](area:3604283101);"))))
+
+(def costas-seq
+  (map
+   dot/enrich-tags
+   (map
+    osm/extract-tags
+    (overpass/query-dot-seq "nwr[\"brand:wikidata\"=\"Q608845\"](area:3604283101);"))))
 
 (def mall-seq
   (map
@@ -307,8 +314,34 @@
 (def location-seq
   (concat
    manual-location-seq
+   costas-seq
    starbucks-seq
    mall-seq))
+
+#_(count opengeocache-seq) ; 35
+#_(count geocache-seq) ; 455
+
+(def all-geocache-seq
+  (vals (reduce
+         (fn [location-map location]
+           (let [location-id (util/location->location-id location)]
+             (if-let [stored-location (get location-map location-id)]
+               (do
+                 #_(report "duplicate")
+                 #_(report "\t" stored-location)
+                 #_(report "\t" location)
+                 (assoc
+                  location-map
+                  location-id
+                  {
+                   :longitude (:longitude location)
+                   :latitude (:latitude location)
+                   :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+               (assoc location-map location-id location))))
+         {}
+         (concat geocache-seq opengeocache-seq))))
+
+#_(count all-geocache-seq)
 
 (run!
  println
@@ -344,9 +377,12 @@
 
 (run! #(println (:longitude %) (:latitude %) (:tags %)) manual-location-seq)
 
+(storage/import-location-v2-seq-handler costas-seq)
 (storage/import-location-v2-seq-handler location-seq)
-(storage/import-location-v2-seq-handler geocache-seq)
-(storage/import-location-v2-seq-handler opengeocache-seq)
+
+#_(storage/import-location-v2-seq-handler geocache-seq)
+#_(storage/import-location-v2-seq-handler opengeocache-seq)
+(storage/import-location-v2-seq-handler all-geocache-seq)
 
 (web/register-map
  "sofia2020"
@@ -373,7 +409,7 @@
   :raster-tile-fn (web/create-osm-external-raster-tile-fn)
   ;; do not use constantly because it captures location variable
   :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _] (concat geocache-seq opengeocache-seq))])
+                   [(fn [_ _ _ _] all-geocache-seq)])
   :search-fn #'search-fn})
 
 (web/create-server)

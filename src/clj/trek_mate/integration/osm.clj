@@ -662,6 +662,9 @@
     ;; brands
     #(when (= (get % "brand:wikidata") "Q37158") "#starbucks")
     #(when (= (get % "brand") "Starbucks") "#starbucks")
+
+    ;; costas
+    #(when (= (get % "brand:wikidata") "Q608845") "#costa")
     ]))
 
 (defn extract-tags [location]
