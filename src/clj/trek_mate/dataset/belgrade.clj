@@ -36,22 +36,25 @@
 (def geojson-path (path/child dataset-path "locations.geojson"))
 
 (def data-cache-path (path/child dataset-path "data-cache"))
-;;; data caching fns, move them to clj-common if they make sense
-(defn data-cache
-  ([var data]
-   (with-open [os (fs/output-stream (path/child data-cache-path (:name (meta var))))]
-     (edn/write-object os data)))
-  ([var]
-   (data-cache var (deref var))))
+;; todo copy
+;; requires data-cache-path to be definied, maybe use *ns*/data-cache-path to
+;; allow defr to be defined in clj-common
+(defmacro defr [name body]
+  `(let [restore-path# (path/child data-cache-path ~(str name))]
+     (if (fs/exists? restore-path#)
+       (def ~name (with-open [is# (fs/input-stream restore-path#)]
+                    (edn/read-object is#)))
+       (def ~name (with-open [os# (fs/output-stream restore-path#)]
+                    (let [data# ~body]
+                      (edn/write-object os# data#)
+                      data#))))))
 
-(defn restore-data-cache [var]
-  (let [data(with-open [is (fs/input-stream
-                            (path/child data-cache-path (:name (meta var))))]
-              (edn/read-object is))]
-    (alter-var-root
-     var
-     (constantly data))
-    nil))
+(defn remove-cache [symbol]
+  (fs/delete (path/child data-cache-path (name symbol))))
+#_(remove-cache 'geocache-seq)
+
+
+
 
 (defn add-tag
   [location & tag-seq]
@@ -392,5 +395,20 @@
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
   :locations-fn (fn [] location-seq)})
+
+;; kosmaj
+(def kosmaj (osm/extract-tags (overpass/node-id->location 435729135)))
+(def kastaljan (osm/extract-tags (overpass/node-id->location 2515271011)))
+
+(web/register-map
+ "kosmaj"
+ {
+  :configuration {
+                  :longitude (:longitude kosmaj)
+                  :latitude (:latitude kosmaj)
+                  :zoom 13}
+  :raster-tile-fn (web/create-osm-external-raster-tile-fn)
+  :vector-tile-fn (web/tile-vector-dotstore-fn
+                   [(fn [_ _ _ _] [kosmaj kastaljan])])})
 
 (web/create-server)

@@ -625,6 +625,7 @@
           (tag/name-tag name)
           nil)))
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
+    #(when (= (get % "natural") "peak") tag/tag-mountain)
     #(when (= (get % "place") "town") tag/tag-city)
     #(when (= (get % "place") "city") tag/tag-city)
     #(when (= (get % "place") "village") tag/tag-village)
@@ -636,6 +637,7 @@
     #(when (= (get % "amenity") "cafe") tag/tag-cafe)
     
     #(when (= (get % "historic") "monument") tag/tag-history)
+    #(when (= (get % "historic") "ruins") tag/tag-history)
     #(when (= (get % "tourism") "attraction") tag/tag-tourism)
     #(when (= (get % "tourism") "museum") tag/tag-museum)
     #(when (= (get % "tourism") "hotel") tag/tag-hotel)
