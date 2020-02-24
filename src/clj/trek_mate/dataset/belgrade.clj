@@ -399,6 +399,8 @@
 ;; kosmaj
 (def kosmaj (osm/extract-tags (overpass/node-id->location 435729135)))
 (def kastaljan (osm/extract-tags (overpass/node-id->location 2515271011)))
+(def spomenik (osm/extract-tags (overpass/way-id->location 715055651)))
+(def tresije (osm/extract-tags (overpass/node-id->location 1366987244)))
 
 (web/register-map
  "kosmaj"
@@ -409,6 +411,12 @@
                   :zoom 13}
   :raster-tile-fn (web/create-osm-external-raster-tile-fn)
   :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _] [kosmaj kastaljan])])})
+                   [(fn [_ _ _ _] [kosmaj kastaljan spomenik tresije])])})
+
+
+(storage/import-location-v2-seq-handler
+ (map
+  #(add-tag % "@dot")
+  [kosmaj kastaljan spomenik tresije]))
 
 (web/create-server)

@@ -619,11 +619,15 @@
    #{}
    [
     (fn [osm-tags]
-      (if-let [name (get osm-tags "name:en")]
+      (if-let [name (get osm-tags "name:sr-Latn")]
         (tag/name-tag name)
-        (if-let [name (get osm-tags "name")]
+        (if-let [name (get osm-tags "name:sr")]
           (tag/name-tag name)
-          nil)))
+          (if-let [name (get osm-tags "name:en")]
+           (tag/name-tag name)
+           (if-let [name (get osm-tags "name")]
+             (tag/name-tag name)
+             nil)))))
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
     #(when (= (get % "natural") "peak") tag/tag-mountain)
     #(when (= (get % "place") "town") tag/tag-city)

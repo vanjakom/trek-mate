@@ -251,6 +251,26 @@
 
 (web/create-server)
 
-
+(storage/import-location-v2-seq-handler
+ (map
+  #(add-tag % "@portugal2020-prep" "@dot")
+  (vals (reduce
+         (fn [location-map location]
+           (let [location-id (util/location->location-id location)]
+             (if-let [stored-location (get location-map location-id)]
+               (do
+                 #_(report "duplicate")
+                 #_(report "\t" stored-location)
+                 #_(report "\t" location)
+                 (assoc
+                  location-map
+                  location-id
+                  {
+                   :longitude (:longitude location)
+                   :latitude (:latitude location)
+                   :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+               (assoc location-map location-id location))))
+         {}
+         location-seq))))
 
 #_(run! #(println (:longitude %) (:latitude %) (:tags %)) location-seq)
