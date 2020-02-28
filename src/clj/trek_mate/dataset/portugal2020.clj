@@ -61,7 +61,7 @@
 (def casa-da-musica
   (osm/extract-tags (overpass/way-id->location 603359226)))
 (def porto-town-hall
-  (extract-tags (overpass/relation-id->location 3012085)))
+  (osm/extract-tags (overpass/relation-id->location 3012085)))
 (def porto-cathedral
   (osm/extract-tags (overpass/way-id->location 210461448)))
 (def porto-market
@@ -126,7 +126,7 @@
    "Q5049831" ;; castle
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/sortelha/")))
 (def nazare
-  (extract-tags (overpass/node-id->location 25278374)))
+  (osm/extract-tags (overpass/node-id->location 25278374)))
 (def almeida
   (add-tag
    (osm/extract-tags (overpass/node-id->location 25277740))
@@ -251,7 +251,7 @@
 
 (web/create-server)
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag % "@portugal2020-prep" "@dot")
   (vals (reduce

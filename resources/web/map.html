@@ -275,20 +275,32 @@
 		      noWrap: true
 		  }).addTo(map)
 
+	      var mousedownInterval;
+	      
 	      map.on (
-		  "click",
+		  "mousedown",
 		  function (e) {
-		      L
-			  .popup()
-			  .setLatLng(e.latlng)
-			  .setContent(
-			      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
-				  " <a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
-				  " <a href='https://preview.ideditor.com/master/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
-				  " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>")
-			  .openOn(map)
-
-		  })
+		      mousedownInterval = setInterval(
+			  function() {
+			      L
+				  .popup({
+				      closeOnClick: false})
+				  .setLatLng(e.latlng)
+				  .setContent(
+				      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
+					  " <a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
+					  " <a href='https://preview.ideditor.com/master/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+					  " <a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>")
+				  .openOn(map)},
+			  500)})
+	      map.on(
+		  "mousemove",
+		  function (e) {
+		      clearInterval(mousedownInterval)})
+	      map.on(
+		  "mouseup",
+		  function (e) {
+		      clearInterval(mousedownInterval)})
 	  },
 	  function () {})
     </script>
