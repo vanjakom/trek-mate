@@ -396,11 +396,55 @@
                     (web/create-osm-external-raster-tile-fn)))
   :locations-fn (fn [] location-seq)})
 
+
+;; serbia, relation 1741311
+(+ 1741311 3600000000) ; 3601741311
+
+;; nis stanice
+(def gas-nis-seq
+  (map
+   dot/enrich-tags
+   (map
+    osm/extract-tags
+    (overpass/query-dot-seq "nwr[\"brand\"=\"NIS\"](area:3601741311);"))))
+(count gas-nis-seq)
+(web/register-map
+ "nis"
+ {
+  :configuration {
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 8}
+  :raster-tile-fn (web/create-osm-external-raster-tile-fn)
+  :vector-tile-fn (web/tile-vector-dotstore-fn
+                   [(fn [_ _ _ _] gas-nis-seq)])})
+(storage/import-location-v2-seq-handler gas-nis-seq)
+
 ;; kosmaj
+(def nemenikuci (osm/extract-tags (overpass/node-id->location 1834308997)))
 (def kosmaj (osm/extract-tags (overpass/node-id->location 435729135)))
 (def kastaljan (osm/extract-tags (overpass/node-id->location 2515271011)))
 (def spomenik (osm/extract-tags (overpass/way-id->location 715055651)))
+(def spomenik-kosturnica
+  (dot/enrich-tags (osm/extract-tags (overpass/node-id->location 2515280571))))
 (def tresije (osm/extract-tags (overpass/node-id->location 1366987244)))
+(def kod-tome-i-nade (dot/enrich-tags (osm/extract-tags (overpass/node-id->location 7256516492))))
+(def kabinet (dot/enrich-tags (osm/extract-tags (overpass/node-id->location 7257417525))))
+(def kandic-petrol (osm/extract-tags (overpass/node-id->location 1366987212)))
+(def planinarski-dom-vinca (osm/extract-tags (overpass/way-id->location 643591401)))
+(def vidikovac-beograd (osm/extract-tags (overpass/node-id->location 2515280572)))
+
+(def plac {:longitude 20.58994 :latitude 44.47704 :tags #{"@plac"}})
+
+(def location-seq
+  (map
+   #(add-tag % "@kosmaj" "@dot")
+   [
+    nemenikuci
+    kosmaj kastaljan spomenik spomenik-kosturnica tresije
+    kandic-petrol planinarski-dom-vinca
+    kod-tome-i-nade kabinet
+    vidikovac-beograd plac]))
 
 (web/register-map
  "kosmaj"
@@ -411,12 +455,36 @@
                   :zoom 13}
   :raster-tile-fn (web/create-osm-external-raster-tile-fn)
   :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _] [kosmaj kastaljan spomenik tresije])])})
+                   [(fn [_ _ _ _] location-seq)])})
+
+(storage/import-location-v2-seq-handler location-seq)
+
+;; mapping on top of track
+(def track-location-seq
+  (with-open [is (fs/input-stream
+                  (path/child
+                   env/*global-my-dataset-path*
+                   "trek-mate" "cloudkit" "track"
+                   env/*trek-mate-user* "1583070926.json"))]
+    (storage/track->location-seq (json/read-keyworded is))))
+(web/register-dotstore
+ :track
+ (dot/location-seq-var->dotstore (var track-location-seq)))
+(web/register-map
+ "track"
+ {
+  :configuration {
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 7}
+  :raster-tile-fn (web/tile-border-overlay-fn
+                   (web/tile-number-overlay-fn
+                    (web/tile-overlay-dotstore-render-fn
+                     (web/create-osm-external-raster-tile-fn)
+                     :track
+                     [(constantly [draw/color-green 2])])))})
+;;; add to id editor http://localhost:8085/tile/raster/track/{zoom}/{x}/{y}
 
 
-(storage/import-location-v2-seq-handler
- (map
-  #(add-tag % "@dot")
-  [kosmaj kastaljan spomenik tresije]))
 
 (web/create-server)

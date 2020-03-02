@@ -639,13 +639,18 @@
 
     #(when (= (get % "amenity") "place_of_worship") tag/tag-church)
     #(when (= (get % "amenity") "cafe") tag/tag-cafe)
+    #(when (= (get % "amenity") "fuel") tag/tag-gas-station)
+    #(when (= (get % "amenity") "restaurant") tag/tag-restaurant)
     
     #(when (= (get % "historic") "monument") tag/tag-history)
+    #(when (= (get % "historic") "memorial") tag/tag-history)
     #(when (= (get % "historic") "ruins") tag/tag-history)
     #(when (= (get % "tourism") "attraction") tag/tag-tourism)
     #(when (= (get % "tourism") "museum") tag/tag-museum)
     #(when (= (get % "tourism") "hotel") tag/tag-hotel)
-
+    #(when (= (get % "tourism") "alpine_hut") tag/tag-sleep)
+    #(when (= (get % "tourism") "viewpoint") tag/tag-view)
+    
     #(when (contains? % "heritage") tag/tag-history)
     #(when (= (get % "heritage:operator") "whc")
        (if-let [ref (get % "ref:whc")]
@@ -668,6 +673,27 @@
     ;; brands
     #(when (= (get % "brand:wikidata") "Q37158") "#starbucks")
     #(when (= (get % "brand") "Starbucks") "#starbucks")
+    #(when
+         (and
+          (= (get % "amenity") "fuel")
+          (or
+           (= (get % "brand") "NIS")
+           (= (get % "brand:wikidata") "Q1279721")))
+       "#nis")
+    #(when
+         (and
+          (= (get % "amenity") "fuel")
+          (or
+           (= (get % "brand") "Petrol")
+           (= (get % "brand:wikidata") "Q174824")))
+       "#petrol")
+    #(when
+         (and
+          (= (get % "amenity") "fuel")
+          (or
+           (= (get % "brand") "OMV")
+           (= (get % "brand:wikidata") "Q168238")))
+       "#omv")
 
     ;; costas
     #(when (= (get % "brand:wikidata") "Q608845") "#costa")
