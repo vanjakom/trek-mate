@@ -253,7 +253,7 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 (pipeline/stop-pipeline (:track-in active-pipeline))
 
-(pipeline/closed? (:track-in track-split-pipeline))
+#_(pipeline/closed? (:track-in track-split-pipeline))
 
 
 ;; us track

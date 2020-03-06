@@ -398,7 +398,7 @@
 
 
 ;; serbia, relation 1741311
-(+ 1741311 3600000000) ; 3601741311
+#_(+ 1741311 3600000000) ; 3601741311
 
 ;; nis stanice
 (def gas-nis-seq
@@ -433,6 +433,9 @@
 (def kandic-petrol (osm/extract-tags (overpass/node-id->location 1366987212)))
 (def planinarski-dom-vinca (osm/extract-tags (overpass/way-id->location 643591401)))
 (def vidikovac-beograd (osm/extract-tags (overpass/node-id->location 2515280572)))
+(def picnic (osm/extract-tags (overpass/way-id->location 778211966)))
+(def poljana-na-vrhu (osm/extract-tags (overpass/way-id->location 778205252)))
+(def restoran-kosmaj (dot/enrich-tags (osm/extract-tags (overpass/node-id->location 7265902799))))
 
 (def plac {:longitude 20.58994 :latitude 44.47704 :tags #{"@plac"}})
 
@@ -444,7 +447,8 @@
     kosmaj kastaljan spomenik spomenik-kosturnica tresije
     kandic-petrol planinarski-dom-vinca
     kod-tome-i-nade kabinet
-    vidikovac-beograd plac]))
+    vidikovac-beograd plac picnic poljana-na-vrhu
+    restoran-kosmaj]))
 
 (web/register-map
  "kosmaj"
@@ -459,13 +463,17 @@
 
 (storage/import-location-v2-seq-handler location-seq)
 
+
+;; go to
+;; file:///Users/vanja/projects/MaplyProject/maply-web-standalone/track-list.html
+;; find trackid and use it
 ;; mapping on top of track
 (def track-location-seq
   (with-open [is (fs/input-stream
                   (path/child
                    env/*global-my-dataset-path*
                    "trek-mate" "cloudkit" "track"
-                   env/*trek-mate-user* "1583070926.json"))]
+                   env/*trek-mate-user* "1582967020.json"))]
     (storage/track->location-seq (json/read-keyworded is))))
 (web/register-dotstore
  :track
@@ -482,7 +490,7 @@
                     (web/tile-overlay-dotstore-render-fn
                      (web/create-osm-external-raster-tile-fn)
                      :track
-                     [(constantly [draw/color-green 2])])))})
+                     [(constantly [draw/color-blue 2])])))})
 ;;; add to id editor http://localhost:8085/tile/raster/track/{zoom}/{x}/{y}
 
 

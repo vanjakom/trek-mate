@@ -86,11 +86,17 @@
   (osm/extract-tags (overpass/way-id->location 394631209)))
 (def torre-de-belem
   (osm/extract-tags (overpass/way-id->location 24341353)))
+(def sintra
+  (osm/extract-tags (overpass/node-id->location 25611733)))
+(def brompton-lisbon
+  (add-tag
+   (osm/extract-tags (overpass/node-id->location 4123536946))
+   "#brompton"))
 
 (def faro
   (osm/extract-tags (overpass/node-id->location 25254936)))
-(def sintra
-  (osm/extract-tags (overpass/node-id->location 25611733)))
+(def benagil
+  (osm/extract-tags (overpass/relation-id->location 6878962)))
 
 ;; villages
 
@@ -183,6 +189,35 @@
    "Q686868"
    (tag/url-tag "center of portugal" "https://www.centerofportugal.com/poi/trancoso/")))
 
+;; sleeps
+(def lisbon-hotel {
+                   :longitude -9.14380609989166
+                   :latitude 38.7078107476231
+                   :tags #{
+                           tag/tag-todo
+                           "!Boho Guesthouse"
+                           tag/tag-sleep
+                           (tag/url-tag "booking" "https://www.booking.com/hotel/pt/boho-cais-do-sodre-guesthouse.en-gb.html")}})
+
+(def lagos-hotel {
+                  :longitude -8.68270486593246
+                  :latitude 37.0971738075063
+                  :tags #{
+                          tag/tag-todo
+                          "!Casas Novas Guesthouse"
+                          tag/tag-sleep
+                          (tag/url-tag "booking" "https://www.booking.com/hotel/pt/casa-nova.en-gb.html")}})
+
+(def porto-hotel {
+                  :longitude -8.614643 
+                  :latitude 41.142395
+                  :tags #{
+                          tag/tag-todo
+                          "!ML Apartments River"
+                          tag/tag-sleep
+                          (tag/url-tag "booking" "https://www.booking.com/hotel/pt/ml-apartments-river.en-gb.html")}})
+
+
 ;; Process, lookup on wikidata, switch to overpass
 ;; [out:json];
 ;; (
@@ -201,8 +236,8 @@
 
 
 ;; nature
-(def serra-da-estrela
-  (osm/extract-tags (overpass/node-id->location 5172661705)))
+(def serra-da-estrela-torre
+  (osm/extract-tags (overpass/node-id->location 5584336748)))
 (def cabo-sao-vicente
   (osm/extract-tags (overpass/node-id->location 5003941303)))
 
@@ -225,14 +260,19 @@
     porto-book-store porto-photography porto-ribeira porto-serralves
     
     ponte-luis
-    lisbon 
+    lisbon sintra
+    brompton-lisbon
     ultramar rosio baixa torre-de-belem
-    faro sintra
+    faro benagil 
     monsaraz braga monsanto obidos mertola marvao ericeira castelo-rodrigo sortelha
     nazare almeida alvaro belmonte castelo-mendo castelo-novo idanha-a-velha linhares
     marialva poidao transoco
 
-    serra-da-estrela cabo-sao-vicente]))
+    serra-da-estrela-torre cabo-sao-vicente
+
+    ;; sleeps
+    lagos-hotel porto-hotel lisbon-hotel
+    ]))
 
 ;; todo use dot/enrich-tags on locations
 

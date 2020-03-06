@@ -630,6 +630,7 @@
              nil)))))
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
     #(when (= (get % "natural") "peak") tag/tag-mountain)
+    #(when (= (get % "natural") "beach") tag/tag-beach)
     #(when (= (get % "place") "town") tag/tag-city)
     #(when (= (get % "place") "city") tag/tag-city)
     #(when (= (get % "place") "village") tag/tag-village)
@@ -650,6 +651,9 @@
     #(when (= (get % "tourism") "hotel") tag/tag-hotel)
     #(when (= (get % "tourism") "alpine_hut") tag/tag-sleep)
     #(when (= (get % "tourism") "viewpoint") tag/tag-view)
+    #(when (= (get % "tourism") "picnic_site") tag/tag-rest)
+
+    #(when (= (get % "landuse") "recreation_ground") tag/tag-rest)
     
     #(when (contains? % "heritage") tag/tag-history)
     #(when (= (get % "heritage:operator") "whc")
@@ -665,6 +669,7 @@
     #(when (= (get % "shop") "sports") tag/tag-shopping)
     #(when (= (get % "shop") "outdoor") tag/tag-shopping)
     #(when (= (get % "shop") "mall") tag/tag-mall)
+    #(when (= (get % "shop") "bicycle") tag/tag-shop)
     
     ;; general
     #(when-let [website (get % "website")]

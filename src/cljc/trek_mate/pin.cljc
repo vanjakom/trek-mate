@@ -114,6 +114,7 @@
    (if (contains? tags tag/tag-history) history-pin)
    (if (contains? tags tag/tag-art) art-pin)
    (if (contains? tags tag/tag-shopping) shopping-pin)
+   (if (contains? tags tag/tag-shop) shopping-pin)
    (if (contains? tags tag/tag-parking) parking-pin)
    (if (contains? tags tag/tag-toll-station) toll-pin)))
 

@@ -287,6 +287,60 @@
       (html/html-resource input-stream)
       [0 :content 0 :content 0 :content 0 :content])))))
 
+
+;; todo
+;; working on new geocache parse procedure
+
+(with-open [is (fs/input-stream
+                (path/child
+                 trek-mate.env/*global-my-dataset-path*
+                 "geocaching.com"
+                 "manual"
+                 "GC8M0R8.gpx"))]
+  (def a (xml/parse is)))
+
+(:content a)
+
+(def b (filter #(= (:tag %) :wpt) (:content a)) )
+
+(def c (view/seq->map :tag (:content (first b))))
+
+(def d
+  (let [value-fn (fn value-fn [value]
+                   (cond
+                     (nil? (:content value)) nil
+
+                     (and
+                      (= (count (:content value)) 1)
+                      (string? (first (:content value))))
+                     (first (:content value))
+
+                     (= (:tag value) :groundspeak:cache)
+                     (view/seq->map
+                      :tag
+                      value-fn
+                      (:content value))
+
+                     (= (:tag value) :groundspeak:attributes)
+                     (into
+                      #{}
+                      (map #(first (:content %)) (:content value)))
+                     
+                     :else
+                     value))]
+    (map
+    (fn [wpt]
+      (view/seq->map
+       :tag
+       value-fn
+       (:content wpt)))
+    (filter #(= (:tag %) :wpt) (:content a)))))
+
+
+#_(clj-common.debug/run-debug-server)
+;; http://localhost:7078/variable?namespace=trek-mate.integration.geocaching&name=a
+
+
 #_(defn location->gc-number
   [location]
   (first

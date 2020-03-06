@@ -217,13 +217,21 @@
 	      bounds: [[-90,-180],[90,180]],
 	      noWrap: true
 	  })
+
+      var boundsTile = new L.TileBoundsLayer(
+	  {
+	      maxZoom: 18,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(0, 0, 0, 0.5"})
       
       var baseMaps = {
 	  "open street map": osmTile,
 	  "mapbox outdoor": mapboxOutdoorTile,
 	  "mapbox basic": mapboxBasicTile }
       var overlayMaps = {
-	  "cycle path": mapboxBicycleTile}
+	  "cycle path": mapboxBicycleTile,
+	  "tile bounds": boundsTile}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       
@@ -260,13 +268,6 @@
 		  }).addTo(map)
 	      */
 	      
-	      new L.TileBoundsLayer(
-		  {
-		      maxZoom: 18,
-		      bounds: [[-90,-180], [90, 180]],
-		      noWrap: true,
-		      color: "rgba(0, 0, 0, 0.9"}).addTo(map)
-
 	      new L.GridLayer.MarkerLoader(
 		  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
 		  {
