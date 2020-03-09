@@ -53,9 +53,6 @@
   (fs/delete (path/child data-cache-path (name symbol))))
 #_(remove-cache 'geocache-seq)
 
-
-
-
 (defn add-tag
   [location & tag-seq]
   (update-in
@@ -65,7 +62,6 @@
    (into #{} (map as/as-string tag-seq))))
 
 (def beograd (wikidata/id->location :Q3711))
-
 
 #_(storage/import-location-v2-seq-handler
  (list
@@ -494,5 +490,20 @@
 ;;; add to id editor http://localhost:8085/tile/raster/track/{zoom}/{x}/{y}
 
 
+;; belgrade
+;; belgrade city, relation 2728438
+#_(+ 2728438 3600000000) ; 3602728438
+;; belgrade county, relation 1677007
+#_(+ 1677007 3600000000) ; 3601677007
+
+(web/register-map
+ "beograd"
+ {
+  :configuration {
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
+                  :zoom 14}
+   :vector-tile-fn (web/tile-vector-dotstore-fn
+                  [(fn [_ _ _ _] [])])})
 
 (web/create-server)

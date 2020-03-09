@@ -313,6 +313,12 @@
   [
    beograd])
 
+;; serbia relation 1741311
+;; (+ 1741311 3600000000) ; 3601741311
+;; serbia with kosovo 9088937
+;; (+ 9088937 3600000000) ; 3609088937
+
+
 (web/register-map
  "serbia"
  {
