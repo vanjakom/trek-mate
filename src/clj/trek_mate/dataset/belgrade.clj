@@ -432,7 +432,7 @@
 (def picnic (osm/extract-tags (overpass/way-id->location 778211966)))
 (def poljana-na-vrhu (osm/extract-tags (overpass/way-id->location 778205252)))
 (def restoran-kosmaj (dot/enrich-tags (osm/extract-tags (overpass/node-id->location 7265902799))))
-
+(def pavlovac (osm/extract-tags (overpass/wikidata-id->location :Q3320319)))
 (def plac {:longitude 20.58994 :latitude 44.47704 :tags #{"@plac"}})
 
 (def location-seq
@@ -440,7 +440,7 @@
    #(add-tag % "@kosmaj" "@dot")
    [
     nemenikuci
-    kosmaj kastaljan spomenik spomenik-kosturnica tresije
+    kosmaj kastaljan spomenik spomenik-kosturnica tresije pavlovac
     kandic-petrol planinarski-dom-vinca
     kod-tome-i-nade kabinet
     vidikovac-beograd plac picnic poljana-na-vrhu
