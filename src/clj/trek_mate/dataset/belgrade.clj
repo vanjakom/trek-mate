@@ -496,6 +496,14 @@
 ;; belgrade county, relation 1677007
 #_(+ 1677007 3600000000) ; 3601677007
 
+;; belgrade, stari grad, relation 10625810
+#_(+ 10625810 3600000000) ; 3610625810
+;; belgrade, zemun, relation 10476357
+#_(+ 10476357 3600000000) ; 3610476357
+;; belgrade, nbg, relation 10625812
+#_(+ 10625812 3600000000) ; 3610625812
+
+
 (web/register-map
  "beograd"
  {
