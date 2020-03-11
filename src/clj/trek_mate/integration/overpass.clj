@@ -22,6 +22,7 @@
                   "out center;"))]
     (println query)
     ;; todo stringify tags on arrival, possible issue with tags which cannot be keywords
+    ;; currently stringified in each type convert fn
     (json/read-keyworded
      (http/get-as-stream
       (str

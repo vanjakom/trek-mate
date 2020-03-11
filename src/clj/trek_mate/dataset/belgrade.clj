@@ -515,3 +515,25 @@
                   [(fn [_ _ _ _] [])])})
 
 (web/create-server)
+
+;; 20200311, cleanup of banks in Belgrade
+
+;; bank brands in Belgrade
+(do
+  (println "unique brand:wikidata, wikidata")
+  (run!
+   println
+   (into
+    #{}
+    (map
+     #(str (get-in % [:osm "brand:wikidata"]) "\t" (get-in % [:osm "brand"]))
+     (filter
+      #(or
+        (some? (get-in % [:osm "brand"]))
+        (some? (get-in % [:osm "brand:wikidata"])))
+      (overpass/query-dot-seq
+       "(nwr[amenity=bank](area:3602728438);nwr[amenity=atm](area:3602728438););"))))))
+
+
+
+
