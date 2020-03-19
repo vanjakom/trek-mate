@@ -340,7 +340,8 @@
      [(sort/ascending "timestamp")]))))
 
 (defn backup-tracks [from-timestamp-second]
-  (doseq [track (cloudkit-track-seq from-timestamp-second)]
+  ;; start from timestamp + 1 to prevent getting processed track
+  (doseq [track (cloudkit-track-seq (inc from-timestamp-second))]
     (with-open [os (fs/output-stream (path/child
                                       track-backup-path
                                       (:user track)
@@ -426,6 +427,8 @@
 ;; run latest prepared command, once finished prepare new command by using
 ;; latest timestamp reported to stdout
 ;; run next
+#_(backup-tracks 1584517825)
+#_(backup-tracks 1584191508)
 #_(backup-tracks 1583070926)
 #_(backup-tracks 1581935854)
 #_(backup-tracks 1581154276)
