@@ -531,6 +531,7 @@
    map-definition-prototype})
 
 (defonce configuration (atom (create-initial-configuration)))
+(alter-var-root (var configuration) (constantly (atom {})))
 
 (defn register-map [name map]
   (swap!

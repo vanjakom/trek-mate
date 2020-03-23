@@ -631,6 +631,7 @@
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
     #(when (= (get % "natural") "peak") tag/tag-mountain)
     #(when (= (get % "natural") "beach") tag/tag-beach)
+    #(when (= (get % "natural") "spring") tag/tag-river)
     #(when (= (get % "place") "town") tag/tag-city)
     #(when (= (get % "place") "city") tag/tag-city)
     #(when (= (get % "place") "village") tag/tag-village)
@@ -652,6 +653,8 @@
     #(when (= (get % "tourism") "alpine_hut") tag/tag-sleep)
     #(when (= (get % "tourism") "viewpoint") tag/tag-view)
     #(when (= (get % "tourism") "picnic_site") tag/tag-rest)
+
+    #(when (= (get % "waterway") "waterfall") tag/tag-river)
 
     #(when (= (get % "landuse") "recreation_ground") tag/tag-rest)
     
