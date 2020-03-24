@@ -290,17 +290,18 @@
 
 ;; todo
 ;; working on new geocache parse procedure
+#_(do
 
-(with-open [is (fs/input-stream
+  (with-open [is (fs/input-stream
                 (path/child
                  trek-mate.env/*global-my-dataset-path*
                  "geocaching.com"
                  "manual"
                  "GC8M0R8.gpx"))]
-  (def a (xml/parse is)))
+    (def a (xml/parse is)))
 
-(:content a)
-
+  (:content a)
+  
 (def b (filter #(= (:tag %) :wpt) (:content a)) )
 
 (def c (view/seq->map :tag (:content (first b))))
@@ -336,7 +337,7 @@
        (:content wpt)))
     (filter #(= (:tag %) :wpt) (:content a)))))
 
-
+)
 #_(clj-common.debug/run-debug-server)
 ;; http://localhost:7078/variable?namespace=trek-mate.integration.geocaching&name=a
 

@@ -1131,7 +1131,7 @@
      :id (.getId entity)
      :longitude (.getLongitude entity)
      :latitude (.getLatitude entity)
-     :tags (read-pbf-tags (.getTags entity))}))
+     :osm (read-pbf-tags (.getTags entity))}))
 
 (defn read-pbf-way
   [container]
@@ -1139,7 +1139,7 @@
     {
      :type :way
      :id (.getId entity)
-     :tags (read-pbf-tags (.getTags entity))
+     :osm (read-pbf-tags (.getTags entity))
      :nodes (map
              (fn [way-node]
                {
@@ -1153,7 +1153,7 @@
     {
      :type :relation
      :id (.getId entity)
-     :tags (read-pbf-tags (.getTags entity))
+     :osm (read-pbf-tags (.getTags entity))
      :members (map
                (fn [member]
                  {
