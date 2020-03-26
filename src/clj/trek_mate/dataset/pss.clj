@@ -13,6 +13,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-common.view :as view]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
@@ -29,7 +30,8 @@
 (def dataset-path (path/child env/*global-my-dataset-path* "pss.rs"))
 
 ;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi
-(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
+;; download routes list and supporting files
+#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
   (let [terrains-obj (json/read-keyworded
                       (.replace
                        (.trim
@@ -73,28 +75,182 @@
     (with-open [os (fs/output-stream (path/child dataset-path "posts.json"))]
       (json/write-to-stream posts os))))
 
-(let [posts (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
-              (json/read-keyworded is))]
-  (def posts posts))
+
+(def posts (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
+             (json/read-keyworded is)))
 
 
-(def data (with-open [is (http/get-as-stream "https://pss.rs/terenipp/veliki-i-mali-vrtop-gramada-vlasina/")]
-            (io/input-stream->string is)))
+;; download route info and gpx if exists, supports restart
+#_(doseq [post posts]
+  (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+        postid (:ID post)
+        title (:title post)
+        link (:permalink post)
+        oznaka (get-in post [:postmeta "Oznaka" :value])
+        info-path (path/child dataset-path "routes" (str oznaka ".json"))
+        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+    (println oznaka "-" title)
+    (println "\t" postid)
+    (println "\t" link)
+    (if (not (fs/exists? info-path))
+      (do
+        (println "\tdownloading post ...")
+        (let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
+              matcher (.matcher
+                       pattern
+                       (io/input-stream->string (http/get-as-stream link)))]
+          (.find matcher)
+          (let [entry (update-in
+                       (json/read-keyworded (.group matcher 1))
+                       [:post :postmeta]
+                       #(view/seq->map :label %))]
+            (with-open [os (fs/output-stream info-path)]
+              (json/write-to-stream entry os))
+            (let [gpx-link (get-in entry [:post :postmeta "GPX" :value])]
+              (when (not (empty? gpx-link))
+                (println "\tdownloading gpx ...")
+                (with-open [os (fs/output-stream gpx-path)]
+                  (io/copy-input-to-output-stream
+                   (http/get-as-stream gpx-link)
+                   os))))))
+        (Thread/sleep 1000))
+      (println "\tpost already downloaded ..."))))
 
-(let [pattern (java.util.regex.Pattern/compile "var terrainsObj =([^\}\;])")])
+;; per route stats
+#_(doseq [post posts]
+  (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+        title (:title post)
+        oznaka (get-in post [:postmeta "Oznaka" :value])
+        info-path (path/child dataset-path "routes" (str oznaka ".json"))
+        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+    (println (if (fs/exists? gpx-path) "Y" "N") "\t" oznaka "\t" title)))
 
-(.indexOf data "var terrainsObj =")
+;; number of posts, have gpx, do not have gpx
+#_(reduce
+ (fn [[sum y n] post]
+   (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+        title (:title post)
+        oznaka (get-in post [:postmeta "Oznaka" :value])
+        info-path (path/child dataset-path "routes" (str oznaka ".json"))
+        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+     (if (fs/exists? gpx-path)
+       [(inc sum) (inc y) n]
+       [(inc sum) y (inc n)])))
+ [0 0 0]
+ posts) ; [202 89 113]
+
+;; null club routes
+#_(filter
+ (fn [post]
+   (let [post (update-in post [:postmeta] #(view/seq->map :label %))]
+     (nil? (get-in post [:postmeta "Društvo/klub" :value 0 :post_title])))
+   )
+ posts)
 
 
-(def data
-  (with-open [is (fs/input-stream
-                  )]
-    (json/read-keyworded is)))
+;; stats per club
+#_(doseq [[club [sum y n]] (reverse
+                      (sort-by
+                       (fn [[club [sum y n]]] sum)
+                       (reduce
+                        (fn [state post]
+                          (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+                                title (:title post)
+                                club (get-in post [:postmeta "Društvo/klub" :value 0 :post_title])
+                                oznaka (get-in post [:postmeta "Oznaka" :value])
+                                info-path (path/child dataset-path "routes" (str oznaka ".json"))
+                                gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+                            (let [[sum y n] (get state club [0 0 0])]
+                              (if (fs/exists? gpx-path)
+                                (assoc state club [(inc sum) (inc y) n])
+                                (assoc state club [(inc sum) y (inc n)])))))
+                        {}
+                        posts)))]
+  (println (reduce str club (repeatedly (- 30 (count club)) (constantly " "))) sum "\t" y "\t" n))
 
-(keys data)
+;; Oštra čuka PD                  30 	 27 	 3
+;; Ljukten PSD                    25 	 0 	 25
+;; Kukavica PSK                   14 	 0 	 14
+;; Železničar PK Niš              14 	 14 	 0
+;; Pobeda PK                      9 	 0 	 9
+;; Železničar PSK Kraljevo        8 	 0 	 8
+;; Kraljevo PAK                   7 	 0 	 7
+;; Gornjak PD                     6 	 6 	 0
+;; Železničar 2006 PK Vranje      6 	 0 	 6
+;; Bukulja PD                     6 	 1 	 5
+;; Golija PD                      6 	 0 	 6
+;; Brđanka PSK                    6 	 4 	 2
+;; Vršačka kula PSD               5 	 0 	 5
+;; Suva Planina PD                4 	 0 	 4
+;; Preslap PD                     4 	 4 	 0
+;; Mosor PAK                      4 	 4 	 0
+;; Cer PSD                        4 	 0 	 4
+;; Vukan PK                       4 	 4 	 0
+;; Avala PSK                      4 	 4 	 0
+;; Gučevo PK                      3 	 3 	 0
+;; Dragan Radosavljević OPSD      3 	 3 	 0
+;; Vilina vodica PD               3 	 3 	 0
+;; Vrbica PK                      3 	 0 	 3
+;; Gora PEK                       2 	 2 	 0
+;; Ozren PK                       2 	 0 	 2
+;; Žeželj PD                      2 	 1 	 1
+;; Ljuba Nešić PSD                2 	 2 	 0
+;;                                2 	 1 	 1
+;; Železničar PD Beograd          1 	 1 	 0
+;; Sirig PSK                      1 	 0 	 1
+;; Kopaonik PSD                   1 	 0 	 1
+;; Magleš PSD                     1 	 1 	 0
+;; PS Vojvodine                   1 	 0 	 1
+;; Javorak  PK                    1 	 1 	 0
+;; Dr. Laza Marković PD           1 	 0 	 1
+;; PTT POSK                       1 	 0 	 1
+;; Železničar Indjija PK          1 	 0 	 1
+;; Čivija PAK                     1 	 0 	 1
+;; Spartak PSK                    1 	 0 	 1
+;; Zubrova PD                     1 	 1 	 0
+;; Vlasina SPK                    1 	 1 	 0
+;; Jastrebac PSK                  1 	 1 	 0
+
+
+;; count afer extraction to check extraction
+#_(reduce
+ (fn [count [club [sum y n]]]
+   (+ count sum))
+ 0
+ (reverse
+  (sort-by
+   (fn [[club [sum y n]]] sum)
+   (reduce
+    (fn [state post]
+      (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+            title (:title post)
+            club (get-in post [:postmeta "Društvo/klub" :value 0 :post_title])
+            oznaka (get-in post [:postmeta "Oznaka" :value])
+            info-path (path/child dataset-path "routes" (str oznaka ".json"))
+            gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+        (let [[sum y n] (get state club [0 0 0])]
+          (if (fs/exists? gpx-path)
+            (assoc state club [(inc sum) (inc y) n])
+            (assoc state club [(inc sum) y (inc n)])))))
+    {}
+    posts))))
+
+
+;; usefull for single post
+#_(let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
+      matcher (.matcher
+               pattern
+               (io/input-stream->string
+                (http/get-as-stream
+                 "https://pss.rs/terenipp/banja-badanja-banja-crniljevo/")))]
+  (.find matcher)
+  (def post (let [entry (json/read-keyworded (.group matcher 1))]
+              (update-in
+               entry
+               [:post :postmeta]
+               #(view/seq->map :label %)))))
+
 
 #_(do
   (require 'clj-common.debug)
   (clj-common.debug/run-debug-server))
-
-

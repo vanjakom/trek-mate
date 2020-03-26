@@ -34,6 +34,169 @@
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
+
+;; 20200311, cleanup of banks in Belgrade
+
+;; bank brands in Belgrade
+(def belgrade-banks
+  (overpass/query-dot-seq
+   "(nwr[amenity=bank](area:3602728438);nwr[amenity=atm](area:3602728438););"))
+
+
+;; stats
+(do
+  (println "=== belgrade banks stats ===")
+  (let [timestamp (clj-common.time/timestamp)]
+    (println
+     (clj-common.time/timestamp->date timestamp)
+     "(" timestamp ")"))
+  (println "number of banks: " (count (filter
+                                       #(= (get-in % [:osm "amenity"]) "bank")
+                                       belgrade-banks)))
+  (println "number of banks with atm: " (count (filter
+                                                #(and
+                                                  (= (get-in % [:osm "amenity"]) "bank")
+                                                  (= (get-in % [:osm "atm"]) "yes"))
+                                                belgrade-banks)))
+  (println "number of atms: " (count (filter
+                                      #(= (get-in % [:osm "amenity"]) "atm")
+                                      belgrade-banks)))
+  (println
+   "number of amenities without brand:"
+   (count
+    (filter
+     #(nil? (get-in % [:osm "brand"]))
+     belgrade-banks))))
+(do
+  (println "brands:")
+  (run!
+   #(println (second %) "\t" (first %))
+   (reverse
+    (sort-by
+     second
+     (reduce
+      (fn [map name]
+        (assoc
+         map
+         name
+         (inc (or (get map name) 0))))
+      {}
+      (filter
+     some?
+     (map
+      #(get-in % [:osm "brand"])
+      belgrade-banks))))))
+  (run!
+   #(println "\t" %)
+   (into
+    #{})))
+
+(defn suggest-brand-tags
+  "Used for brands to suggest best values for fields. Idea is that by cleaning
+  data function would generate single values per field"
+  [location-seq]
+  (mapcat
+  (fn [[brand location-seq]]
+    (let [amenity (into
+                    #{}
+                    (filter some? (map #(get-in % [:osm "amenity"]) location-seq)))
+          shop (into
+                    #{}
+                    (filter some? (map #(get-in % [:osm "shop"]) location-seq)))
+          wikidata (into
+                    #{}
+                    (filter some? (map #(get-in % [:osm "brand:wikidata"]) location-seq)))
+          website (into
+                   #{}
+                   (filter some? (map #(get-in % [:osm "website"]) location-seq)))
+          name (into
+                   #{}
+                   (filter some? (map #(get-in % [:osm "name"]) location-seq)))
+          name-sr (into
+                   #{}
+                   (filter some? (map #(get-in % [:osm "name:sr"]) location-seq)))
+          name-sr-latn (into
+                        #{}
+                        (filter some? (map #(get-in % [:osm "name:sr-Latn"]) location-seq)))]
+      (concat
+       [brand]
+       (map #(str "\tamenity=" %) amenity)
+       (map #(str "\tshop=" %) shop)
+       [(str "\tbrand=" brand)]
+       (map #(str "\tbrand:wikidata=" %) wikidata)
+       (map #(str "\twebsite=" %) website)
+       (map #(str "\tname=" %) name)
+       (map #(str "\tname:sr=" %) name-sr)
+       (map #(str "\tname:sr-Latn=" %) name-sr-latn))))
+  (reduce
+    (fn [state location]
+      (update-in state [(get-in location [:osm "brand"])] conj location))
+    {}
+    (filter
+     #(some? (get-in % [:osm "brand"]))
+     location-seq))))
+
+
+(run! println (suggest-brand-tags belgrade-banks))
+
+
+
+(do
+  (println "names:")
+  (run!
+   #(println (second %) "\t" (first %))
+   (reverse
+    (sort-by
+     second
+     (reduce
+      (fn [map name]
+        (assoc
+         map
+         name
+         (inc (or (get map name) 0))))
+      {}
+      (filter
+       some?
+       (map
+        #(get-in % [:osm "name"])
+        (filter
+         #(nil? (get-in % [:osm "brand"]))
+         belgrade-banks))))))))
+
+;; use overpass to get nodes for editing in level0
+;; [out:xml];
+;; nwr[name="Banca Intesa"][!brand](area:3602728438);  
+;; (._;>;); 
+;; out meta;
+
+
+(do
+  (println "unique brand:wikidata, wikidata")
+  (run!
+   println
+   (into
+    #{}
+    (map
+     #(str (get-in % [:osm "brand:wikidata"]) "\t" (get-in % [:osm "brand"]))
+     (filter
+      #(or
+        (some? (get-in % [:osm "brand"]))
+        (some? (get-in % [:osm "brand:wikidata"])))
+      belgrade-banks)))))
+
+;; mcdonalds cleanup
+(def mcdonalds
+  (overpass/query-dot-seq
+   "nwr[~\"^name.*\"~\"Donald\"](area:3601741311);"))
+;; nwr[~"^name.*"~"Donald"](area:3601741311);
+;; nwr[amenity=fast_food][brand="McDonald's"](area:3601741311);
+(run! println (suggest-brand-tags mcdonalds))
+
+(def lidl
+  (overpass/query-dot-seq
+   "nwr[~\"^name.*\"~\"Lidl\"](area:3601741311);"))
+(run! println (suggest-brand-tags lidl))
+
 (def brand-seq nil)
 
 (let [context (context/create-state-context)
@@ -96,6 +259,17 @@
       #(get (:osm %) "brand")
       brand-seq)))))
 
+(def brand-map
+  (reduce
+   (fn [brand-map entry]
+     (let [brand (get (:osm entry) "brand")]
+       (assoc brand-map brand (conj (or (get brand-map brand) '()) entry))))
+   {}
+   brand-seq))
+
+
+(println "number of brands in serbia:" (count brand-map))
+
 (do
   (println "brands in serbia")
   (run!
@@ -103,12 +277,69 @@
    (reverse
     (sort-by
      second
-     (reduce
-      (fn [state entry]
-        (let [brand (get (:osm entry) "brand")]
-          (assoc state brand (inc (or (get state brand) 0)))))
-      {}
-      brand-seq)))))
+     (map
+      (fn [[brand entries]]
+        [brand (count entries)])
+      brand-map)))))
+
+(def brand-info
+  (let [ignore-tag #{
+                     "addr:country" "addr:city" "addr:postcode" "addr:street"
+                     "addr:housenumber" "opening_hours" "phone"}]
+    (into
+     {}
+     (map
+      (fn [[brand location-seq]]
+        (let [tags-map (reduce
+                        (fn [tags-map tags]
+                          (reduce
+                           (fn [tags-map [tag value]]
+                             (if (not (contains? ignore-tag tag))
+                               (assoc
+                                tags-map
+                                tag
+                                (conj (or (get tags-map tag) #{}) value))
+                               tags-map))
+                           tags-map
+                           tags))
+                        {}
+                        (map :osm location-seq))]
+          [brand {
+                  :tags tags-map
+                  :count (count location-seq)}]))
+      brand-map))))
+
+(let [tag-importance {
+                      "amenity" 100
+                      "shop" 99
+                      "brand" 90
+                      "brand:wikidata" 89
+                      "brand:wikipedia" 88
+                      "operator" 70
+                      "website" 65
+                      "name" 60
+                      "name:sr" 59
+                      "name:sr-Latn" 58
+                      "name:en" 57}]
+  (println "brand info")
+  (doseq [[brand info] (reverse
+                        (sort-by
+                         (fn [[brand info]] (:count info))
+                         brand-info))]
+    (println "\tbrand" brand "(" (:count info) ")")
+    (doseq [[tag value-seq] (reverse
+                             (sort-by
+                              (fn [[tag value]]
+                                (or (get tag-importance tag) 0))
+                              (:tags info)))]
+      (doseq [value value-seq]
+        (println "\t\t" tag "=" value)))))
+
+(first brand-info)
+
+
+
+
 
 
 ;; todo, next
