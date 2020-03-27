@@ -469,7 +469,7 @@
                   (path/child
                    env/*global-my-dataset-path*
                    "trek-mate" "cloudkit" "track"
-                   env/*trek-mate-user* "1584517825.json"))]
+                   env/*trek-mate-user* "1584692828.json"))]
     (storage/track->location-seq (json/read-keyworded is))))
 (web/register-dotstore
  :track
@@ -508,7 +508,7 @@
  "beograd"
  {
   :configuration {
-                  :longitude (:longitude beograd)
+                  :longitude (:longitude beograd) 
                   :latitude (:latitude beograd)
                   :zoom 14}
    :vector-tile-fn (web/tile-vector-dotstore-fn

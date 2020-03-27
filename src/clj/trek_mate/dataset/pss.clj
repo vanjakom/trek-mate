@@ -10,11 +10,13 @@
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.http :as http]
+   [clj-common.http-server :as http-server]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-common.view :as view]
    [clj-geo.import.geojson :as geojson]
+   [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
@@ -139,6 +141,19 @@
  [0 0 0]
  posts) ; [202 89 113]
 
+
+#_(count
+ (into
+  #{}
+  (map
+   #(get-in % [:postmeta "Oznaka" :value])
+   (map
+    (fn [post]
+      (update-in post [:postmeta] #(view/seq->map :label %)))
+    posts)))) ; 198
+
+;; 4 posts have same marks
+
 ;; null club routes
 #_(filter
  (fn [post]
@@ -254,3 +269,105 @@
 #_(do
   (require 'clj-common.debug)
   (clj-common.debug/run-debug-server))
+
+
+;; create custom map for pss trails, html page
+;; two views each route as point and tiles, tile code should be reusable
+(def routes
+  (reduce
+   (fn [routes gpx-path]
+     (println "processing" (path/path->string gpx-path))
+     (let [track (with-open [is (fs/input-stream gpx-path)] (gpx/read-track-gpx is))
+           location-seq (apply concat (:track-seq track))
+           first-location (first location-seq)
+           info-path (path/child
+                      (path/parent gpx-path)
+                      (.replace (last gpx-path) ".gpx" ".json"))
+           info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))
+           id (get-in info [:post :postmeta :Oznaka :value])
+           title (get-in info [:post :title])
+           link (get-in info [:post :permalink])]
+       (assoc
+        routes
+        id
+        {
+         :id id
+         :gpx-path gpx-path
+         :info-path info-path
+         :title title
+         :link link
+         :location first-location}))
+     )
+   {}
+   (filter
+    #(.endsWith (last %) ".gpx")
+    (fs/list (path/child dataset-path "routes")))))
+
+
+(http-server/create-server
+ 7079
+ (compojure.core/routes
+  (compojure.core/GET
+   "/map"
+   _
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "pss.html"])})
+  (compojure.core/GET
+   "/data/list"
+   _
+   {
+    :status 200
+    :headers {
+             "Content-Type" "application/json; charset=utf-8"}
+    :body (json/write-to-string
+           {
+            :type "FeatureCollection"
+            :features (map
+                      (fn [route]
+                        {
+                         :type "Feature"
+                         :properties route
+                         :geometry {
+                                    :type "Point"
+                                    :coordinates [(:longitude (:location route))
+                                                  (:latitude (:location route))]}})
+                      (vals routes))})})
+  (compojure.core/GET
+   "/data/route/:id"
+   [id]
+   (let [route (get routes id)
+         info (with-open [is (fs/input-stream (:gpx-path route))]
+                (gpx/read-track-gpx is))
+         location-seq (map
+                       (fn [location]
+                         [(:longitude location) (:latitude location)])
+                       (apply concat (:track-seq info)))]
+     {
+      :status 200
+      :headers {
+                "Content-Type" "application/json; charset=utf-8"}
+      :body (json/write-to-string
+            {
+             :type "FeatureCollection"
+             :properties {}
+             :features [
+                        {
+                         :type "Feature"
+                         :properties {}
+                         :geometry {
+                                    :type "LineString"
+                                    :coordinates location-seq}}]})}))))
+
+#_(let [gpx-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.gpx")]
+  (with-open [is (fs/input-stream gpx-path)]
+    (def a (xml/parse is))))
+
+#_(let [gpx-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.gpx")]
+  (with-open [is (fs/input-stream gpx-path)]
+    (def b (gpx/read-track-gpx is))))
+
+#_(let [info-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.json")]
+  (with-open [is (fs/input-stream info-path)]
+    (def c (json/read-keyworded is))))
+
