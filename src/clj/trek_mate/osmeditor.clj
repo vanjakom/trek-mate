@@ -1,9 +1,11 @@
-(ns trek-mate.integration.osmapi
+(ns trek-mate.osmeditor
   "Set of helper fns to work with OSM API."
   (:use
    clj-common.clojure)
   (:require
    compojure.core
+   ring.middleware.params
+   ring.middleware.keyword-params
    [hiccup.core :as hiccup]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -18,9 +20,105 @@
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]))
 
+
+;; change
+;; could be :add :update :remove
+;; :add adds tag in case it's not present
+;; :update adds and overwrites tag if present
+;; :remove removes tag
+;; changes without effect are skipped
+
+(defn parse-operation-seq
+  [url-entries]
+  (loop [operation-seq []
+         last-operation nil
+         entry (first url-entries)
+         queue (rest url-entries)]
+    (if entry
+      (cond
+        (= entry "add")
+        (recur
+         (conj
+          operation-seq
+          [:add (first queue) (second queue) ])
+         :add
+         (first (rest (rest queue)))
+         (rest (rest (rest queue))))
+        
+        (= entry "update")
+        (recur
+         (conj
+          operation-seq
+          [:update (first queue) (second queue) ])
+         :update
+         (first (rest (rest queue)))
+         (rest (rest (rest queue))))
+        
+        (= entry "remove")
+        (recur
+         (conj
+          operation-seq
+          [:remove (first queue)])
+         :remove
+         (second queue)
+         (drop 2 queue))
+        
+        :else
+        (cond
+          (= last-operation :add)
+          (recur
+           (conj
+            operation-seq
+            [:add entry (first queue)])
+           :add
+           (second queue)
+           (drop 2 queue))
+          (= last-operation :update)
+          (recur
+           (conj
+            operation-seq
+            [:update entry (first queue)])
+           :update
+           (second queue)
+           (drop 2 queue))
+          (= last-operation :remove)
+          (recur
+           (conj
+            operation-seq
+            [:remove entry])
+           :remove
+           (first queue)
+           (rest queue))))
+      operation-seq)))
+
+#_(parse-operation-seq
+ (list "add" "brand" "NIS Petrol" "website" "http://nis.eu"))
+
+#_(parse-operation-seq
+ (list "add" "brand" "NIS Petrol" "website" "http://nis.eu" "add" "test" "true"))
+
+#_(parse-operation-seq
+ (list "add" "brand" "NIS Petrol" "website" "http://nis.eu" "update" "test" "true" "remove" "tag1" "add" "tag2" "value2"))
+
 (http-server/create-server
  7077
  (compojure.core/routes
+  (compojure.core/GET
+   "/api/edit/:type/:id/*"
+   _
+   (ring.middleware.params/wrap-params
+    (ring.middleware.keyword-params/wrap-keyword-params
+     (fn [request]
+       (let [type (get-in request [:params :type])
+             id (get-in request [:params :id])
+             comment (get-in request [:params :comment])
+             change-seq (parse-operation-seq
+                         (map
+                          #(java.net.URLDecoder/decode %)
+                          (drop 5 (clojure.string/split (get-in request [:uri]) #"/"))))]
+         {
+          :status 200
+          :body (osmapi/node-apply-change-seq id comment change-seq)})))))
   (compojure.core/GET
    "/api/osm/history/:type/:id"
    [type id]

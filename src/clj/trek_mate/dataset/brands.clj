@@ -31,20 +31,79 @@
                    "geofabrik.de"
                    "serbia-latest.osm.pbf"))
 
+(def dataset-path (path/child
+                   env/*global-my-dataset-path*
+                   "brands-project"))
+
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+
+
+;; prepare brands processing input file
+;; filter nodes and ways which have one of tags on which brands are defined
+;; store as line edn for easy processing
+;; relations should not have brands
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   osm-pbf-path
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   nil)
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-node")
+   (channel-provider :node-in)
+   (filter
+    (fn [node]
+      (or
+       (contains? (:osm node) "amenity")
+       (contains? (:osm node) "shop")
+       ;; questionable
+       (contains? (:osm node) "office"))))
+   (channel-provider :capture-node-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-way")
+   (channel-provider :way-in)
+   (filter
+    (fn [way]
+      (or
+       (contains? (:osm way) "amenity")
+       (contains? (:osm way) "shop")
+       ;; questionable
+       (contains? (:osm way) "office"))))
+   (channel-provider :capture-way-in))
+
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :capture-node-in)
+    (channel-provider :capture-way-in)]
+   (channel-provider :capture-in))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "capture")
+   (path/child dataset-path "input.edn")
+   (channel-provider :capture-in))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
+
 
 
 ;; 20200311, cleanup of banks in Belgrade
 
 ;; bank brands in Belgrade
-(def belgrade-banks
+#_(def belgrade-banks
   (overpass/query-dot-seq
    "(nwr[amenity=bank](area:3602728438);nwr[amenity=atm](area:3602728438););"))
 
 
 ;; stats
-(do
+#_(do
   (println "=== belgrade banks stats ===")
   (let [timestamp (clj-common.time/timestamp)]
     (println
@@ -67,7 +126,7 @@
     (filter
      #(nil? (get-in % [:osm "brand"]))
      belgrade-banks))))
-(do
+#_(do
   (println "brands:")
   (run!
    #(println (second %) "\t" (first %))
@@ -137,11 +196,9 @@
      location-seq))))
 
 
-(run! println (suggest-brand-tags belgrade-banks))
+#_(run! println (suggest-brand-tags belgrade-banks))
 
-
-
-(do
+#_(do
   (println "names:")
   (run!
    #(println (second %) "\t" (first %))
@@ -170,7 +227,7 @@
 ;; out meta;
 
 
-(do
+#_(do
   (println "unique brand:wikidata, wikidata")
   (run!
    println
@@ -185,21 +242,50 @@
       belgrade-banks)))))
 
 ;; mcdonalds cleanup
-(def mcdonalds
+#_(def mcdonalds
   (overpass/query-dot-seq
    "nwr[~\"^name.*\"~\"Donald\"](area:3601741311);"))
 ;; nwr[~"^name.*"~"Donald"](area:3601741311);
 ;; nwr[amenity=fast_food][brand="McDonald's"](area:3601741311);
-(run! println (suggest-brand-tags mcdonalds))
+#_(run! println (suggest-brand-tags mcdonalds))
 
-(def lidl
+#_(def lidl
   (overpass/query-dot-seq
    "nwr[~\"^name.*\"~\"Lidl\"](area:3601741311);"))
-(run! println (suggest-brand-tags lidl))
+#_(run! println (suggest-brand-tags lidl))
 
 (def brand-seq nil)
 
+;; extract brand-seq
 (let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read")
+   (path/child dataset-path "input.edn")
+   (channel-provider :in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter")
+   (channel-provider :in)
+   (filter
+    (fn [node]
+      (contains? (:osm node) "brand")))
+   (channel-provider :capture))
+  #_(pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var brand-seq))
+  (pipeline/wait-on-channel
+   (context/wrap-scope context "wait")
+   (channel-provider :capture)
+   Integer/MAX_VALUE)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
+
+;; extract brands from osm.pbf
+;; use extract from input.edn instead
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -246,9 +332,7 @@
    (var brand-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(count brand-seq)
-
-(do
+#_(do
   (println "brands in serbia")
   (run!
    println
@@ -266,21 +350,6 @@
        (assoc brand-map brand (conj (or (get brand-map brand) '()) entry))))
    {}
    brand-seq))
-
-
-(println "number of brands in serbia:" (count brand-map))
-
-(do
-  (println "brands in serbia")
-  (run!
-   #(println "\t" %)
-   (reverse
-    (sort-by
-     second
-     (map
-      (fn [[brand entries]]
-        [brand (count entries)])
-      brand-map)))))
 
 (def brand-info
   (let [ignore-tag #{
@@ -309,34 +378,81 @@
                   :count (count location-seq)}]))
       brand-map))))
 
-(let [tag-importance {
-                      "amenity" 100
-                      "shop" 99
-                      "brand" 90
-                      "brand:wikidata" 89
-                      "brand:wikipedia" 88
-                      "operator" 70
-                      "website" 65
-                      "name" 60
-                      "name:sr" 59
-                      "name:sr-Latn" 58
-                      "name:en" 57}]
-  (println "brand info")
-  (doseq [[brand info] (reverse
-                        (sort-by
-                         (fn [[brand info]] (:count info))
-                         brand-info))]
-    (println "\tbrand" brand "(" (:count info) ")")
+
+(println "number of brands in serbia:" (count brand-map))
+
+#_(do
+  (println "brands in serbia")
+  (run!
+   #(println "\t" %)
+   (reverse
+    (sort-by
+     second
+     (map
+      (fn [[brand entries]]
+        [brand (count entries)])
+      brand-map)))))
+
+
+
+(defn report-brand [brand info]
+  (let [tag-importance {
+                        "amenity" 100
+                        "shop" 99
+                        "brand" 90
+                        "brand:wikidata" 89
+                        "brand:wikipedia" 88
+                        "operator" 70
+                        "website" 65
+                        "name" 60
+                        "name:sr" 59
+                        "name:sr-Latn" 58
+                        "name:en" 57}
+        ignore-tag #{"operator" "name" "name:sr" "name:sr-Latn"}]
+    (println "\t" brand "(" (:count info) ")")
     (doseq [[tag value-seq] (reverse
                              (sort-by
                               (fn [[tag value]]
                                 (or (get tag-importance tag) 0))
                               (:tags info)))]
       (doseq [value value-seq]
-        (println "\t\t" tag "=" value)))))
+        (when (not (contains? ignore-tag tag))
+          (println "\t\t" tag "=" value))))))
 
-(first brand-info)
 
+#_(do
+  (println "brand info")
+  (doseq [[brand info] (reverse
+                        (sort-by
+                         (fn [[brand info]] (:count info))
+                         brand-info))]
+    (report-brand brand info)))
+  
+
+#_(first brand-info)
+
+;; nwr[amenity=fuel][!brand](area:3601741311);
+;; 20200404 768 fuel stations without brand from 1108 stations
+
+"amenity"
+"shop"
+"office"
+
+(report-brand "NIS" (get brand-info "NIS"))
+
+
+
+;; simple http server for editing
+;; use trek-mate.osmeditor
+
+
+;; node to test
+;; avia
+;; 611627001
+
+
+
+;; testing procedure on nis
 
 
 
@@ -347,4 +463,8 @@
 
 ;; todo, second cycle
 ;; recommend tags ...
+
+
+
+
 
