@@ -271,11 +271,12 @@
     (fn [node]
       (contains? (:osm node) "brand")))
    (channel-provider :capture))
-  #_(pipeline/capture-var-seq-atomic-go
+  (pipeline/capture-var-seq-atomic-go
    (context/wrap-scope context "capture")
    (channel-provider :capture)
    (var brand-seq))
-  (pipeline/wait-on-channel
+  ;; trying to integrate pipeline run
+  #_(pipeline/wait-on-channel
    (context/wrap-scope context "wait")
    (channel-provider :capture)
    Integer/MAX_VALUE)
@@ -408,7 +409,7 @@
                         "name:sr" 59
                         "name:sr-Latn" 58
                         "name:en" 57}
-        ignore-tag #{"operator" "name" "name:sr" "name:sr-Latn"}]
+        ignore-tag #{}  #_#{"operator" "name" "name:sr" "name:sr-Latn"}]
     (println "\t" brand "(" (:count info) ")")
     (doseq [[tag value-seq] (reverse
                              (sort-by
@@ -434,13 +435,7 @@
 ;; nwr[amenity=fuel][!brand](area:3601741311);
 ;; 20200404 768 fuel stations without brand from 1108 stations
 
-"amenity"
-"shop"
-"office"
-
 (report-brand "NIS" (get brand-info "NIS"))
-
-
 
 ;; simple http server for editing
 ;; use trek-mate.osmeditor
