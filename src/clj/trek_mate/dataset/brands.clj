@@ -2,6 +2,10 @@
   (:use
    clj-common.clojure)
   (:require
+   compojure.core
+   ring.util.response
+   [hiccup.core :as hiccup]
+   
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -10,6 +14,7 @@
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.http :as http]
+   [clj-common.http-server :as http-server]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
@@ -20,7 +25,9 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
@@ -91,6 +98,126 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 
+(def brand-seq nil)
+
+;; extract brand-seq
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read")
+   (path/child dataset-path "input.edn")
+   (channel-provider :in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter")
+   (channel-provider :in)
+   (filter
+    (fn [node]
+      (contains? (:osm node) "brand")))
+   (channel-provider :capture))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var brand-seq))
+  ;; trying to integrate pipeline run
+  #_(pipeline/wait-on-channel
+   (context/wrap-scope context "wait")
+   (channel-provider :capture)
+   Integer/MAX_VALUE)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+;; extract brands from osm.pbf
+;; use extract from input.edn instead
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   osm-pbf-path
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-node")
+   (channel-provider :node-in)
+   (filter
+    (fn [node]
+      (contains? (:osm node) "brand")))
+   (channel-provider :capture-node-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-way")
+   (channel-provider :way-in)
+   (filter
+    (fn [way]
+      (contains? (:osm way) "brand")))
+   (channel-provider :capture-way-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-relation")
+   (channel-provider :relation-in)
+   (filter
+    (fn [relation]
+      (contains? (:osm relation) "brand")))
+   (channel-provider :capture-relation-in))
+
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :capture-node-in)
+    (channel-provider :capture-way-in)
+    (channel-provider :capture-relation-in)]
+   (channel-provider :capture-in))
+
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture-in)
+   (var brand-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+#_(do
+  (println "brands in serbia")
+  (run!
+   println
+   (sort
+    (into
+     #{}
+     (map
+      #(get (:osm %) "brand")
+      brand-seq)))))
+
+(def brand-info
+  (let [ignore-tag #{
+                     "addr:country" "addr:city" "addr:postcode" "addr:street"
+                     "addr:housenumber" "opening_hours" "phone"}]
+    (into
+     {}
+     (map
+      (fn [[brand location-seq]]
+        (let [tags-map (reduce
+                        (fn [tags-map tags]
+                          (reduce
+                           (fn [tags-map [tag value]]
+                             (if (not (contains? ignore-tag tag))
+                               (assoc
+                                tags-map
+                                tag
+                                (conj (or (get tags-map tag) #{}) value))
+                               tags-map))
+                           tags-map
+                           tags))
+                        {}
+                        (map :osm location-seq))]
+          [brand {
+                  :tags tags-map
+                  :count (count location-seq)}]))
+        (reduce
+         (fn [brand-map entry]
+           (let [brand (get (:osm entry) "brand")]
+             (assoc brand-map brand (conj (or (get brand-map brand) '()) entry))))
+         {}
+         brand-seq)))))
+(def old-brand-info brand-info)
 
 
 
@@ -254,133 +381,26 @@
    "nwr[~\"^name.*\"~\"Lidl\"](area:3601741311);"))
 #_(run! println (suggest-brand-tags lidl))
 
-(def brand-seq nil)
-
-;; extract brand-seq
-(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read")
-   (path/child dataset-path "input.edn")
-   (channel-provider :in))
-  (pipeline/transducer-stream-go
-   (context/wrap-scope context "filter")
-   (channel-provider :in)
-   (filter
-    (fn [node]
-      (contains? (:osm node) "brand")))
-   (channel-provider :capture))
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :capture)
-   (var brand-seq))
-  ;; trying to integrate pipeline run
-  #_(pipeline/wait-on-channel
-   (context/wrap-scope context "wait")
-   (channel-provider :capture)
-   Integer/MAX_VALUE)
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 
+(println "old brands:" (count old-brand-info)) ; 182
+(println "new brands:" (count brand-info)) ; 184
 
-;; extract brands from osm.pbf
-;; use extract from input.edn instead
-#_(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (osm/read-osm-pbf-go
-   (context/wrap-scope context "read")
-   osm-pbf-path
-   (channel-provider :node-in)
-   (channel-provider :way-in)
-   (channel-provider :relation-in))
-
-  (pipeline/transducer-stream-go
-   (context/wrap-scope context "filter-node")
-   (channel-provider :node-in)
-   (filter
-    (fn [node]
-      (contains? (:osm node) "brand")))
-   (channel-provider :capture-node-in))
-
-  (pipeline/transducer-stream-go
-   (context/wrap-scope context "filter-way")
-   (channel-provider :way-in)
-   (filter
-    (fn [way]
-      (contains? (:osm way) "brand")))
-   (channel-provider :capture-way-in))
-
-  (pipeline/transducer-stream-go
-   (context/wrap-scope context "filter-relation")
-   (channel-provider :relation-in)
-   (filter
-    (fn [relation]
-      (contains? (:osm relation) "brand")))
-   (channel-provider :capture-relation-in))
-
-  (pipeline/funnel-go
-   (context/wrap-scope context "funnel")
-   [(channel-provider :capture-node-in)
-    (channel-provider :capture-way-in)
-    (channel-provider :capture-relation-in)]
-   (channel-provider :capture-in))
-
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :capture-in)
-   (var brand-seq))
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-
-#_(do
-  (println "brands in serbia")
+(do
+  (println "added brands:")
   (run!
-   println
-   (sort
-    (into
-     #{}
-     (map
-      #(get (:osm %) "brand")
-      brand-seq)))))
+   #(apply report-brand %)
+   (filter
+    #(not (contains? old-brand-info (first %)))
+    brand-info)))
+(do
+  (println "removed brands:")
+  (run!
+   #(apply report-brand %)
+   (filter
+    #(not (contains? brand-info (first %)))
+    old-brand-info)))
 
-(def brand-map
-  (reduce
-   (fn [brand-map entry]
-     (let [brand (get (:osm entry) "brand")]
-       (assoc brand-map brand (conj (or (get brand-map brand) '()) entry))))
-   {}
-   brand-seq))
-
-(def brand-info
-  (let [ignore-tag #{
-                     "addr:country" "addr:city" "addr:postcode" "addr:street"
-                     "addr:housenumber" "opening_hours" "phone"}]
-    (into
-     {}
-     (map
-      (fn [[brand location-seq]]
-        (let [tags-map (reduce
-                        (fn [tags-map tags]
-                          (reduce
-                           (fn [tags-map [tag value]]
-                             (if (not (contains? ignore-tag tag))
-                               (assoc
-                                tags-map
-                                tag
-                                (conj (or (get tags-map tag) #{}) value))
-                               tags-map))
-                           tags-map
-                           tags))
-                        {}
-                        (map :osm location-seq))]
-          [brand {
-                  :tags tags-map
-                  :count (count location-seq)}]))
-      brand-map))))
-
-
-(println "number of brands in serbia:" (count brand-map))
 
 #_(do
   (println "brands in serbia")
@@ -420,6 +440,121 @@
         (when (not (contains? ignore-tag tag))
           (println "\t\t" tag "=" value))))))
 
+(defn tags-match? [requirement tags]
+  (loop
+      [requirement requirement]
+    (if-let [[key value] (first requirement)]
+      (cond
+        (= value :any)
+        (if (contains? tags key)
+          (recur (rest requirement))
+          false)
+        :else
+       (if (= (get tags key ) value)
+         (recur (rest requirement))
+         false))
+      true)))
+
+(defn extract-name-set [tags]
+  (into
+   #{}
+   (map
+    second
+    (filter
+     #(.startsWith (first %) "name")
+     tags))))
+
+(def candidates
+  (let [must-have {"amenity" "fuel"}
+        must-not-have {"brand" :any}
+        tags-to-add {
+                     "brand" "NIS"
+                     "brand:wikipedia" "sr:Нафтна_индустрија_Србије"
+                     "brand:wikidata" "Q1279721"
+                     "website" "https://www.nispetrol.rs/"}
+        name-set (into
+                  #{}
+                  (mapcat
+                   second
+                   (filter
+                    #(.startsWith (first %) "name")
+                    (:tags (get brand-info "NIS")))))]
+    (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
+      (doall
+       (map
+        (fn [candidate]
+          ;; check for tags to add and add ones that are not present
+          (reduce
+           (fn [candidate [key value]]
+             (if (contains? (:osm candidate) key)
+               candidate
+               (update-in candidate [:change key] (constantly value))))
+           candidate
+           tags-to-add))
+        (filter
+         (fn [poi]
+           (when (and
+                  (tags-match? must-have (:osm poi))
+                  (not (tags-match? must-not-have (:osm poi))))
+             (some?
+              (first
+               (filter
+                (partial contains? name-set)
+                (extract-name-set (:osm poi)))))))
+         (map
+          edn/read
+          (io/input-stream->line-seq is))))))))
+
+(def candidates
+  (let [must-have {"amenity" "bank"}
+        must-not-have {"brand" :any}
+        tags-to-add {
+                     "brand" "Banca Intesa"
+                     "brand:wikipedia" "en:Banca Intesa"
+                     "brand:wikidata" "Q647092"
+                     "website" "https://www.bancaintesa.rs/"}
+        name-set (into
+                  #{}
+                  (mapcat
+                   second
+                   (filter
+                    #(.startsWith (first %) "name")
+                    (:tags (get brand-info "Banca Intesa")))))]
+    (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
+      (doall
+       (map
+        (fn [candidate]
+          ;; check for tags to add and add ones that are not present
+          (reduce
+           (fn [candidate [key value]]
+             (if (contains? (:osm candidate) key)
+               candidate
+               (update-in
+                candidate
+                [:change-seq]
+                #(conj
+                  (or % [])
+                  {
+                   :change :tag-add
+                   :tag key
+                   :value value}))))
+           candidate
+           tags-to-add))
+        (filter
+         (fn [poi]
+           (when (and
+                  (tags-match? must-have (:osm poi))
+                  (not (tags-match? must-not-have (:osm poi))))
+             (some?
+              (first
+               (filter
+                (partial contains? name-set)
+                (extract-name-set (:osm poi)))))))
+         (map
+          edn/read
+          (io/input-stream->line-seq is))))))))
+
+(count candidates)
 
 #_(do
   (println "brand info")
@@ -436,6 +571,50 @@
 ;; 20200404 768 fuel stations without brand from 1108 stations
 
 (report-brand "NIS" (get brand-info "NIS"))
+(report-brand "NIS" (get old-brand-info "NIS"))
+
+(report-brand "Banca Intesa" (get brand-info "Banca Intesa"))
+
+(run!
+ println
+ (sort (map first brand-info)))
+
+
+(def a
+  (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
+   (doall
+    (filter
+     #(= (get-in % [:osm "brand"]) "NIS")
+     (map
+      edn/read
+      (io/input-stream->line-seq is))))))
+
+(count a)
+
+(empty? (rest nil))
+
+(let []
+  (run! println name-set))
+
+
+
+(def old-candidates candidates)
+
+(count candidates) ; 71
+
+
+(count candidates)
+(first candidates)
+
+(osmeditor/task-report
+ :banca-intesa-bank
+ "adding brand based on name and mapillary"
+ candidates)
+
+
+
+  
+
 
 ;; simple http server for editing
 ;; use trek-mate.osmeditor

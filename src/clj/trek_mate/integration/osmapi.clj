@@ -14,12 +14,32 @@
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
+   [clj-common.time :as time]
+   [trek-mate.env :as env]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]))
 
 (def ^:dynamic *server* "https://api.openstreetmap.org")
 (def ^:dynamic *user* (jvm/environment-variable "OSM_USER"))
 (def ^:dynamic *password* (jvm/environment-variable "OSM_PASSWORD"))
+
+(def changelog-path (path/child
+                     env/*global-my-dataset-path*
+                     "trek-mate"
+                     "osmapi-changelog"))
+(def ^:dynamic *changelog-report*
+  (fn [type id comment change-seq]
+    (with-open [os (fs/output-stream-by-appending changelog-path)]
+      (doseq [change change-seq]
+        (edn/write-object
+         os
+         (assoc
+          change
+          :timestamp (time/timestamp)
+          :type type
+          :id id
+          :comment comment))
+        (io/write-new-line os)))))
 
 (defn permissions
   "Performs /api/0.6/permissions"
@@ -133,31 +153,35 @@
                (constantly changeset))]}))))))))
 
 (defn node-apply-change-seq
-  "Applies given change seq to node, support for osmeditor"
+  "Applies given change seq to node, support for osmeditor.
+  Retrives node from api, applies changes, creates changeset,
+  updated node, closes changeset."
   [id comment change-seq]
   (let [original (node id)
         updated (reduce
-              (fn [node change]
-                (cond
-                  (= :add (first change))
-                  (let [[_ tag value] change]
-                    (if (not (contains? (:tags node)tag))
-                      (update-in node [:tags] assoc tag value)
-                      node))
-                  (= :update (first change))
-                  (let [[_ tag value] change]
-                    (update-in node [:tags] assoc tag value ))
-                  (= :remove (first change))
-                  (let [[_ tag] change]
-                    (update-in node [:tags dissoc tag]))
-                  :else
-                  node))
-              original
-              change-seq)]
+                 (fn [node change]
+                   (cond
+                     (= :tag-add (:change change))
+                     (let [{tag :tag value :value} change]
+                       (if (not (contains? (:tags node)tag))
+                         (update-in node [:tags] assoc tag value)
+                         node))
+                     (= :tag-change (:change change))
+                     (let [{tag :tag value :new-value} change]
+                       (update-in node [:tags] assoc tag value ))
+                     (= :tag-remove (:change change))
+                     (let [{tag :tag} change]
+                       (update-in node [:tags dissoc tag]))
+                     :else
+                     node))
+                 original
+                 change-seq)]
     (when (not (= original updated))
       (do
         (let [changeset (changeset-create comment)]
           (node-update changeset updated)
+          ;; there is change of reporting change that was already been made
+          (*changelog-report* :node id comment change-seq)
           (changeset-close changeset)
           changeset)))))
 
@@ -167,6 +191,111 @@
   (json/read-keyworded
    (http/get-as-stream
     (str *server* "/api/0.6/node/" id "/history.json"))))
+
+(defn way-xml->way
+  [way]
+  {
+   :id (as/as-long (:id (:attrs way)))
+   :version (as/as-long (:version (:attrs way)))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (filter
+           #(= (:tag %) :tag)
+           (:content way)))
+   :nodes (map
+           #(as/as-long (:ref (:attrs %)))
+           (filter
+            #(= (:tag %) :nd)
+            (:content way)))})
+
+(defn way->way-xml
+  [way]
+  {
+   :tag :way
+   :attrs {
+           :id (str (:id way))
+           :version (str (:version way))}
+   :content
+   (concat
+    (map
+     (fn [id]
+       {:tag :nd :attrs {:ref (str id)}})
+     (:nodes way))
+    (map
+     (fn [[key value]]
+       {:tag :tag :attrs {:k key :v value}})
+     (:tags way)))})
+
+(defn way
+  "Performs /api/0.6/[node|way|relation]/#id"
+  [id]
+  (let [node (xml/parse
+              (http/get-as-stream
+               (str *server* "/api/0.6/way/" id)))]
+    (way-xml->way (first (:content node)))))
+
+(defn way-update
+  "Performs /api/0.6/[node|way|relation]/#id
+  Note: changeset should be open changeset
+  Note: way should be in same format as returned by way fn"
+  [changeset way]
+  (let [id (:id way)]
+    (io/input-stream->string
+     (http/with-basic-auth *user* *password*
+       (http/put-as-stream
+        (str *server* "/api/0.6/way/" id)
+        (io/string->input-stream
+         (clojure.core/with-out-str
+           (xml/emit-element
+            {
+             :tag :osm
+             :content
+             [
+              (update-in
+               (way->way-xml way)
+               [:attrs :changeset]
+               (constantly changeset))]}))))))))
+
+(defn way-apply-change-seq
+  "Applies given change seq to way, support for osmeditor.
+  Retrives way from api, applies changes, creates changeset,
+  updated way, closes changeset."
+  [id comment change-seq]
+  (println "way change-set " id)
+  (let [original (way id)
+        updated (reduce
+                 (fn [way change]
+                   (cond
+                     (= :tag-add (:change change))
+                     (let [{tag :tag value :value} change]
+                       (if (not (contains? (:tags node)tag))
+                         (update-in way [:tags] assoc tag value)
+                         node))
+                     (= :tag-change (:change change))
+                     (let [{tag :tag value :new-value} change]
+                       (update-in way [:tags] assoc tag value ))
+                     (= :tag-remove (:change change))
+                     (let [{tag :tag} change]
+                       (update-in way [:tags dissoc tag]))
+                     :else
+                     way))
+                 original
+                 change-seq)]
+    (when (not (= original updated))
+      (do
+        (println "commiting")
+        (let [changeset (changeset-create comment)]
+          (println "changeset" changeset)
+          (way-update changeset updated)
+          ;; there is change of reporting change that was already been made
+          (*changelog-report* :way id comment change-seq)
+          (changeset-close changeset)
+          changeset)))))
 
 (defn way-history
   "Performs
@@ -213,16 +342,16 @@
       (cond
         (= (:type new) "node")
         (when (or
-               (not (= (:longitude old) (:longitude new)))
-               (not (= (:latitude old) (:latitude new))))
+               (not (= (:lon old) (:lon new)))
+               (not (= (:lat old) (:lat new))))
           [{
             :change :location
             :user (:user new)
             :timestamp (:timestamp new)
             :version (:version new)
             :changeset (:changeset new)
-            :old (select-keys old [:longitude :latitude])
-            :new (select-keys new [:longitude :latitude])}])
+            :old (select-keys old [:lon :lat])
+            :new (select-keys new [:lon :lat])}])
         (= (:type new) "way")
         (when (not (= (:nodes old) (:nodes new)))
           [{
@@ -300,6 +429,9 @@
        next])
     []
     (:elements (node-history id)))))
+
+#_(node-history 1637504812)
+#_(calculate-node-change 1637504812)
 
 (defn calculate-way-change [id]
   (first
@@ -384,3 +516,19 @@
 #_(report-node-history 60571493)
 #_(report-way-history 404209416)
 #_(report-relation-history 10833727)
+
+(defn gpx-bounding-box
+  "Performs /api/0.6/trackpoints"
+  [min-longitude max-longitude min-latitude max-latitude]
+  (xml/parse
+   (http/get-as-stream
+    (str
+     *server*
+     "/api/0.6/trackpoints?bbox="
+     min-longitude "," min-latitude "," max-longitude "," max-latitude
+     "&page=0"))))
+
+(def a (gpx-bounding-box 21.53945 21.55005 44.26249 44.26810))
+
+
+

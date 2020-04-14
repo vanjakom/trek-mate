@@ -78,9 +78,9 @@
       (json/write-to-stream posts os))))
 
 
-(def posts (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
-             (json/read-keyworded is)))
-
+(def posts
+  (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
+    (json/read-keyworded is)))
 
 ;; download route info and gpx if exists, supports restart
 #_(doseq [post posts]
@@ -273,6 +273,7 @@
 
 ;; create custom map for pss trails, html page
 ;; two views each route as point and tiles, tile code should be reusable
+(println "preparing routes")
 (def routes
   (reduce
    (fn [routes gpx-path]
@@ -302,7 +303,7 @@
    (filter
     #(.endsWith (last %) ".gpx")
     (fs/list (path/child dataset-path "routes")))))
-
+(println "routes prepared")
 
 (http-server/create-server
  7079
