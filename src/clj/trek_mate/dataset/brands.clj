@@ -98,6 +98,24 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 
+	 ;; capture write = 29747
+	 ;; capture.edn in = 29747
+	 ;; capture.edn out = 29747
+	 ;; filter-node in = 12406975
+	 ;; filter-node out = 18273
+	 ;; filter-way in = 1109580
+	 ;; filter-way out = 11474
+	 ;; funnel in = 29747
+	 ;; funnel in-close = 2
+	 ;; funnel out = 29747
+	 ;; read error-unknown-type = 1
+	 ;; read node-in = 12406975
+	 ;; read node-out = 12406975
+	 ;; read relation-in = 18218
+	 ;; read way-in = 1109580
+	 ;; read way-out = 1109580
+
+
 (def brand-seq nil)
 
 ;; extract brand-seq
@@ -220,6 +238,16 @@
 (def old-brand-info brand-info)
 
 
+(do
+  (println "brands in serbia:")
+  (run!
+   #(apply report-brand %)
+   (reverse
+    (sort-by
+     #(:count (second %))
+     brand-info))))
+
+(first brand-info)
 
 ;; 20200311, cleanup of banks in Belgrade
 
@@ -464,95 +492,213 @@
      #(.startsWith (first %) "name")
      tags))))
 
-(def candidates
-  (let [must-have {"amenity" "fuel"}
-        must-not-have {"brand" :any}
-        tags-to-add {
-                     "brand" "NIS"
-                     "brand:wikipedia" "sr:Нафтна_индустрија_Србије"
-                     "brand:wikidata" "Q1279721"
-                     "website" "https://www.nispetrol.rs/"}
-        name-set (into
-                  #{}
-                  (mapcat
-                   second
-                   (filter
-                    #(.startsWith (first %) "name")
-                    (:tags (get brand-info "NIS")))))]
-    (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
-      (doall
-       (map
-        (fn [candidate]
-          ;; check for tags to add and add ones that are not present
-          (reduce
-           (fn [candidate [key value]]
-             (if (contains? (:osm candidate) key)
-               candidate
-               (update-in candidate [:change key] (constantly value))))
-           candidate
-           tags-to-add))
-        (filter
-         (fn [poi]
-           (when (and
-                  (tags-match? must-have (:osm poi))
-                  (not (tags-match? must-not-have (:osm poi))))
-             (some?
-              (first
-               (filter
-                (partial contains? name-set)
-                (extract-name-set (:osm poi)))))))
-         (map
-          edn/read
-          (io/input-stream->line-seq is))))))))
 
-(def candidates
-  (let [must-have {"amenity" "bank"}
-        must-not-have {"brand" :any}
-        tags-to-add {
-                     "brand" "Banca Intesa"
-                     "brand:wikipedia" "en:Banca Intesa"
-                     "brand:wikidata" "Q647092"
-                     "website" "https://www.bancaintesa.rs/"}
-        name-set (into
-                  #{}
-                  (mapcat
-                   second
-                   (filter
-                    #(.startsWith (first %) "name")
-                    (:tags (get brand-info "Banca Intesa")))))]
-    (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
-      (doall
-       (map
-        (fn [candidate]
-          ;; check for tags to add and add ones that are not present
-          (reduce
-           (fn [candidate [key value]]
-             (if (contains? (:osm candidate) key)
-               candidate
-               (update-in
+(def brand-mapping
+  ;; gas stations
+  {
+   "NIS"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "NIS"
+     "brand:wikipedia" "sr:Нафтна_индустрија_Србије"
+     "brand:wikidata" "Q1279721"
+     "website" "https://www.nispetrol.rs/"}}
+   "OMV"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "OMV"
+     "brand:wikipedia" "en:OMV"
+     "brand:wikidata" "Q168238"
+     "website" "https://www.omv.co.rs/"}}
+   
+   ;; banks
+   "Banca Intesa"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Banca Intesa"
+     "brand:wikipedia" "en:Banca Intesa"
+     "brand:wikidata" "Q647092"
+     "website" "https://www.bancaintesa.rs/"}}
+
+   ;; food chains
+   
+   })
+
+
+
+(doseq [[brand mapping] brand-mapping]
+  (println "finding candidates for" brand)
+  (osmeditor/task-report
+   (str "brand-" (.replace brand " " "_"))
+   "adding brand based on name and mapillary"
+   (let [match-fn (:match-fn mapping)
+         tags-to-add (:tags mapping)
+         name-set (into
+                   #{}
+                   (mapcat
+                    second
+                    (filter
+                     #(.startsWith (first %) "name")
+                     (:tags (get brand-info brand)))))]
+     (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
+       (doall
+        (map
+         (fn [candidate]
+           ;; check for tags to add and add ones that are not present
+           (reduce
+            (fn [candidate [key value]]
+              (if (contains? (:osm candidate) key)
                 candidate
-                [:change-seq]
-                #(conj
-                  (or % [])
-                  {
-                   :change :tag-add
-                   :tag key
-                   :value value}))))
-           candidate
-           tags-to-add))
-        (filter
-         (fn [poi]
-           (when (and
-                  (tags-match? must-have (:osm poi))
-                  (not (tags-match? must-not-have (:osm poi))))
+                (update-in
+                 candidate
+                 [:change-seq]
+                 #(conj
+                   (or % [])
+                   {
+                    :change :tag-add
+                    :tag key
+                    :value value}))))
+            candidate
+            tags-to-add))
+         (filter
+          (fn [element]
+            (and
+             (match-fn element)
              (some?
               (first
                (filter
                 (partial contains? name-set)
-                (extract-name-set (:osm poi)))))))
-         (map
-          edn/read
-          (io/input-stream->line-seq is))))))))
+                (extract-name-set (:osm element)))))))
+          (map
+           edn/read
+           (io/input-stream->line-seq is)))))))))
+
+(osmeditor/task-report
+ :nis-gas
+ "adding brand based on name and mapillary"
+ (let [must-have {"amenity" "fuel"}
+       must-not-have {"brand" :any}
+       tags-to-add {
+                    "brand" "NIS"
+                    "brand:wikipedia" "sr:Нафтна_индустрија_Србије"
+                    "brand:wikidata" "Q1279721"
+                    "website" "https://www.nispetrol.rs/"}
+       name-set (into
+                 #{}
+                 (mapcat
+                  second
+                  (filter
+                   #(.startsWith (first %) "name")
+                   (:tags (get brand-info "NIS")))))]
+   (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
+     (doall
+      (map
+       (fn [candidate]
+         ;; check for tags to add and add ones that are not present
+         (reduce
+          (fn [candidate [key value]]
+            (if (contains? (:osm candidate) key)
+              candidate
+              (update-in
+               candidate
+               [:change-seq]
+               #(conj
+                 (or % [])
+                 {
+                  :change :tag-add
+                  :tag key
+                  :value value}))))
+          candidate
+          tags-to-add))
+       (filter
+        (fn [poi]
+          (when (and
+                 (tags-match? must-have (:osm poi))
+                 (not (tags-match? must-not-have (:osm poi))))
+            (some?
+             (first
+              (filter
+               (partial contains? name-set)
+               (extract-name-set (:osm poi)))))))
+        (map
+         edn/read
+         (io/input-stream->line-seq is))))))))
+
+(osmeditor/task-report
+ :banca-intesa-bank
+ "adding brand based on name and mapillary"
+ (let [match-fn (fn [element]
+                  (and
+                   (or
+                    (= (get-in element [:osm "amenity"]) "bank")
+                    (= (get-in element [:osm "amenity"]) "atm"))
+                   (nil? (get-in element [:osm "brand"]))))
+       tags-to-add {
+                    "brand" "Banca Intesa"
+                    "brand:wikipedia" "en:Banca Intesa"
+                    "brand:wikidata" "Q647092"
+                    "website" "https://www.bancaintesa.rs/"}
+       name-set (into
+                 #{}
+                 (mapcat
+                  second
+                  (filter
+                   #(.startsWith (first %) "name")
+                   (:tags (get brand-info "Banca Intesa")))))]
+   (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
+     (doall
+      (map
+       (fn [candidate]
+         ;; check for tags to add and add ones that are not present
+         (reduce
+          (fn [candidate [key value]]
+            (if (contains? (:osm candidate) key)
+              candidate
+              (update-in
+               candidate
+               [:change-seq]
+               #(conj
+                 (or % [])
+                 {
+                  :change :tag-add
+                  :tag key
+                  :value value}))))
+          candidate
+          tags-to-add))
+       (filter
+        (fn [element]
+          (and
+           (match-fn element)
+           (some?
+             (first
+              (filter
+               (partial contains? name-set)
+               (extract-name-set (:osm element)))))))
+        (map
+         edn/read
+         (io/input-stream->line-seq is))))))))
+
+
 
 (count candidates)
 

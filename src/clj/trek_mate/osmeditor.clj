@@ -116,7 +116,7 @@
   (swap!
    tasks
    assoc
-   (keyword task-id)
+   task-id
    {
     :id task-id
     :description description
@@ -125,8 +125,10 @@
 
 (defn task-get
   [task-id]
-  (get (deref tasks) (keyword task-id)))
+  (get (deref tasks) task-id))
 
+(defn tasks-list []
+  (vals (deref tasks)))
 
 (http-server/create-server
  7077
@@ -152,6 +154,25 @@
                   (osmapi/node-apply-change-seq id comment change-seq)
                   (= type :way)
                   (osmapi/way-apply-change-seq id comment change-seq))})))))
+
+  (compojure.core/GET
+   "/tasks"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:body  {:style "font-family:arial;"}
+            [:table {:style "border-collapse:collapse;"}
+             (map
+             (fn [task]
+               [:tr
+                [:td {:style "border: 1px solid black; padding: 5px;"}
+                 [:a {:href (str "/candidates/" (:id task)) :target "_blank"} (:id task)]]
+                [:td {:style "border: 1px solid black; padding: 5px;"}
+                 (count (:candidate-seq task))]
+                [:td {:style "border: 1px solid black; padding: 5px;"}
+                 (count (filter #(not (= (:done %) true)) (:candidate-seq task)))]])
+             (tasks-list))]])})
   
   (compojure.core/GET
    "/candidates/:task-id"
@@ -468,5 +489,3 @@
                  [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
              image-row)])
           (partition 3 3 nil image-seq))]]])}))))
-
-
