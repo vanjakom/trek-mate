@@ -116,11 +116,7 @@
      element->single-location
      (:elements
       (request
-       (str
-        "("
-        "node" tag-string ";"
-        "way" tag-string ";"
-        ");"))))))
+       (str "nwr" tag-string ";"))))))
 
 (defn locations-around-with-tags
   [longitude latitude radius-meters & tag-seq]
@@ -129,11 +125,7 @@
      element->single-location
      (:elements
       (request
-       (str
-        "("
-        "node" tag-string "(around:" radius-meters "," latitude "," longitude ");"
-        "way" tag-string "(around:" radius-meters "," latitude "," longitude ");"
-        ");"))))))
+       (str "nwr" tag-string "(around:" radius-meters "," latitude "," longitude ");"))))))
 
 (defn locations-around-have-tag
   [longitude latitude radius-meters tag]
@@ -141,11 +133,7 @@
    element->single-location
    (:elements
     (request
-     (str
-      "("
-      "node" "[" tag "]" "(around:" radius-meters "," latitude "," longitude ");"
-      "way" "[" tag "]" "(around:" radius-meters "," latitude "," longitude ");"
-      ");")))))
+     (str "nwr" "[" tag "]" "(around:" radius-meters "," latitude "," longitude ");")))))
 
 (defn wikidata-id->location
   "Query overpass for given Q number and returns first match, either way or node"

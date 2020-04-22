@@ -460,8 +460,6 @@
                     (mapillary/query-look-at
                      (:longitude location)
                      (:latitude location)))]
-     (println location)
-     (println image-seq)
      {
       :status 200
       :headers {

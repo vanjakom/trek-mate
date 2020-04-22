@@ -103,7 +103,7 @@
 ;; relation.edn out = 2748
 
 (def way-with-location-pipeline nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)]
   (pipeline/read-edn-go
@@ -139,7 +139,7 @@
 
 ;; prepare way split
 (def tile-way-pipeline nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
@@ -169,7 +169,7 @@
 ;; probably have it somewhere in dot, to use set-point instead of poly
 ;; just offset points instead of rem
 
-(with-open [is (fs/input-stream (path/child belgrade-way-tile-path "13" "4561" "2951"))
+#_(with-open [is (fs/input-stream (path/child belgrade-way-tile-path "13" "4561" "2951"))
             os (fs/output-stream ["tmp" "out.png"])]
   (let [context (draw/create-image-context 256 256)]
     (draw/write-background context draw/color-white)
@@ -187,7 +187,7 @@
      os)))
 
 
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
     (pipeline/read-edn-go
@@ -217,7 +217,7 @@
     (context/print-state-context context))
 
 ;; different zoom
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
     (pipeline/read-edn-go
@@ -254,7 +254,7 @@
    (edn/input-stream->seq is))
   os))
 
-(with-open [os (fs/output-stream ["tmp" "out-1.png"])]
+#_(with-open [os (fs/output-stream ["tmp" "out-1.png"])]
   (draw/write-png-to-stream
    ((create-way-render-fn belgrade-way-tile-path 13) [13 4562 2951]) os))
 
@@ -285,7 +285,7 @@
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
 
-(defn reduce-location-seq
+#_(defn reduce-location-seq
   [& location-seq-seq]
   (vals
    (reduce
@@ -309,7 +309,7 @@
 
 (defr beograd (wikidata/id->location :Q3711))
 
-(def location-seq
+#_(def location-seq
   [
    beograd])
 
@@ -331,7 +331,7 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [beograd])])
   :search-fn nil})
 
 (web/register-map
@@ -345,10 +345,10 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-srbija-lat-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [beograd])])
   :search-fn nil})
 
-(web/register-map
+#_(web/register-map
  "belgrade"
  {
   :configuration {
@@ -359,7 +359,7 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-tile-from-way-split-fn belgrade-way-tile-path 13)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly location-seq)])
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [beograd])])
   :search-fn nil})
 
 #_(web/register-map
@@ -405,7 +405,7 @@
 
 
 
-(count
+#_(count
  (zoom->zoom->tile-seq->tile-seq
   12
   18
@@ -417,7 +417,7 @@
 
 ;; process fns, add new approaches on top
 
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -434,7 +434,7 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 ;; count in = 11002452 on 20191208
 
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -481,7 +481,7 @@
 
 
 (def restaurant-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -510,7 +510,7 @@
    (var restaurant-seq)))
 
 (def no-smoking-restaurant-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -549,7 +549,7 @@
 
 
 (def sample-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 3000)
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -590,9 +590,9 @@
    (channel-provider :out)
    (var sample-seq)))
 
-(run! #(println (:tags %)) no-smoking-restaurant-seq)
+#_(run! #(println (:tags %)) no-smoking-restaurant-seq)
 
-(web/register-map
+#_(web/register-map
  "test"
  {
   :configuration {
@@ -609,8 +609,9 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
 ;; prepare zuce track for osm mapping
+;; #track
 
-(with-open [is (fs/input-stream (path/child
+#_(with-open [is (fs/input-stream (path/child
                                  storage/track-backup-path
                                  env/*trek-mate-user*
                                  "1576936664.json"))]
@@ -623,11 +624,11 @@
       3
       draw/color-red))))
 
-(web/register-raster-tile
+#_(web/register-raster-tile
  "tile-number"
  (render/create-tile-number-tile-fn))
 
-(web/register-raster-tile
+#_(web/register-raster-tile
  "belgrade-bicycle"
  (render/create-way-split-tile-fn
   belgrade-way-tile-path
@@ -655,3 +656,34 @@
         [2 draw/color-yellow]
         :else
         nil)))))
+
+;; kupinovo
+
+(defr kupinovo
+  (osm/hydrate-tags
+   (osm/extract-tags
+    (overpass/wikidata-id->location :Q921181))))
+
+(defr crkva-majke-angeline
+  (osm/hydrate-tags
+   (osm/extract-tags
+    (overpass/wikidata-id->location :Q20437346))))
+
+(defr crkva-svetog-luke
+  (osm/hydrate-tags
+   (osm/extract-tags
+    (overpass/wikidata-id->location :Q3582422))))
+
+(defr tvrdjava-kupinik
+  (osm/hydrate-tags
+   (osm/extract-tags
+    (overpass/wikidata-id->location :Q20437778))))
+
+(storage/import-location-v2-seq-handler
+ (map
+  #(add-tag % "@kupinovo")
+  [
+   kupinovo
+   crkva-majke-angeline
+   crkva-svetog-luke
+   tvrdjava-kupinik]))

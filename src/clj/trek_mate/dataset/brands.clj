@@ -205,9 +205,18 @@
       brand-seq)))))
 
 (def brand-info
-  (let [ignore-tag #{
-                     "addr:country" "addr:city" "addr:postcode" "addr:street"
-                     "addr:housenumber" "opening_hours" "phone"}]
+  (let [ignore-tag-fn
+        (fn [tag]
+          (or
+           (.startsWith tag "addr:")
+           (= tag "phone")
+           (= tag "opening_hours")
+           (.startsWith tag "payment:")
+           (.startsWith tag "fuel:")
+           (= tag "building")
+           (= tag "internet_access")
+           (.startsWith tag "amenity_")
+           (= tag "level")))]
     (into
      {}
      (map
@@ -216,7 +225,7 @@
                         (fn [tags-map tags]
                           (reduce
                            (fn [tags-map [tag value]]
-                             (if (not (contains? ignore-tag tag))
+                             (if (not (ignore-tag-fn tag))
                                (assoc
                                 tags-map
                                 tag
@@ -457,6 +466,8 @@
                         "name:sr" 59
                         "name:sr-Latn" 58
                         "name:en" 57}
+        ;; permanently irrelevant tags are removed during brand-info creation
+        ;; this ignore is more for temporary removal
         ignore-tag #{}  #_#{"operator" "name" "name:sr" "name:sr-Latn"}]
     (println "\t" brand "(" (:count info) ")")
     (doseq [[tag value-seq] (reverse
@@ -522,6 +533,109 @@
      "brand:wikipedia" "en:OMV"
      "brand:wikidata" "Q168238"
      "website" "https://www.omv.co.rs/"}}
+   "MOL"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "MOL"
+     "brand:wikipedia" "sh:MOL_(kompanija)"
+     "brand:wikidata" "Q549181"
+     "website" "https://molserbia.rs/"}}
+   "EKO"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "EKO"
+     "brand:wikipedia" "en:Hellenic_Petroleum"
+     "brand:wikidata" "Q903198"
+     "website" "http://www.ekoserbia.com/"}}
+   "Gazprom"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Gazprom"
+     "brand:wikipedia" "sr:Гаспром"
+     "brand:wikidata" "Q102673"
+     "website" "https://www.gazprom-petrol.rs/"}}
+   "Petrol"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Petrol"
+     "brand:wikipedia" "en:Petrol_Group"
+     "brand:wikidata" "Q174824"
+     "operator" "Petrol d.o.o."
+     "website" "https://www.petrol.co.rs/"}}
+   "Shell"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Shell"
+     "brand:wikipedia" "sr:Royal_Dutch_Shell"
+     "brand:wikidata" "Q154950"
+     "operator" "Coral SRB D.O.O."
+     "website" "https://www.coralenergy.rs/"}}
+   "Knez Petrol"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Knez Petrol"
+     "brand:wikidata" "Q86849682"
+     "website" "http://knezpetrol.com"}}
+   "Euro Petrol"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Euro Petrol"
+     "website" "https://www.euro-petrol.com/"}}
+   "Avia"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Avia"
+     "brand:wikidata" "Q300147"
+     "operator" "Radun Avia d.o.o."
+     "website" "http://radunavia.rs/"}}
    
    ;; banks
    "Banca Intesa"
@@ -539,12 +653,517 @@
      "brand:wikipedia" "en:Banca Intesa"
      "brand:wikidata" "Q647092"
      "website" "https://www.bancaintesa.rs/"}}
-
-   ;; food chains
+   "Komercijalna banka"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Komercijalna banka"
+     "brand:wikipedia" "sr:Комерцијална_банка"
+     "brand:wikidata" "Q1536320"
+     "website" "https://www.kombank.com/sr/"}}   
+   "Addiko"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Addiko"
+     "brand:wikipedia" "Q27926559"
+     "brand:wikidata" "en:Addiko_Bank"
+     "website" "https://www.addiko.rs/"}}
+   "OTP"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "OTP"
+     "brand:wikipedia" "Q912778"
+     "brand:wikidata" "en:OTP_Bank"
+     "website" "https://www.otpsrbija.rs/"}}
+   "Eurobank"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Eurobank"
+     "brand:wikidata" "Q951850"
+     "website" "https://www.eurobank.rs/"}}
+   "Raiffeisenbank"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Raiffeisenbank"
+     "website" "https://www.raiffeisenbank.rs/"}}
+   "Sberbank"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Sberbank"
+     "brand:wikidata" "Q205012"
+     "brand:wikipedia" "en:Sberbank of Russia"
+     "website" "https://www.sberbank.rs/"}}
+   "Erste Bank"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Erste Bank"
+     "brand:wikidata" "Q696867"
+     "website" "https://www.erstebank.rs/"}}
+   "UniCredit Bank"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "amenity"]) "bank")
+        (= (get-in element [:osm "amenity"]) "atm"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "UniCredit Bank"
+     "brand:wikidata" "Q45568"
+     "brand:wikipedia" "sr:Уникредит"
+     "website" "https://www.unicreditbank.rs/"}}
    
-   })
+   ;; food chains
+   "dm"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       ;; use just shop temporary until unique category is assigned
+       (some? (get-in element [:osm "shop"]))
+       #_(= (get-in element [:osm "shop"]) "chemist")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "dm"
+     "brand:wikidata" "Q266572"
+     "website" "https://www.dm.rs/"}}
 
+   ;; eat & drink chains
+   "McDonald's"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fast_food")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "McDonald's"
+     "brand:wikidata" "Q38076"
+     "brand:wikipedia" "sr:Мекдоналдс"
+     "website" "https://www.mcdonalds.rs/"}}
+   "KFC"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fast_food")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "KFC"
+     "brand:wikidata" "Q524757"
+     "brand:wikipedia" "sr:Кеј-Еф-Си"
+     "website" "https://www.kfc.rs/"}}
+   
+   ;; serbian chains
+   "Kafeterija"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "cafe")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Kafeterija"
+     "website" "https://www.kafeterija.com/"}}
+   "Grubin"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "shop"]) "shoes")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Grubin"
+     "website" "https://grubin.rs/"}}
+   "Gigatron"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "shop"]) "electronics")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Gigatron"
+     "website" "https://www.gigatron.rs/"}}
+   "Tehnomanija"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "shop"]) "electronics")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Tehnomanija"
+     "website" "https://www.tehnomanija.rs/"}}
+   "Win Win"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (or
+        (= (get-in element [:osm "shop"]) "electronics")
+        (= (get-in element [:osm "shop"]) "computer"))
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Win Win"
+     "website" "https://www.winwin.rs/"}}})
 
+(def howtomap-mapping
+  {
+   "NIS"
+   (merge
+    {
+     "amenity" "fuel"
+     "name" "NIS"
+     "name:sr" "НИС"
+     "name:sr-Latn" "NIS"}
+    (get-in brand-mapping ["NIS" :tags]))
+   "OMV"
+   (merge
+    (get-in brand-mapping ["OMV" :tags])
+    {
+     "amenity" "fuel"
+     "name" "OMV"
+     "name:sr-Latn" "OMV"})
+   "MOL"
+   (merge
+    (get-in brand-mapping ["MOL" :tags])
+    {
+     "amenity" "fuel"
+     "name" "MOL"
+     "name:sr-Latn" "MOL"})
+   "EKO"
+   (merge
+    (get-in brand-mapping ["EKO" :tags])
+    {
+     "amenity" "fuel"
+     "name" "EKO"
+     "name:sr-Latn" "EKO"})
+   "Gazprom"
+   (merge
+    (get-in brand-mapping ["Gazprom" :tags])
+    {
+     "amenity" "fuel"
+     "name" "Gazprom"
+     "name:sr-Latn" "Gazprom"
+     "name:sr" "Газпром"})
+   "Petrol"
+   (merge
+    {
+     "amenity" "fuel"
+     "name" "Petrol"
+     "name:sr-Latn" "Petrol"
+     "name:sr" "Петрол"}
+    (get-in brand-mapping ["Petrol" :tags]))   
+   "Shell"
+   (merge
+    (get-in brand-mapping ["Shell" :tags])
+    {
+     "amenity" "fuel"
+     "name" "Shell"
+     "name:sr-Latn" "Shell"})
+   "Knez Petrol"
+   (merge
+    {
+     "amenity" "fuel"
+     "name" "Кнез Петрол"
+     "name:sr" "Кнез Петрол"
+     "name:sr-Latn" "Knez Petrol"}
+    (get-in brand-mapping ["Knez Petrol" :tags]))
+   "Euro Petrol"
+   (merge
+    {
+     "amenity" "fuel"
+     "name" "Euro Petrol"
+     "name:sr-Latn" "Euro Petrol"
+     "name:sr" "Еуро Петрол"}
+    (get-in brand-mapping ["Euro Petrol" :tags]))
+   "Avia"
+   (merge
+    (get-in brand-mapping ["Avia" :tags])
+    {
+     "amenity" "fuel"
+     "name" "Avia"
+     "name:sr-Latn" "Avia"})
+
+   ;; banks
+   "Banca Intesa"
+   (merge
+    (get-in brand-mapping ["Banca Intesa" :tags])
+    {
+     "amenity" "bank"
+     "name" "Banca Intesa"
+     "name:sr-Latn" "Banca Intesa"})
+   "Banca Intesa ATM"
+   (merge
+    (get-in brand-mapping ["Banca Intesa" :tags])
+    {
+     "amenity" "atm"
+     "name" "Banca Intesa"
+     "name:sr-Latn" "Banca Intesa"})
+   "Komercijalna banka"
+   (merge
+    (get-in brand-mapping ["Komercijalna banka" :tags])
+    {
+     "amenity" "bank"
+     "name" "Комерцијална банка"
+     "name:sr" "Комерцијална банка"
+     "name:sr-Latn" "Komercijalna banka"})
+   "Komercijalna banka ATM"
+   (merge
+    (get-in brand-mapping ["Komercijalna banka" :tags])
+    {
+     "amenity" "atm"
+     "name" "Комерцијална банка"
+     "name:sr" "Комерцијална банка"
+     "name:sr-Latn" "Komercijalna banka"})   
+   "Addiko bank"
+   (merge
+    (get-in brand-mapping ["Addiko bank" :tags])
+    {
+     "amenity" "bank"
+     "name" "Addiko"
+     "name:sr-Latn" "Addiko"})
+   "Addiko bank ATM"
+   (merge
+    (get-in brand-mapping ["Addiko" :tags])
+    {
+     "amenity" "atm"
+     "name" "Addiko"
+     "name:sr-Latn" "Addiko"})
+   "OTP"
+   (merge
+    (get-in brand-mapping ["OTP" :tags])
+    {
+     "amenity" "bank"
+     "name" "OTP"
+     "name:sr-Latn" "OTP"})
+   "OTP ATM"
+   (merge
+    (get-in brand-mapping ["OTP" :tags])
+    {
+     "amenity" "atm"
+     "name" "OTP"
+     "name:sr-Latn" "OTP"})
+   "Eurobank"
+   (merge
+    (get-in brand-mapping ["Eurobank" :tags])
+    {
+     "amenity" "bank"
+     "name" "Eurobank"
+     "name:sr-Latn" "Eurobank"})
+   "Eurobank ATM"
+   (merge
+    (get-in brand-mapping ["Eurobank" :tags])
+    {
+     "amenity" "atm"
+     "name" "Eurobank"
+     "name:sr-Latn" "Eurobank"})
+   "Raiffeisenbank"
+   (merge
+    (get-in brand-mapping ["Raiffeisenbank" :tags])
+    {
+     "amenity" "bank"
+     "name" "Raiffeisenbank"
+     "name:sr-Latn" "Raiffeisenbank"})
+   "Raiffeisenbank ATM"
+   (merge
+    (get-in brand-mapping ["Raiffeisenbank" :tags])
+    {
+     "amenity" "atm"
+     "name" "Raiffeisenbank"
+     "name:sr-Latn" "Raiffeisenbank"})
+   "Sberbank"
+   (merge
+    (get-in brand-mapping ["Sberbank" :tags])
+    {
+     "amenity" "bank"
+     "name" "Sberbank"
+     "name:sr-Latn" "Sberbank"
+     "name:sr" "Сбербанк"})
+   "Sberbank ATM"
+   (merge
+    (get-in brand-mapping ["Sberbank" :tags])
+    {
+     "amenity" "atm"
+     "name" "Sberbank"
+     "name:sr-Latn" "Sberbank"
+     "name:sr" "Сбербанк"})
+   "Erste Bank"
+   (merge
+    (get-in brand-mapping ["Erste Bank" :tags])
+    {
+     "amenity" "bank"
+     "name" "Erste Bank"
+     "name:sr-Latn" "Erste Bank"})
+   "Erste Bank ATM"
+   (merge
+    (get-in brand-mapping ["Erste Bank" :tags])
+    {
+     "amenity" "atm"
+     "name" "Erste Bank"
+     "name:sr-Latn" "Erste Bank"})
+   "UniCredit Bank"
+   (merge
+    (get-in brand-mapping ["UniCredit Bank" :tags])
+    {
+     "amenity" "bank"
+     "name" "UniCredit Bank"
+     "name:sr-Latn" "UniCredit Bank"})
+   "UniCredit Bank ATM"
+   (merge
+    (get-in brand-mapping ["UniCredit Bank" :tags])
+    {
+     "amenity" "atm"
+     "name" "UniCredit Bank"
+     "name:sr-Latn" "UniCredit Bank"})
+   
+   ;; food
+   "dm"
+   (merge
+    (get-in brand-mapping ["dm" :tags])
+    {
+     "shop" "chemist"
+     "name" "dm"
+     "name:sr-Latn" "dm"})
+
+   ;; eat & drink chains
+   "McDonald's"
+   (merge
+    (get-in brand-mapping ["McDonald's" :tags])
+    {
+     "amenity" "fast_food"
+     "name" "McDonald's"
+     "name:sr-Latn" "McDonald's"})
+   "KFC"
+   (merge
+    (get-in brand-mapping ["KFC" :tags])
+    {
+     "amenity" "fast_food"
+     "name" "KFC"
+     "name:sr-Latn" "KFC"})
+   
+   ;; serbian chains
+   "Kafeterija"
+   (merge
+    (get-in brand-mapping ["Kafeterija" :tags])
+    {
+     "amenity" "cafe"
+     "name" "Кафетерија"
+     "name:sr-Latn" "Kafeterija"
+     "name:sr" "Кафетерија"})
+   "Grubin"
+   (merge
+    (get-in brand-mapping ["Grubin" :tags])
+    {
+     "shop" "shoes"
+     "name" "Грубин"
+     "name:sr" "Грубин"
+     "name:sr-Latn" "Grubin"})
+   "Gigatron"
+   (merge
+    (get-in brand-mapping ["Gigatron" :tags])
+    {
+     "shop" "electronics"
+     "name" "Gigatron"
+     "name:sr-Latn" "Gigatron"})
+   "Tehnomanija"
+   (merge
+    (get-in brand-mapping ["Tehnomanija" :tags])
+    {
+     "shop" "electronics"
+     "name" "Tehnomanija"
+     "name:sr-Latn" "Tehnomanija"})
+   "Win Win"
+   (merge
+    (get-in brand-mapping ["Win Win" :tags])
+    {
+     "shop" "electronics"
+     "name" "Win Win"
+     "name:sr-Latn" "Win Win"})
+   
+   ;; other
+   
+   "Greenet"
+   {
+    "amenity" "cafe"
+    "name" "Greenet"
+    "website" "http://greenet.rs"}})
+
+(defn report-howtomap [name]
+  (println name)
+  (doseq [[key value] (get howtomap-mapping name)]
+    (println "\t" key "=" value)))
+
+(report-howtomap "Kafeterija")
+
+(report-howtomap "EKO")
+(report-brand "dm" (get brand-info "dm"))
 
 (doseq [[brand mapping] brand-mapping]
   (println "finding candidates for" brand)
@@ -593,110 +1212,9 @@
            edn/read
            (io/input-stream->line-seq is)))))))))
 
-(osmeditor/task-report
- :nis-gas
- "adding brand based on name and mapillary"
- (let [must-have {"amenity" "fuel"}
-       must-not-have {"brand" :any}
-       tags-to-add {
-                    "brand" "NIS"
-                    "brand:wikipedia" "sr:Нафтна_индустрија_Србије"
-                    "brand:wikidata" "Q1279721"
-                    "website" "https://www.nispetrol.rs/"}
-       name-set (into
-                 #{}
-                 (mapcat
-                  second
-                  (filter
-                   #(.startsWith (first %) "name")
-                   (:tags (get brand-info "NIS")))))]
-   (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
-     (doall
-      (map
-       (fn [candidate]
-         ;; check for tags to add and add ones that are not present
-         (reduce
-          (fn [candidate [key value]]
-            (if (contains? (:osm candidate) key)
-              candidate
-              (update-in
-               candidate
-               [:change-seq]
-               #(conj
-                 (or % [])
-                 {
-                  :change :tag-add
-                  :tag key
-                  :value value}))))
-          candidate
-          tags-to-add))
-       (filter
-        (fn [poi]
-          (when (and
-                 (tags-match? must-have (:osm poi))
-                 (not (tags-match? must-not-have (:osm poi))))
-            (some?
-             (first
-              (filter
-               (partial contains? name-set)
-               (extract-name-set (:osm poi)))))))
-        (map
-         edn/read
-         (io/input-stream->line-seq is))))))))
-
-(osmeditor/task-report
- :banca-intesa-bank
- "adding brand based on name and mapillary"
- (let [match-fn (fn [element]
-                  (and
-                   (or
-                    (= (get-in element [:osm "amenity"]) "bank")
-                    (= (get-in element [:osm "amenity"]) "atm"))
-                   (nil? (get-in element [:osm "brand"]))))
-       tags-to-add {
-                    "brand" "Banca Intesa"
-                    "brand:wikipedia" "en:Banca Intesa"
-                    "brand:wikidata" "Q647092"
-                    "website" "https://www.bancaintesa.rs/"}
-       name-set (into
-                 #{}
-                 (mapcat
-                  second
-                  (filter
-                   #(.startsWith (first %) "name")
-                   (:tags (get brand-info "Banca Intesa")))))]
-   (with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
-     (doall
-      (map
-       (fn [candidate]
-         ;; check for tags to add and add ones that are not present
-         (reduce
-          (fn [candidate [key value]]
-            (if (contains? (:osm candidate) key)
-              candidate
-              (update-in
-               candidate
-               [:change-seq]
-               #(conj
-                 (or % [])
-                 {
-                  :change :tag-add
-                  :tag key
-                  :value value}))))
-          candidate
-          tags-to-add))
-       (filter
-        (fn [element]
-          (and
-           (match-fn element)
-           (some?
-             (first
-              (filter
-               (partial contains? name-set)
-               (extract-name-set (:osm element)))))))
-        (map
-         edn/read
-         (io/input-stream->line-seq is))))))))
+(report-brand "NIS" (get brand-info "NIS"))
+(report-brand "Petrol" (get brand-info "Petrol"))
+(report-brand "Euro Petrol" (get brand-info "Euro Petrol"))
 
 
 
@@ -709,7 +1227,8 @@
                          (fn [[brand info]] (:count info))
                          brand-info))]
     (report-brand brand info)))
-  
+
+(count brand-info)
 
 #_(first brand-info)
 

@@ -14,6 +14,7 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.geojson :as geojson]
+   [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
@@ -463,7 +464,7 @@
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1584797934.json"))]
+                     env/*trek-mate-user* "1587110767.json"))]
       (storage/track->location-seq (json/read-keyworded is))))
   (web/register-dotstore
    :track
@@ -484,6 +485,22 @@
 ;;; add to id editor http://localhost:8085/tile/raster/track/{zoom}/{x}/{y}
 )
 
+;; #osm #track #submit
+;; submit track to osm
+(with-open [is (fs/input-stream
+                    (path/child
+                     env/*global-my-dataset-path*
+                     "trek-mate" "cloudkit" "track"
+                     env/*trek-mate-user* "1587110767.json"))
+            os (fs/output-stream ["tmp" "track.gpx"])]
+  (let [track (json/read-keyworded is)]
+    (gpx/write-track-gpx os [] (:locations track))))
+;; description: Voznja biciklovima unutar rezervata prirode Obedska Bara
+;; tags: bike, brompton, source:1587110767:full
+;; visibility: identifiable
+
+
+
 ;; belgrade
 ;; belgrade city, relation 2728438
 #_(+ 2728438 3600000000) ; 3602728438
@@ -496,6 +513,9 @@
 #_(+ 10476357 3600000000) ; 3610476357
 ;; belgrade, nbg, relation 10625812
 #_(+ 10625812 3600000000) ; 3610625812
+
+
+
 
 
 (web/register-map
