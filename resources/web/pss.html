@@ -68,14 +68,12 @@
       <div id= "map" class= "map"></div>
     </div>
     <script type= "text/javascript">
-      var jsonGet = function (url, callback, error) {
+      var jsonGet = function (url, callback) {
 	  var xhr = new XMLHttpRequest()
 	  xhr.open("GET", url, true);
 	  xhr.onreadystatechange = function () {
 	      if(xhr.readyState === 4 && xhr.status === 200) {
 		  callback (JSON.parse(xhr.responseText))
-	      } else {
-		  error ()
 	      }
 	  };
 	  xhr.send();
@@ -235,7 +233,9 @@
 			      var marker = L.marker(latlng)
 			      marker.bindPopup(
 				  route.properties.title + "</br>" +
-				      "<a href=\"" + route.properties.link + "\" target=\"_blank\">pss</a>",
+				      route.properties.id + "</br>" +
+				      "<a href=\"" + route.properties.link + "\" target=\"_blank\">pss</a></br>" +
+				      "<a href=\"" + "/data/route/" + route.properties.id + "\" target=\"_blank\">geojson</a></br>",
 				  {maxWidth: "auto"})
 			      
 			      marker.on(
@@ -265,7 +265,7 @@
 		      noWrap: true
 		  }).addTo(map)
 	      */
-	      
+	      /*
 	      new L.GridLayer.MarkerLoader(
 		  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
 		  {
@@ -273,9 +273,7 @@
 		      bounds: [[-90,-180], [90, 180]],
 		      noWrap: true
 		  }).addTo(map)
-
-
-	      
+	      */
 	  },
 	  function () {})
     </script>
