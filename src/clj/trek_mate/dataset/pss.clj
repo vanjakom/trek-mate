@@ -358,7 +358,18 @@
                          :properties {}
                          :geometry {
                                     :type "LineString"
-                                    :coordinates location-seq}}]})}))))
+                                    :coordinates location-seq}}]})}))
+  (compojure.core/GET
+   "/tile/route/:id/:zoom/:x/:y"
+   [id zoom x y]
+   (if-let [route (get routes id)]
+     (let [location-seq (map
+                         (fn [location]
+                           [(:longitude location) (:latitude location)])
+                         (apply concat (:track-seq info)))]
+       
+       )
+     {:status 404}))))
 
 #_(let [gpx-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.gpx")]
   (with-open [is (fs/input-stream gpx-path)]
