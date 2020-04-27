@@ -2,6 +2,7 @@
   (:use
    clj-common.clojure)
   (:require
+   [hiccup.core :as hiccup]   
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -286,6 +287,7 @@
                       (.replace (last gpx-path) ".gpx" ".json"))
            info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))
            id (get-in info [:post :postmeta :Oznaka :value])
+           uredjenost (get-in info [:post :postmeta :Uređenost :value])
            title (get-in info [:post :title])
            link (get-in info [:post :permalink])]
        (assoc
@@ -297,13 +299,169 @@
          :info-path info-path
          :title title
          :link link
-         :location first-location}))
+         :location first-location
+         :uredjenost uredjenost}))
      )
    {}
    (filter
     #(.endsWith (last %) ".gpx")
     (fs/list (path/child dataset-path "routes")))))
 (println "routes prepared")
+
+;; load single route info
+#_(def a
+  (with-open [is (fs/input-stream (path/child dataset-path "routes" "4-4-3.json"))]
+    (json/read-keyworded is)))
+
+;; compare with osm latest and greatest
+;; todo, start again node, way, relation split , add to serbia.clj
+;; reconstruct all pss routes, compare with previous, find diff
+;; compare tags, geom and guideposts ...
+
+;; extract mapped routes
+
+(def osm-pbf-path (path/child
+                   env/*global-dataset-path*
+                   "geofabrik.de"
+                   "serbia-latest.osm.pbf"))
+
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+(def relation-seq nil)
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   osm-pbf-path
+   nil
+   nil
+   (channel-provider :filter-hiking))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-hiking")
+   (channel-provider :filter-hiking)
+   (filter
+    (fn [relation]
+      (and
+       (= (get-in relation [:osm "type"]) "route")
+       (= (get-in relation [:osm "route"]) "hiking"))))
+   (channel-provider :filter-pss))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-pss")
+   (channel-provider :filter-pss)
+   (filter
+    (fn [relation]
+      (and
+       ;; todo
+       #_(= (get-in relation [:osm "source"]) "pss_staze")
+       (some? (get-in relation [:osm "ref"])))))
+   (channel-provider :capture))
+
+  (pipeline/capture-var-seq-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var relation-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+(first relation-seq)
+
+;; using overpass for latest results
+#_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
+
+;; report relations
+#_(run!
+ (fn [relation]
+   (println (get-in relation [:osm "name"]))
+   (doseq [[key value] (:osm relation)]
+     (println "\t" key "=" value)))
+ relation-seq)
+
+(def relation-map
+  (view/seq->map #(get-in % [:osm "ref"]) relation-seq))
+
+
+;; mapping notes to be displayed in wiki
+(def note-map
+  {"4-49-3" "čudan track, trebalo bi da je kružna staza"})
+
+(defn id->region
+  [id]
+  (let [[region club number] (.split id "-")]
+    (cond
+      (= region "1") "Vojvodina"
+      (= region "2") "Šumadija"
+      (= region "3") "Zapadna Srbija"
+      (= region "4") "Istočna Srbija"
+      (= region "5") "Jugozapadna Srbija"
+      (= region "6") "Kopaoničko-Toplička regija"
+      (= region "7") "Jugoistočna Srbija"
+      :else "nepoznat")))
+
+(defn id-compare
+  [id1 id2]
+  (let [[region1 club1 number1] (.split id1 "-")
+        [region2 club2 number2] (.split id2 "-")]
+    (compare
+     (+ (* (as/as-long region1) 10000) (* (as/as-long club1) 100) (as/as-long number1))
+     (+ (* (as/as-long region2) 10000) (* (as/as-long club2) 100) (as/as-long number2)))))
+
+(defn render-route
+  "prepares hiccup html for route"
+  [id]
+  (let [route (get routes id)
+        relation (get relation-map id)
+        note (get note-map id)]
+    [:tr
+     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+      id]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 150px;"}
+      (id->region id)]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 100px; text-align: center;"}
+      (:uredjenost route)]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 600px;"}
+      (:title route )]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 40px; text-align: center;"}
+      [:a {:href (:link route) :target "_blank"} "pss"]]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 80px; text-align: center;"}
+      (when-let [osm-id (:id relation)]
+        (list
+          [:a {
+             :href (str "https://openstreetmap.org/relation/" osm-id)
+               :target "_blank"} "osm"]
+          [:br]
+          osm-id))]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
+      note]]))
+
+(do
+  (println "== Trenutno stanje ==")
+  (println "Tabela se mašinski generiše na osnovu exporta dostupnom na geofabrik - u, poslednji update: 20200425\n\n")
+  (println "Staze dostupne na sajtu PSS koje poseduju GPX:\n")
+  (println "{| border=1")
+  (println "! scope=\"col\" | ref")
+  (println "! scope=\"col\" | region")
+  (println "! scope=\"col\" | uređenost")
+  (println "! scope=\"col\" | naziv")
+  (println "! scope=\"col\" | link")
+  (println "! scope=\"col\" | osm")
+  (doseq [route (sort
+                 #(id-compare (:id %1) (:id %2))
+                 (vals routes))]
+    (let [id (:id route)
+          relation (get relation-map id)]
+      (println "|-")
+      (println "|" id)
+      (println "|" (id->region id))
+      (println "|" (:uredjenost route))
+      (println "|" (:title route))
+      (println "|" (str "[" (:link route) " pss]"))
+      (println "|" (if-let [relation-id (:id relation)]
+                     (str "{{relation|" relation-id "}}")
+                     ""))))
+  (println "|}"))
 
 (http-server/create-server
  7079
@@ -315,25 +473,75 @@
     :status 200
     :body (jvm/resource-as-stream ["web" "pss.html"])})
   (compojure.core/GET
+   "/state"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (let [[mapped-routes routes-with-gpx rest-of-routes]
+                (reduce
+                 (fn [[mapped gpx rest-of] route]
+                   (if (some? (get relation-map (:id route)))
+                     [(conj mapped route) gpx rest-of]
+                     (if (some? (get route :gpx-path))
+                       [mapped (conj gpx route) rest-of]
+                       [mapped gpx (conj rest-of route)])))
+                 [[] [] []]
+                 (vals routes))]
+            (hiccup/html
+            [:html
+             [:body {:style "font-family:arial;"}
+              [:div "mapirane rute"]
+              [:table {:style "border-collapse:collapse;"}
+               (map
+                (comp
+                 render-route
+                 :id)
+                (sort
+                 #(id-compare (:id %1) (:id %2))
+                 mapped-routes))]
+              [:br]
+              [:div "rute koje poseduju gpx"]
+              [:table {:style "border-collapse:collapse;"}
+               (map
+                (comp
+                 render-route
+                 :id)
+                (sort
+                 #(id-compare (:id %1) (:id %2))
+                 routes-with-gpx))]
+              [:br]
+              [:div "ostale rute"]
+              [:div "nisu dodate u routes seq, kada bude potrebno dodati"]
+              [:table {:style "border-collapse:collapse;"}
+               (map
+                (comp
+                 render-route
+                 :id)
+                (sort
+                 #(id-compare (:id %1) (:id %2))
+                 rest-of-routes))]]]))})
+  (compojure.core/GET
    "/data/list"
    _
    {
     :status 200
     :headers {
-             "Content-Type" "application/json; charset=utf-8"}
+              "Content-Type" "application/json; charset=utf-8"}
     :body (json/write-to-string
            {
             :type "FeatureCollection"
             :features (map
-                      (fn [route]
-                        {
-                         :type "Feature"
-                         :properties route
-                         :geometry {
-                                    :type "Point"
-                                    :coordinates [(:longitude (:location route))
-                                                  (:latitude (:location route))]}})
-                      (vals routes))})})
+                       (fn [route]
+                         {
+                          :type "Feature"
+                          :properties route
+                          :geometry {
+                                     :type "Point"
+                                     :coordinates [(:longitude (:location route))
+                                                   (:latitude (:location route))]}})
+                       (vals routes))})})
   (compojure.core/GET
    "/data/route/:id"
    [id]
@@ -349,37 +557,47 @@
       :headers {
                 "Content-Type" "application/json; charset=utf-8"}
       :body (json/write-to-string
-            {
-             :type "FeatureCollection"
-             :properties {}
-             :features [
-                        {
-                         :type "Feature"
-                         :properties {}
-                         :geometry {
-                                    :type "LineString"
-                                    :coordinates location-seq}}]})}))
-  (compojure.core/GET
-   "/tile/route/:id/:zoom/:x/:y"
-   [id zoom x y]
-   (if-let [route (get routes id)]
-     (let [location-seq (map
-                         (fn [location]
-                           [(:longitude location) (:latitude location)])
-                         (apply concat (:track-seq info)))]
-       
-       )
-     {:status 404}))))
+             {
+              :type "FeatureCollection"
+              :properties {}
+              :features [
+                         {
+                          :type "Feature"
+                          :properties {}
+                          :geometry {
+                                     :type "LineString"
+                                     :coordinates location-seq}}]})}))))
 
-#_(let [gpx-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.gpx")]
-  (with-open [is (fs/input-stream gpx-path)]
-    (def a (xml/parse is))))
+;; set tile to be mapped
+(do
+  (let [location-seq (with-open [is (fs/input-stream
+                                     (path/child
+                                      dataset-path
+                                      "routes"
+                                      "4-4-2.gpx"))]
+                       (doall
+                        (mapcat
+                         identity
+                         (:track-seq (gpx/read-track-gpx is)))))]
+    (web/register-dotstore
+     :pss
+     (dot/location-seq->dotstore location-seq))
+    (web/register-map
+     "pss"
+     {
+      :configuration {
+                      :longitude (:longitude (first location-seq))
+                      :latitude (:latitude (first location-seq))
+                      :zoom 7}
+      :vector-tile-fn (web/tile-vector-dotstore-fn
+                       [(fn [_ _ _ _] [])])
+      :raster-tile-fn (web/tile-border-overlay-fn
+                       (web/tile-number-overlay-fn
+                        (web/tile-overlay-dotstore-render-fn
+                         (web/create-osm-external-raster-tile-fn)
+                         :pss
+                         [(constantly [draw/color-blue 2])])))})))
+;;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
 
-#_(let [gpx-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.gpx")]
-  (with-open [is (fs/input-stream gpx-path)]
-    (def b (gpx/read-track-gpx is))))
 
-#_(let [info-path (path/string->path "/Users/vanja/my-dataset/pss.rs/routes/4-27-1.json")]
-  (with-open [is (fs/input-stream info-path)]
-    (def c (json/read-keyworded is))))
-
+(count routes)

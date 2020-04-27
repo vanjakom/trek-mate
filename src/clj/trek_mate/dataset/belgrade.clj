@@ -453,19 +453,22 @@
                      [(fn [_ _ _ _] location-seq)])})
 
   (storage/import-location-v2-seq-handler location-seq)
+  )
 
 
-  ;; go to
-  ;; file:///Users/vanja/projects/MaplyProject/maply-web-standalone/track-list.html
-  ;; find trackid and use it
-  ;; mapping on top of track
+;; go to
+;; file:///Users/vanja/projects/MaplyProject/maply-web-standalone/track-list.html
+;; find trackid and use it
+;; mapping on top of track
+#_(do
   (def track-location-seq
     (with-open [is (fs/input-stream
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1587110767.json"))]
+                     env/*trek-mate-user* "1587709561.json"))]
       (storage/track->location-seq (json/read-keyworded is))))
+
   (web/register-dotstore
    :track
    (dot/location-seq-var->dotstore (var track-location-seq)))
@@ -481,9 +484,8 @@
                       (web/tile-overlay-dotstore-render-fn
                        (web/create-osm-external-raster-tile-fn)
                        :track
-                       [(constantly [draw/color-blue 2])])))})
+                       [(constantly [draw/color-blue 2])])))}))
 ;;; add to id editor http://localhost:8085/tile/raster/track/{zoom}/{x}/{y}
-)
 
 ;; #osm #track #submit
 ;; submit track to osm
@@ -491,7 +493,7 @@
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1587110767.json"))
+                     env/*trek-mate-user* "1587709561.json"))
             os (fs/output-stream ["tmp" "track.gpx"])]
   (let [track (json/read-keyworded is)]
     (gpx/write-track-gpx os [] (:locations track))))

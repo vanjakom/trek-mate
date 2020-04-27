@@ -1142,9 +1142,7 @@
      :osm (read-pbf-tags (.getTags entity))
      :nodes (map
              (fn [way-node]
-               {
-                :type :node-ref
-                :id (.getNodeId way-node)})
+               (.getNodeId way-node))
              (.getWayNodes entity))}))
 
 (defn read-pbf-relation
@@ -1157,9 +1155,8 @@
      :members (map
                (fn [member]
                  {
-                  :type :member
-                  :ref-type (name (read-entity-type (.getMemberType member)))
-                  :ref (.getMemberId member)
+                  :type (read-entity-type (.getMemberType member))
+                  :id (.getMemberId member)
                   :role (let [role (.getMemberRole member)]
                           (if (empty? role)
                             nil

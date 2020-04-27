@@ -1131,6 +1131,21 @@
        (<= (:latitude %) max-latitude))
      (deref location-seq-var))))
 
+(defn location-seq->dotstore
+  "Returns dotstore compatible function, to be used with web/register-dotstore.
+  Note: function accepts variable as input to ensure update when dataset is altered"
+  [location-seq]
+  (fn [min-longitude max-longitude min-latitude max-latitude]
+    (filter
+     #(and
+       (>= (:longitude %) min-longitude)
+       (<= (:longitude %) max-longitude)
+       (>= (:latitude %) min-latitude)
+       (<= (:latitude %) max-latitude))
+     location-seq)))
+
+
+
 (defn repository->dotstore
   "Returns dotstore compatible function to be used with web/register-dotstore.
   Note: function calculates bounds and requests tiles at maximum zoom level"

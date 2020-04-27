@@ -164,3 +164,56 @@
   (map
    element->single-location
    (:elements (request query))))
+
+
+;; raw data retrieval, should return data in same format as pbf reader
+;; todo, hydration, addition of geom 
+
+(defn transform-node
+  [element]
+  {
+   :type :node
+   :id (:id element)
+   :osm (clojure.walk/stringify-keys (:tags element))})
+
+(defn transform-way
+  [element]
+  {
+   :type :way
+   :id (:id element)
+   :osm (clojure.walk/stringify-keys (:tags element))
+   :nodes (:nodes element)})
+
+(defn transform-relation
+  [element]
+  {
+   :type :relation
+   :id (:id element)
+   :osm (clojure.walk/stringify-keys (:tags element))
+   :members (map
+             (fn [member]
+               {
+                :type (keyword (:type member))
+                :id (:ref member)
+                :role (if (empty? (:role member))
+                        nil
+                        (:role member))})
+             (:members element))})
+
+;; todo define macro query which will be able to process overpass clojure DSL
+
+(defn query-string
+  [query-string]
+  (map
+   (fn [element]
+     (cond
+       (= (:type element) "node")
+       (transform-node element)
+       (= (:type element) "way")
+       (transform-way element)
+       (= (:type element) "relation")
+       (transform-relation element)
+       :else
+       nil))
+   (:elements (request query-string))))
+
