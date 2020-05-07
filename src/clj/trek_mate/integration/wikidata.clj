@@ -20,23 +20,23 @@
    :instance-of [:set :q]}
 
 (defn create-intermediate
-  [id label-en description-en longitude latitude
-   instance-of-set url-wikipedia-en url-wikivoyage-en]
+  [id label description longitude latitude
+   instance-of-set url-wikipedia url-wikivoyage-en]
   {
    :id id
-   :label-en label-en
-   :description-en description-en
+   :label label
+   :description description
    :longitude longitude
    :latitude latitude
    :instance-of-set instance-of-set
-   :url-wikipedia-en url-wikipedia-en
+   :url-wikipedia url-wikipedia
    :url-wikivoyage-en url-wikivoyage-en})
 
 (def intermediate->id :id)
 
-(def intermediate->label-en :label-en)
+(def intermediate->label :label)
 
-(def intermediate->description-en :description-en)
+(def intermediate->description :description)
 
 (def intermediate->longitude :longitude)
 
@@ -44,7 +44,7 @@
 
 (def intermediate->instance-of-set :instance-of-set)
 
-(def intermediate->url-wikipedia-en :url-wikipedia-en)
+(def intermediate->url-wikipedia :url-wikipedia)
 
 (def intermediate->url-wikivoyage-en :url-wikivoyage-en)
 
@@ -63,12 +63,21 @@
                            (get-in entity [:claims :P31]))))]
     (create-intermediate
      (keyword (get-in entity [:id]))
-     (get-in entity [:labels :en :value])
-     (get-in entity [:descriptions :en :value])
+     (or
+      (get-in entity [:labels :sr :value])
+      (get-in entity [:labels :sh :value])
+      (get-in entity [:labels :en :value]))
+     (or
+      (get-in entity [:descriptions :sr :value])
+      (get-in entity [:descriptions :sh :value])
+      (get-in entity [:descriptions :en :value]))
      (:longitude location)
      (:latitude location)
      instance-of-set
-     (get-in entity [:sitelinks :enwiki :url])
+     (or
+      (get-in entity [:sitelinks :srwiki :url])
+      (get-in entity [:sitelinks :shwiki :url])
+      (get-in entity [:sitelinks :enwiki :url]))
      (get-in entity [:sitelinks :enwikivoyage :url]))))
 
 (defn intermediate->city? [intermediate]
@@ -153,7 +162,7 @@
                   some?
                   (flatten
                    (list
-                    (tag/name-tag (intermediate->label-en intermediate))
+                    (tag/name-tag (intermediate->label intermediate))
                     tag/tag-wikidata
                     (tag/url-tag
                      "wikidata"
@@ -161,7 +170,7 @@
                       "https://www.wikidata.org/wiki/"
                       (name (intermediate->id intermediate))))
                     (id->tag (intermediate->id intermediate))
-                    (intermediate->description-en intermediate)
+                    (intermediate->description intermediate)
                     (when (intermediate->city? intermediate) tag/tag-city)
                     (when (intermediate->village? intermediate) tag/tag-village)
                     (when (intermediate->capital? intermediate)
@@ -173,7 +182,7 @@
                     (when (intermediate->glacier? intermediate) tag/tag-glacier)
                     (when (intermediate->geyser? intermediate) tag/tag-geyser)
                     (when (intermediate->mountain? intermediate) tag/tag-mountain)
-                    (when-let [url (intermediate->url-wikipedia-en intermediate)]
+                    (when-let [url (intermediate->url-wikipedia intermediate)]
                       (list
                        (tag/url-tag "wikipeda" url)
                        tag/tag-wikipedia))
@@ -186,6 +195,13 @@
 (defn id->location [id]
   (let [entity (scraper/entity id)
         intermediate (entity->intermediate entity)]
+    (intermediate->location intermediate)))
+
+(defn language-title->location [language title]
+  (let [entity (scraper/wikipedia-title language title)
+        intermediate (entity->intermediate entity)]
+    (println "wikidata title search," title)
+    (println intermediate)
     (intermediate->location intermediate)))
 
 (defn dot->useful-wikidata? [dot]

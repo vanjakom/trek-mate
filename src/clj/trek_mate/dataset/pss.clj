@@ -382,10 +382,11 @@
 (def relation-map
   (view/seq->map #(get-in % [:osm "ref"]) relation-seq))
 
-
 ;; mapping notes to be displayed in wiki
 (def note-map
-  {"4-49-3" "čudan track, trebalo bi da je kružna staza"})
+  {"4-49-3" "čudan track, trebalo bi da je kružna staza"
+   "3-3-3" "nema  gps traces, veliki deo puteva ne postoji"
+   "3-3-1" "slicno kao i druga staza na Gucevu, deluje da se putevi ne gadjaju, postoji changeset 79996408, way 766085985, proveriti"})
 
 (defn id->region
   [id]
@@ -438,7 +439,7 @@
 
 (do
   (println "== Trenutno stanje ==")
-  (println "Tabela se mašinski generiše na osnovu exporta dostupnom na geofabrik - u, poslednji update: 20200425\n\n")
+  (println "Tabela se mašinski generiše na osnovu exporta dostupnom na geofabrik - u, poslednji update: 20200505\n\n")
   (println "Staze dostupne na sajtu PSS koje poseduju GPX:\n")
   (println "{| border=1")
   (println "! scope=\"col\" | ref")
@@ -492,7 +493,7 @@
             (hiccup/html
             [:html
              [:body {:style "font-family:arial;"}
-              [:div "mapirane rute"]
+              [:div (str "mapirane rute (" (count mapped-routes)  ")")]
               [:table {:style "border-collapse:collapse;"}
                (map
                 (comp
@@ -502,7 +503,7 @@
                  #(id-compare (:id %1) (:id %2))
                  mapped-routes))]
               [:br]
-              [:div "rute koje poseduju gpx"]
+              [:div (str "rute koje poseduju gpx (" (count routes-with-gpx) ")")]
               [:table {:style "border-collapse:collapse;"}
                (map
                 (comp
@@ -512,7 +513,7 @@
                  #(id-compare (:id %1) (:id %2))
                  routes-with-gpx))]
               [:br]
-              [:div "ostale rute"]
+              [:div (str "ostale rute (" (count rest-of-routes) ")")]
               [:div "nisu dodate u routes seq, kada bude potrebno dodati"]
               [:table {:style "border-collapse:collapse;"}
                (map
@@ -536,7 +537,13 @@
                        (fn [route]
                          {
                           :type "Feature"
-                          :properties route
+                          :properties (assoc
+                                       route
+                                       :status
+                                       (cond
+                                         (contains? relation-map (:id route)) "mapped"
+                                         (contains? note-map (:id route)) "noted"
+                                         :else "ready"))
                           :geometry {
                                      :type "Point"
                                      :coordinates [(:longitude (:location route))
@@ -568,13 +575,14 @@
                                      :type "LineString"
                                      :coordinates location-seq}}]})}))))
 
+
 ;; set tile to be mapped
 (do
   (let [location-seq (with-open [is (fs/input-stream
                                      (path/child
                                       dataset-path
                                       "routes"
-                                      "4-4-2.gpx"))]
+                                      "2-13-1.gpx"))]
                        (doall
                         (mapcat
                          identity
