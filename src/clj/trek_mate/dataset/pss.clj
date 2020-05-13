@@ -277,17 +277,23 @@
 (println "preparing routes")
 (def routes
   (reduce
-   (fn [routes gpx-path]
-     (println "processing" (path/path->string gpx-path))
-     (let [track (with-open [is (fs/input-stream gpx-path)] (gpx/read-track-gpx is))
-           location-seq (apply concat (:track-seq track))
-           first-location (first location-seq)
-           info-path (path/child
-                      (path/parent gpx-path)
-                      (.replace (last gpx-path) ".gpx" ".json"))
+   (fn [routes info-path]
+     (println "processing" (path/path->string info-path))
+     (let [gpx-path (let [gpx-path (path/child
+                                    (path/parent info-path)
+                                    (.replace (last info-path) ".json" ".gpx"))]
+                      (when (fs/exists? gpx-path)
+                        gpx-path))
+           track (when gpx-path
+                   (with-open [is (fs/input-stream gpx-path)] (gpx/read-track-gpx is)))
+           location-seq (when track
+                          (apply concat (:track-seq track)))
+           first-location (when track
+                            (first location-seq))
            info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))
            id (get-in info [:post :postmeta :Oznaka :value])
            uredjenost (get-in info [:post :postmeta :Uređenost :value])
+           planina (get-in info [:post :postmeta (keyword "Planina/predeo") :value])
            title (get-in info [:post :title])
            link (get-in info [:post :permalink])]
        (assoc
@@ -300,13 +306,16 @@
          :title title
          :link link
          :location first-location
-         :uredjenost uredjenost}))
+         :uredjenost uredjenost
+         :planina planina}))
      )
    {}
    (filter
-    #(.endsWith (last %) ".gpx")
+    #(.endsWith (last %) ".json")
     (fs/list (path/child dataset-path "routes")))))
 (println "routes prepared")
+
+#_(first routes)
 
 ;; load single route info
 #_(def a
@@ -366,7 +375,8 @@
    (var relation-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(first relation-seq)
+#_(first relation-seq)
+#_(count relation-seq)
 
 ;; using overpass for latest results
 #_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
@@ -379,6 +389,8 @@
      (println "\t" key "=" value)))
  relation-seq)
 
+#_(first relation-seq)
+
 (def relation-map
   (view/seq->map #(get-in % [:osm "ref"]) relation-seq))
 
@@ -386,7 +398,10 @@
 (def note-map
   {"4-49-3" "čudan track, trebalo bi da je kružna staza"
    "3-3-3" "nema  gps traces, veliki deo puteva ne postoji"
-   "3-3-1" "slicno kao i druga staza na Gucevu, deluje da se putevi ne gadjaju, postoji changeset 79996408, way 766085985, proveriti"})
+   "3-3-1" "slicno kao i druga staza na Gucevu, deluje da se putevi ne gadjaju, postoji changeset 79996408, way 766085985, proveriti"
+
+   "2-8-2"
+   "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"})
 
 (defn id->region
   [id]
@@ -414,12 +429,16 @@
   [id]
   (let [route (get routes id)
         relation (get relation-map id)
-        note (get note-map id)]
+        note (or
+              (get (:osm relation) "note")
+              (get note-map id))]
     [:tr
      [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
       id]
      [:td {:style "border: 1px solid black; padding: 5px; width: 150px;"}
       (id->region id)]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 150px;"}
+      (:planina route)]
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px; text-align: center;"}
       (:uredjenost route)]
      [:td {:style "border: 1px solid black; padding: 5px; width: 600px;"}
@@ -439,28 +458,34 @@
 
 (do
   (println "== Trenutno stanje ==")
-  (println "Tabela se mašinski generiše na osnovu exporta dostupnom na geofabrik - u, poslednji update: 20200505\n\n")
+  (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
   (println "Staze dostupne na sajtu PSS koje poseduju GPX:\n")
   (println "{| border=1")
   (println "! scope=\"col\" | ref")
   (println "! scope=\"col\" | region")
+  (println "! scope=\"col\" | planina")
   (println "! scope=\"col\" | uređenost")
   (println "! scope=\"col\" | naziv")
   (println "! scope=\"col\" | link")
   (println "! scope=\"col\" | osm")
+  (println "! scope=\"col\" | note")
   (doseq [route (sort
                  #(id-compare (:id %1) (:id %2))
-                 (vals routes))]
+                 (filter #(some? (get % :gpx-path)) (vals routes)))]
     (let [id (:id route)
           relation (get relation-map id)]
       (println "|-")
       (println "|" id)
       (println "|" (id->region id))
+      (println "|" (:planina route))
       (println "|" (:uredjenost route))
       (println "|" (:title route))
       (println "|" (str "[" (:link route) " pss]"))
       (println "|" (if-let [relation-id (:id relation)]
                      (str "{{relation|" relation-id "}}")
+                     ""))
+      (println "|" (if-let [note (get (:osm relation) "note")]
+                     note
                      ""))))
   (println "|}"))
 
@@ -514,7 +539,6 @@
                  routes-with-gpx))]
               [:br]
               [:div (str "ostale rute (" (count rest-of-routes) ")")]
-              [:div "nisu dodate u routes seq, kada bude potrebno dodati"]
               [:table {:style "border-collapse:collapse;"}
                (map
                 (comp
@@ -582,7 +606,7 @@
                                      (path/child
                                       dataset-path
                                       "routes"
-                                      "2-13-1.gpx"))]
+                                      "4-27-7.gpx"))]
                        (doall
                         (mapcat
                          identity
@@ -606,6 +630,3 @@
                          :pss
                          [(constantly [draw/color-blue 2])])))})))
 ;;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
-
-
-(count routes)

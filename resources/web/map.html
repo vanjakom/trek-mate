@@ -174,7 +174,7 @@
 	  },
       });
 
-
+      
       // setup
       
       var mapId = window.location.pathname.split ("/").last()
@@ -252,7 +252,7 @@
 	      return quadKey.join('');
 	  }
       });
-      
+
       var bingAerialTile = new BingLayer(
 	  'http://ecn.t3.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1',
 	  {
@@ -262,7 +262,37 @@
 	      noWrap: true
 	  })
 
-      var usTopoTile = new L.tileLayer(
+      
+      L.EmptyLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+              var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.fillStyle = this._color
+	      ctx.beginPath()
+	      ctx.rect(0, 0, tile.width, tile.height)
+	      ctx.fill()
+	      
+	      return tile
+	  },
+      });
+      
+      var emptyWhiteTile = new L.EmptyLayer(
+	  {
+	      maxZoom: 18,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(255, 255, 255, 1"})
+      
+      var usTopoTile = L.tileLayer(
 	  'https://tms.osm-hr.org/ustopo/{z}/{x}/{y}.png',
 	  {
 	      attribution: '&copy; <a href="Bing Maps',
@@ -281,12 +311,72 @@
 	      noWrap: true
 	  })
       
+      var stravaHeatmapTile = L.tileLayer(
+	  'https://heatmap-external-{s}.strava.com/tiles/all/bluered/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 11,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      L.StravaAuthLayer = L.TileLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._url =
+		  "https://heatmap-external-{s}.strava.com/tiles-auth/all/hot/{z}/{x}/{y}.png?" +
+		  "Key-Pair-Id=" + options.keyPairId + "&Policy=" + options.policy + "&Signature=" + options.signature
+	  }});
+
+      // extracted from cookies, see #strava #heatmap @me note
+      var stravaAuthHeatmapTile = new L.StravaAuthLayer(
+	  {
+	      keyPairId: "APKAIDPUN4QMG7VUQPSA",
+	      policy: "eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vaGVhdG1hcC1leHRlcm5hbC0qLnN0cmF2YS5jb20vKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTU4OTE4NTQxNX0sIkRhdGVHcmVhdGVyVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNTg3OTYxNDE1fX19XX0_",
+	      signature: "Qaag1KPUHuCKSD1LNxI8eXNJwDxSyhK9afhkB3Q6fTmwF9xgVRNOJo~X~7LvKNtKje4har2kCugOjh9h~3em-IultLRWMXQOiFx-eb7Dk5RiYPfuESZ3GbDg6B8RtGsrPN5osaZSHHWi3qIZ5T97qH5hlcLG5GfIBaJ~brUh~R651EJYFgtFbAPLE9xIJiYkpoWKL6f5RKXfmUFDXzVNAwR4Zh62U0exUri-JMl2mY~tDjdN5fX1e-Ybiz2mjmQ3~4WrW3XhpfzdrYytlAFnQkHYzqtH2oLMCMeIgDzf3STKJsbPSIo8zheMTe6sTqvDO59AtCOfRt-ZJVbkfI5ZcA__"
+	  })
+	  
+      
       var boundsTile = new L.TileBoundsLayer(
 	  {
 	      maxZoom: 18,
 	      bounds: [[-90,-180], [90, 180]],
 	      noWrap: true,
 	      color: "rgba(0, 0, 0, 0.5"})
+
+      
+      var trackTile = L.tileLayer(
+	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var maptilerSatelliteTile = L.tileLayer(
+	  'http://localhost:8085/tile/proxy/maptiler/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var osmWmsDeTile = L.tileLayer.wms(
+	  'http://maps.heigit.org/osm-wms/service?',
+	  {
+	      layers: 'europe_wms:hs_srtm_europa'
+	  })
+
+      var wmflabsHillshadeTile = L.tileLayer(
+	  'http://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
       
       var baseMaps = {
 	  "open street map": osmTile,
@@ -294,11 +384,20 @@
 	  "mapbox basic": mapboxBasicTile,
 	  "mapbox satellite": mapboxSatelliteTile,
 	  "bing aerial": bingAerialTile,
-	  "ustopo 50": usTopoTile}
+	  "ustopo 50": usTopoTile,
+	  "empty white tile": emptyWhiteTile,
+	  "maptiler satellite": maptilerSatelliteTile,
+	  "osm wms de hillshade" : osmWmsDeTile,
+	  "wmflabs hillshade": wmflabsHillshadeTile
+      }
+      
       var overlayMaps = {
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
-	  "tile bounds": boundsTile}
+	  "tile bounds": boundsTile,
+	  "strava heatmap": stravaHeatmapTile,
+	  "strava auth heatmap": stravaAuthHeatmapTile,
+	  "track": trackTile}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       
@@ -359,7 +458,8 @@
 					  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
 					  "<a href='https://preview.ideditor.com/master/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
 					  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
-					  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>")
+					  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
+					  "<a href='https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%20%20node%5Btourism%3Dinformation%5D%5Binformation%3Dguidepost%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";16' target='_blank'>overpass path</a></br>")
 				  .openOn(map)},
 			  500)})
 	      map.on(

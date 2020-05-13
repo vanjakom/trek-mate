@@ -149,6 +149,16 @@
 	      noWrap: true
 	  })
 
+      
+      var mapboxSatelliteTile = L.tileLayer(
+	  'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
       var boundsTile = new L.TileBoundsLayer(
 	  {
 	      maxZoom: 18,
@@ -164,15 +174,121 @@
 	      bounds: [[-90,-180],[90,180]],
 	      noWrap: true
 	  })
+
+      L.EmptyLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+              var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.fillStyle = this._color
+	      ctx.beginPath()
+	      ctx.rect(0, 0, tile.width, tile.height)
+	      ctx.fill()
+	      
+	      return tile
+	  },
+      });
       
+      var emptyWhiteTile = new L.EmptyLayer(
+	  {
+	      maxZoom: 18,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(255, 255, 255, 1"})
+
+      var BingLayer = L.TileLayer.extend({
+	  getTileUrl: function (tilePoint) {
+	      return L.Util.template(
+		  this._url,
+		  {
+		      q: this._quadKey(tilePoint.x, tilePoint.y, this._getZoomForUrl())
+		  });
+	  },
+	  _quadKey: function (x, y, z) {
+	      var quadKey = [];
+	      for (var i = z; i > 0; i--) {
+		  var digit = '0';
+		  var mask = 1 << (i - 1);
+		  if ((x & mask) != 0) {
+		      digit++;
+		  }
+		  if ((y & mask) != 0) {
+		      digit++;
+		      digit++;
+		  }
+		  quadKey.push(digit);
+	      }
+	      return quadKey.join('');
+	  }
+      });
+
+      var bingAerialTile = new BingLayer(
+	  'http://ecn.t3.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1',
+	  {
+	      attribution: '&copy; <a href="Bing Maps',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      
+      var usTopoTile = L.tileLayer(
+	  'https://tms.osm-hr.org/ustopo/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="Bing Maps',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var stravaHeatmapTile = L.tileLayer(
+	  'https://heatmap-external-{s}.strava.com/tiles/all/bluered/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 11,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      L.StravaAuthLayer = L.TileLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._url =
+		  "https://heatmap-external-{s}.strava.com/tiles-auth/all/hot/{z}/{x}/{y}.png?" +
+		  "Key-Pair-Id=" + options.keyPairId + "&Policy=" + options.policy + "&Signature=" + options.signature
+	  }});
+
+      // extracted from cookies, see #strava #heatmap @me note
+      var stravaAuthHeatmapTile = new L.StravaAuthLayer(
+	  {
+	      keyPairId: "APKAIDPUN4QMG7VUQPSA",
+	      policy: "eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vaGVhdG1hcC1leHRlcm5hbC0qLnN0cmF2YS5jb20vKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTU4OTE4NTQxNX0sIkRhdGVHcmVhdGVyVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNTg3OTYxNDE1fX19XX0_",
+	      signature: "Qaag1KPUHuCKSD1LNxI8eXNJwDxSyhK9afhkB3Q6fTmwF9xgVRNOJo~X~7LvKNtKje4har2kCugOjh9h~3em-IultLRWMXQOiFx-eb7Dk5RiYPfuESZ3GbDg6B8RtGsrPN5osaZSHHWi3qIZ5T97qH5hlcLG5GfIBaJ~brUh~R651EJYFgtFbAPLE9xIJiYkpoWKL6f5RKXfmUFDXzVNAwR4Zh62U0exUri-JMl2mY~tDjdN5fX1e-Ybiz2mjmQ3~4WrW3XhpfzdrYytlAFnQkHYzqtH2oLMCMeIgDzf3STKJsbPSIo8zheMTe6sTqvDO59AtCOfRt-ZJVbkfI5ZcA__"
+	  })
+
       var baseMaps = {
 	  "open street map": osmTile,
 	  "mapbox outdoor": mapboxOutdoorTile,
-	  "mapbox basic": mapboxBasicTile }
+	  "mapbox basic": mapboxBasicTile,
+	  "mapbox satellite": mapboxSatelliteTile,
+	  "bing aerial": bingAerialTile,
+	  "ustopo 50": usTopoTile,
+	  "empty white tile": emptyWhiteTile
+      }
       var overlayMaps = {
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
-	  "tile bounds": boundsTile}
+	  "tile bounds": boundsTile,
+	  "strava heatmap": stravaHeatmapTile,
+	  "strava auth heatmap": stravaAuthHeatmapTile}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       
@@ -208,7 +324,8 @@
 				  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
 				  "<a href='https://preview.ideditor.com/master/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
 				  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
-				  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>")
+				  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
+				  "<a href='http://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";10' target='_blank>overpass</a>'")
 			  .openOn(map)},
 		  500)})
       map.on(
@@ -220,7 +337,31 @@
 	  function (e) {
 	      clearInterval(mousedownInterval)})
 
-
+      var greenIcon = new L.Icon({
+	  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+	  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+	  iconSize: [25, 41],
+	  iconAnchor: [12, 41],
+	  popupAnchor: [1, -34],
+	  shadowSize: [41, 41]
+      });
+      var yellowIcon = new L.Icon({
+	  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+	  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+	  iconSize: [25, 41],
+	  iconAnchor: [12, 41],
+	  popupAnchor: [1, -34],
+	  shadowSize: [41, 41]
+      });
+      var blueIcon = new L.Icon({
+	  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+	  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+	  iconSize: [25, 41],
+	  iconAnchor: [12, 41],
+	  popupAnchor: [1, -34],
+	  shadowSize: [41, 41]
+      });
+      
       var activeLayer = null
       jsonGet(
 	  "/data/list",
@@ -230,12 +371,21 @@
 		      routes,
 		      {
 			  "pointToLayer": function(route, latlng) {
-			      var marker = L.marker(latlng)
+			      var icon =  null
+			      if (route.properties.status == "mapped") {
+				  icon = greenIcon
+			      } else if (route.properties.status == "noted") {
+				  icon = yellowIcon			  
+			      } else {
+				  icon = blueIcon
+			      }
+			      var marker = L.marker(latlng, {icon: icon})
 			      marker.bindPopup(
 				  route.properties.title + "</br>" +
 				      route.properties.id + "</br>" +
 				      "<a href=\"" + route.properties.link + "\" target=\"_blank\">pss</a></br>" +
-				      "<a href=\"" + "/data/route/" + route.properties.id + "\" target=\"_blank\">geojson</a></br>",
+				      "<a href='https://preview.ideditor.com/master/#map=16/" + latlng.lat + "/" + latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+				      "<a href=\"https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + latlng.lat + ";" + latlng.lng + ";16\" target=\"_blank\">overpass</a></br>",
 				  {maxWidth: "auto"})
 			      
 			      marker.on(

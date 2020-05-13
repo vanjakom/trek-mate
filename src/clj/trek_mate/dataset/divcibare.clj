@@ -59,6 +59,48 @@
    {:longitude 19.92077 :latitude 44.14318 :tags #{"@waypoint" "!negde levo ???"}}
    {:longitude 19.92564 :latitude 44.14007 :tags #{"@waypoint" "!izlazak na put"}}])
 
+;; magneta staza
+(def magenta-staza-seq
+  [
+   divcibare
+   {:longitude 20.01327 :latitude 44.12031 :tags #{"@waypoint" "!skretanje sa puta"}}
+   {:longitude 20.01988 :latitude 44.11954 :tags #{"@waypoint" "!drzi desno"}}
+   {:longitude 20.02286 :latitude 44.11796 :tags #{"@waypoint" "!gori put"}}
+   {:longitude 20.02844 :latitude 44.10887 :tags #{"@waypoint" "!jos gori put"}}
+   {:longitude 20.02756 :latitude 44.10007 :tags #{"@waypoint" "!ukrstanje, levo"}}
+   {:longitude 20.03595 :latitude 44.08725 :tags #{"@waypoint" "!ukrstanje, levo"}}
+   {:longitude 20.03782 :latitude 44.07655 :tags #{"@waypoint" "!levo valda"}}
+   {:longitude 20.04138 :latitude 44.06619 :tags #{"@waypoint" "!bolji put"}}
+   {:longitude 20.04344 :latitude 44.05718 :tags #{"@waypoint" "!najjuznije, levo"}}
+   {:longitude 20.04797 :latitude 44.06033 :tags #{"@waypoint" "!most, iza levo"}}
+   {:longitude 20.05373 :latitude 44.07529 :tags #{"@waypoint" "!ukrstanje sa desna, pravo"}}
+   {:longitude 20.05940 :latitude 44.07982 :tags #{"@waypoint" "!ukrstanje, levo"}}
+   {:longitude 20.06101 :latitude 44.09105 :tags #{"@waypoint" "!ukrstanje sa desna, pravo"}}
+   {:longitude 20.06417 :latitude 44.10374 :tags #{"@waypoint" "!desno"}}
+   {:longitude 20.06554 :latitude 44.10389 :tags #{"@waypoint" "!ukrstanje sa desna, pravo"}}   
+   {:longitude 20.07269 :latitude 44.11004 :tags #{"@waypoint" "!levo ili pravo pa levo"}}
+   {:longitude 20.07470 :latitude 44.11170 :tags #{"@waypoint" "!alternativa"}}
+   {
+    :longitude 20.06689
+    :latitude 44.11729
+    :tags #{"@waypoint" "!ukrstanje sa desna pravo" "spajaju se putevi sa juga"}}
+   {:longitude 20.06108 :latitude 44.12060 :tags #{"@waypoint" "!ukrstanje, pravo"}}
+
+   {:longitude 20.05932 :latitude 44.12245 :tags #{"@waypoint" "!ukrstanje, levo"}}
+   {:longitude 20.05741 :latitude 44.12230 :tags #{"@waypoint" "!ukrstanje, desno"}}
+   {:longitude 20.05584 :latitude 44.12496 :tags #{"@waypoint" "!ukrstanje levo"}}
+   {:longitude 20.03846 :latitude 44.12885 :tags #{"@waypoint" "!tacka"}}
+   {:longitude 20.02537 :latitude 44.12841 :tags #{"@waypoint" "!dole"}}
+   {:longitude 20.02765 :latitude 44.12188 :tags #{"@waypoint" "!levo"}}
+   {:longitude 20.02190 :latitude 44.12105 :tags #{"@waypoint" "!bolji put"}}
+
+   {:longitude 20.07131 :latitude 44.11382 :tags #{"@waypoint" "!vise ljudi koristi ovaj"}}
+   {:longitude 20.04818 :latitude 44.12479 :tags #{"@waypoint" "!ovuda"}}
+   {:longitude 20.04243 :latitude 44.12891 :tags #{"@waypoint" "!ovuda"}}
+   {:longitude 20.03411 :latitude 44.12837 :tags #{"@waypoint" "!ovuda"}}
+   {:longitude 20.02741 :latitude 44.12475 :tags #{"@waypoint" "!ovuda"}}
+   #_{:longitude :latitude :tags #{"@waypoint" "!"}}
+   ])
 
 (web/register-map
  "divcibare"
@@ -71,10 +113,13 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly plava-staza-seq)])
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [])])
   :search-fn nil})
 
-(storage/import-location-v2-seq-handler (map #(add-tag % "@divcibare") plava-staza-seq))
+
+
+(storage/import-location-v2-seq-handler
+ (map #(add-tag % "@divcibare" "@divcibare-magenta") magenta-staza-seq))
 
 
 

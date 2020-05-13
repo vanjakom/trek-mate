@@ -941,6 +941,7 @@
     (println "\t" key "=" value)))
 
 #_(report-howtomap "Kafeterija")
+(report-howtomap "Knez Petrol")
 
 #_(report-brand "dm" (get brand-info "dm"))
 

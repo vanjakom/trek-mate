@@ -110,6 +110,16 @@
         (draw/write-png-to-stream context buffer-output-stream)
         (io/buffer-output-stream->input-stream buffer-output-stream)))))
 
+(defn create-transparent-raster-tile-fn
+  "To be used with other tile overlay fns as original tile resulting in white tile"
+  []
+  (fn [zoom x y]
+    (let [context (draw/create-image-context 256 256)]
+      (draw/write-background context draw/color-transparent)
+      (let [buffer-output-stream (io/create-buffer-output-stream)]
+        (draw/write-png-to-stream context buffer-output-stream)
+        (io/buffer-output-stream->input-stream buffer-output-stream)))))
+
 (def create-osm-external-raster-tile-fn
   (partial create-external-raster-tile-fn "https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
 
@@ -702,6 +712,17 @@
        :body (json/write-to-string (:configuration map))}
       {
        :status 404}))
+   (compojure.core/GET
+    "/tile/proxy/maptiler/:zoom/:x/:y"
+    [zoom x y]
+    (if-let [input-stream (http/get-as-stream
+                           (str
+                            "https://api.maptiler.com/tiles/satellite/"
+                            zoom "/" x "/" y ".jpg"
+                            "?key=" (jvm/environment-variable "MAPTILER_CLOUD_KEY")))]
+      {
+       :status 200
+       :body input-stream}))
    (compojure.core/GET
     "/tile/raster/:name/:zoom/:x/:y"
     [name zoom x y]

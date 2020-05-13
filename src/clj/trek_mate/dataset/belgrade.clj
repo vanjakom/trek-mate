@@ -466,7 +466,7 @@
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1587709561.json"))]
+                     env/*trek-mate-user* "1589101106.json"))]
       (storage/track->location-seq (json/read-keyworded is))))
 
   (web/register-dotstore
@@ -484,16 +484,30 @@
                       (web/tile-overlay-dotstore-render-fn
                        (web/create-osm-external-raster-tile-fn)
                        :track
-                       [(constantly [draw/color-blue 2])])))}))
+                       [(constantly [draw/color-blue 2])])))})
+  (web/register-map
+   "track-transparent"
+   {
+    :configuration {
+                    :longitude (:longitude beograd)
+                    :latitude (:latitude beograd)
+                    :zoom 7}
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                       :track
+                       [(constantly [draw/color-blue 2])])}))
+;;; 1589101106 - rudnik hike
 ;;; add to id editor http://localhost:8085/tile/raster/track/{zoom}/{x}/{y}
+;;; or
+;;; add to id editor http://localhost:8085/tile/raster/track-transparent/{zoom}/{x}/{y}
 
 ;; #osm #track #submit
 ;; submit track to osm
-(with-open [is (fs/input-stream
+#_(with-open [is (fs/input-stream
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1587709561.json"))
+                     env/*trek-mate-user* "1589119792.json"))
             os (fs/output-stream ["tmp" "track.gpx"])]
   (let [track (json/read-keyworded is)]
     (gpx/write-track-gpx os [] (:locations track))))
