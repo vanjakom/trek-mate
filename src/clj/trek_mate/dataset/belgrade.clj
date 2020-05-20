@@ -466,7 +466,7 @@
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1589101106.json"))]
+                     env/*trek-mate-user* "1589720664.json"))]
       (storage/track->location-seq (json/read-keyworded is))))
 
   (web/register-dotstore
@@ -507,7 +507,7 @@
                     (path/child
                      env/*global-my-dataset-path*
                      "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1589119792.json"))
+                     env/*trek-mate-user* "1589720664.json"))
             os (fs/output-stream ["tmp" "track.gpx"])]
   (let [track (json/read-keyworded is)]
     (gpx/write-track-gpx os [] (:locations track))))
@@ -545,6 +545,8 @@
                   [(fn [_ _ _ _] [])])})
 
 (web/create-server)
+
+
 
 
 

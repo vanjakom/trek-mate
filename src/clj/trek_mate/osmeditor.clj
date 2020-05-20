@@ -13,6 +13,7 @@
    [clj-common.http :as http]
    [clj-common.http-server :as http-server]
    [clj-common.json :as json]
+   [clj-common.jvm :as jvm]
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
@@ -446,6 +447,12 @@
                (osmapi/calculate-way-change id)
                (= type "relation")
                (osmapi/calculate-relation-change id)))))]])}))
+  (compojure.core/GET
+   "/view/poi/:type"
+   [type]
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "poi.html"])})
   ;; to be used as unified view of osm element, map, tags, images, history?
   (compojure.core/GET
    "/view/:type/:id"
@@ -469,12 +476,53 @@
        [:html
         [:body {:style "font-family:arial;"}
          (cond
-           (= type "node")
+           (= type :node)
            [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id] [:br]]
-           (= type "way")
+           (= type :way)
            [:div "way: " [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id] [:br]]
-           (= type "relation")
+           (= type :relation)
            [:div "relation: " [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id] [:br]])
+         (reverse (first
+            (reduce
+             (fn [[changes version] change]
+               (let [changes (if (not (= version (:version change)))
+                               (conj
+                                changes
+                                [:div
+                                 [:br]
+                                 "v: " (:version change)
+                                 ", t: " (:timestamp change) 
+                                 ", c: " [:a {:href (str "https://www.openstreetmap.org/changeset/" (:changeset change)) :target "_blank"} (:changeset change)]
+                                 ", u: " [:a {:href (str "https://www.openstreetmap.org/user/" (:user change)) :target "_blank"} (:user change)]])
+                               changes)]
+                [(conj
+                  changes
+                  (cond
+                    (= (:change change) :create)
+                    [:div "created"]
+                    (= (:change change) :location)
+                    [:div "moved"]
+                    (= (:change change) :nodes)
+                    [:div "changed nodes"]
+                    (= (:change change) :members)
+                    [:div "changed members"]
+                    (= (:change change) :tag-add)
+                    [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
+                    (= (:change change) :tag-remove)
+                    [:div {:style "color:red;"} (name (:tag change)) " = " (:value change) ]
+                    (= (:change change) :tag-change)
+                    [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
+                    :else
+                    [:div "unknown"]))
+                 (:version change)]))
+             ['() nil]
+             (cond
+               (= type :node)
+               (osmapi/calculate-node-change id)
+               (= type :way)
+               (osmapi/calculate-way-change id)
+               (= type :relation)
+               (osmapi/calculate-relation-change id)))))
          [:table
           (map
            (fn [image-row]
@@ -486,4 +534,4 @@
                  {:href (:url image) :target "_blank"}
                  [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
              image-row)])
-          (partition 3 3 nil image-seq))]]])}))))
+           (partition 3 3 nil image-seq))]]])}))))

@@ -180,6 +180,14 @@
         (tag/personal-tag (:code geocache))
         tag/tag-geocache-personal}})))
 
+(defn single-geocache-gpx [gpx-path]
+  (with-open [is (fs/input-stream gpx-path)]
+    (select-keys
+     (geocache->location
+      (extract-geocache-wpt
+       (first (filter #(= (:tag %) :wpt) (:content (xml/parse is))))))
+     [:longitude :latitude :tags])))
+
 (defn pocket-query-go
   "Reads given pocket query geocaches and emits them to channel"
   [context path out]

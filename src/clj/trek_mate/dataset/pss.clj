@@ -315,6 +315,8 @@
     (fs/list (path/child dataset-path "routes")))))
 (println "routes prepared")
 
+#_(get routes "4-27-6")
+
 #_(first routes)
 
 ;; load single route info
@@ -375,11 +377,12 @@
    (var relation-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-#_(first relation-seq)
-#_(count relation-seq)
 
 ;; using overpass for latest results
 #_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
+
+#_(first relation-seq)
+#_(count relation-seq)
 
 ;; report relations
 #_(run!
@@ -606,7 +609,7 @@
                                      (path/child
                                       dataset-path
                                       "routes"
-                                      "4-27-7.gpx"))]
+                                      "4-48-2.gpx"))]
                        (doall
                         (mapcat
                          identity

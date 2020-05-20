@@ -375,6 +375,19 @@
      "brand:wikidata" "Q300147"
      "operator" "Radun Avia d.o.o."
      "website" "http://radunavia.rs/"}}
+   "Lukoil"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Lukoil"
+     "brand:wikidata" "Q329347"
+     "operator" "LUKOIL SRBIJA AD"
+     "website" "https://lukoil.rs/"}}
    
    ;; banks
    "Banca Intesa"
@@ -716,6 +729,14 @@
      "amenity" "fuel"
      "name" "Avia"
      "name:sr-Latn" "Avia"})
+   "Lukoil"
+   (merge
+    (get-in brand-mapping ["Lukoil" :tags])
+    {
+     "amenity" "fuel"
+     "name" "LUKOIL"
+     "name:srl-Latn" "LUKOIL"
+     "name:sr" "ЛУКОИЛ"})
 
    ;; banks
    "Banca Intesa"
@@ -944,6 +965,7 @@
 (report-howtomap "Knez Petrol")
 
 #_(report-brand "dm" (get brand-info "dm"))
+(report-howtomap "NIS")
 
 (doseq [[brand mapping] brand-mapping]
   (println "finding candidates for" brand)
@@ -1001,15 +1023,10 @@
       edn/read
       (io/input-stream->line-seq is)))))
 
-(osmeditor/task-report
+#_(osmeditor/task-report
  :banca-intesa-bank
  "adding brand based on name and mapillary"
  candidates)
-
-
-
-  
-
 
 ;; simple http server for editing
 ;; use trek-mate.osmeditor
