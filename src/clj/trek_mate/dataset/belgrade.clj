@@ -27,11 +27,6 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-;; !!!!!!!!!!!!!!!!
-;; use serbia.clj
-;; migrate data to
-;; !!!!!!!!!!!!!!!!
-
 
 (def dataset-path (path/child env/*data-path* "belgrade"))
 (def geojson-path (path/child dataset-path "locations.geojson"))
@@ -72,15 +67,16 @@
    "@milan")))
 
 ;; homoljske planine
-(def mladenovac (wikidata/id->location :Q167858))
-(def pozarevac (wikidata/id->location :Q199942))
-(def smederevo (wikidata/id->location :Q190774))
-(def petrovac-na-mlavi (wikidata/id->location :Q1544334))
+#_(do
+  (def mladenovac (wikidata/id->location :Q167858))
+  (def pozarevac (wikidata/id->location :Q199942))
+  (def smederevo (wikidata/id->location :Q190774))
+  (def petrovac-na-mlavi (wikidata/id->location :Q1544334))
 
-(def zagubica (osm/hydrate-tags (overpass/node-id->location 1614834392)))
-(def vrelo-mlave (osm/hydrate-tags (overpass/way-id->location 446498457)))
-(def manastir-gornjak (osm/hydrate-tags (overpass/way-id->location 342473841)))
-(def krupajsko-vrelo (osm/hydrate-tags (overpass/way-id->location 579464479)))
+  (def zagubica (osm/hydrate-tags (overpass/node-id->location 1614834392)))
+  (def vrelo-mlave (osm/hydrate-tags (overpass/way-id->location 446498457)))
+  (def manastir-gornjak (osm/hydrate-tags (overpass/way-id->location 342473841)))
+  (def krupajsko-vrelo (osm/hydrate-tags (overpass/way-id->location 579464479))))
 
 ;; @hiking-homolje
 ;; hiking tour manastir gornjak - jezevac - banja zdrelo
@@ -529,10 +525,6 @@
 #_(+ 10476357 3600000000) ; 3610476357
 ;; belgrade, nbg, relation 10625812
 #_(+ 10625812 3600000000) ; 3610625812
-
-
-
-
 
 (web/register-map
  "beograd"
