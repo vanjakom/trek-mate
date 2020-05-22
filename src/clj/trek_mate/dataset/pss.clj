@@ -400,9 +400,6 @@
 ;; mapping notes to be displayed in wiki
 (def note-map
   {"4-49-3" "čudan track, trebalo bi da je kružna staza"
-   "3-3-3" "nema  gps traces, veliki deo puteva ne postoji"
-   "3-3-1" "slicno kao i druga staza na Gucevu, deluje da se putevi ne gadjaju, postoji changeset 79996408, way 766085985, proveriti"
-
    "2-8-2"
    "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"})
 
@@ -459,38 +456,42 @@
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
       note]]))
 
-(do
-  (println "== Trenutno stanje ==")
-  (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
-  (println "Staze dostupne na sajtu PSS koje poseduju GPX:\n")
-  (println "{| border=1")
-  (println "! scope=\"col\" | ref")
-  (println "! scope=\"col\" | region")
-  (println "! scope=\"col\" | planina")
-  (println "! scope=\"col\" | uređenost")
-  (println "! scope=\"col\" | naziv")
-  (println "! scope=\"col\" | link")
-  (println "! scope=\"col\" | osm")
-  (println "! scope=\"col\" | note")
-  (doseq [route (sort
-                 #(id-compare (:id %1) (:id %2))
-                 (filter #(some? (get % :gpx-path)) (vals routes)))]
-    (let [id (:id route)
-          relation (get relation-map id)]
-      (println "|-")
-      (println "|" id)
-      (println "|" (id->region id))
-      (println "|" (:planina route))
-      (println "|" (:uredjenost route))
-      (println "|" (:title route))
-      (println "|" (str "[" (:link route) " pss]"))
-      (println "|" (if-let [relation-id (:id relation)]
-                     (str "{{relation|" relation-id "}}")
-                     ""))
-      (println "|" (if-let [note (get (:osm relation) "note")]
-                     note
-                     ""))))
-  (println "|}"))
+dataset-path
+
+(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+  (binding [*out* (new java.io.OutputStreamWriter os)]
+    (do
+     (println "== Trenutno stanje ==")
+     (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
+     (println "Staze dostupne na sajtu PSS koje poseduju GPX:\n")
+     (println "{| border=1")
+     (println "! scope=\"col\" | ref")
+     (println "! scope=\"col\" | region")
+     (println "! scope=\"col\" | planina")
+     (println "! scope=\"col\" | uređenost")
+     (println "! scope=\"col\" | naziv")
+     (println "! scope=\"col\" | link")
+     (println "! scope=\"col\" | osm")
+     (println "! scope=\"col\" | note")
+     (doseq [route (sort
+                    #(id-compare (:id %1) (:id %2))
+                    (filter #(some? (get % :gpx-path)) (vals routes)))]
+       (let [id (:id route)
+             relation (get relation-map id)]
+         (println "|-")
+         (println "|" id)
+         (println "|" (id->region id))
+         (println "|" (:planina route))
+         (println "|" (:uredjenost route))
+         (println "|" (:title route))
+         (println "|" (str "[" (:link route) " pss]"))
+         (println "|" (if-let [relation-id (:id relation)]
+                        (str "{{relation|" relation-id "}}")
+                        ""))
+         (println "|" (if-let [note (get (:osm relation) "note")]
+                        note
+                        ""))))
+     (println "|}")))) 
 
 (http-server/create-server
  7079
