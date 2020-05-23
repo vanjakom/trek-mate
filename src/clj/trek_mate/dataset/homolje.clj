@@ -65,6 +65,8 @@
 (def dom (w->l 763002087))
 (def cetiri-lule (n->l 1290902043))
 (def kamenolon (l 21.51254 44.30294 "!kamenolom"))
+(def sporna-tacka-1 (l 21.50847, 44.30047 "!sporna raskrsnica" tag/tag-crossroad))
+(def sporna-tacka-2 (l 21.50930, 44.29765 "!sporna raskrsnica" tag/tag-crossroad))
 
 (def location-seq
   [
@@ -107,4 +109,9 @@
   #(add-tag % "@homolje2020")
   location-seq))
 
+(storage/import-location-v2-seq-handler
+ (map
+  #(add-tag % "@homolje2020")
+  [sporna-tacka-1
+   sporna-tacka-2]))
 
