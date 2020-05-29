@@ -2,6 +2,7 @@
   (:use
    clj-common.clojure)
   (:require
+   [clojure.xml :as xml]
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -21,6 +22,7 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
@@ -101,6 +103,73 @@
    {:longitude 20.02741 :latitude 44.12475 :tags #{"@waypoint" "!ovuda"}}
    #_{:longitude :latitude :tags #{"@waypoint" "!"}}
    ])
+(storage/import-location-v2-seq-handler
+ (map #(add-tag % "@divcibare" "@divcibare-magenta") magenta-staza-seq))
+
+
+;; zelena staza
+;; 20200525
+(def n->l (comp osm/extract-tags overpass/node-id->location))
+(def w->l (comp osm/extract-tags overpass/way-id->location))
+(def r->l (comp osm/extract-tags overpass/relation-id->location))
+(def t add-tag)
+
+(defn l [longitude latitude & tags]
+  {:longitude longitude :latitude latitude :tags (into #{}  tags)})
+
+(def zelena-staza-seq
+  [(l 19.92409, 44.11625 "!start")
+  (l 19.95975, 44.09859 "!desno")
+  (l 19.95025, 44.09486 "!drzi levo")
+  (l 19.94031, 44.07345 "!udvajanje, pravac zapad")
+  (l 19.93416, 44.07569 "!drzi desno")
+  (l 19.93244, 44.07740 "!drzi levo")
+  (l 19.92212, 44.07567 "!izlazak na put, levo")
+  (l 19.92388, 44.06879 "!drzi desno")
+  (l 19.92010, 44.06818 "!wp8")
+  (l 19.91907, 44.06989 "!wp9")
+  (l 19.91313, 44.06790 "!desno")
+  (l 19.91248, 44.06957 "!levo")
+  (l 19.90881, 44.07179 "!desno")
+  (l 19.90896, 44.07527 "!levo")
+  (l 19.90667, 44.07629 "!desno")
+  (l 19.89744, 44.09099 "!desno, glavni put")
+  (l 19.89851, 44.09284 "!izdvajanje, ostro levo")
+  (l 19.89555, 44.09936 "!losiji put")
+  (l 19.89607, 44.10457 "!pravo")
+  (l 19.90070, 44.10651 "!levo")
+  (l 19.90075, 44.10910 "!desno")
+  (l 19.91993, 44.11942 "!levo")])
+
+(storage/import-location-v2-seq-handler
+ (map #(add-tag % "@divcibare" "@divcibare-zelena") zelena-staza-seq))
+
+(def a (with-open [is (fs/input-stream
+                       (path/child
+                        env/*global-my-dataset-path*
+                        "zelena-ruta-preparation.osc"))]
+         (map
+          (comp :ref :attrs)
+          (filter
+           #(= (get-in % [:attrs :type]) "way")
+           (get-in (xml/parse is) [:content 0 :content 0 :content])))))
+
+(def b
+  (doall
+   (map
+    osmapi/way
+    (with-open [is (fs/input-stream
+                    (path/child
+                     env/*global-my-dataset-path*
+                     "zelena-ruta-preparation.osc"))]
+      (map
+       (comp :ref :attrs)
+       (filter
+        #(= (get-in % [:attrs :type]) "way")
+        (get-in (xml/parse is) [:content 0 :content 0 :content])))))))
+
+(def c (osmapi/way-full "519052435"))
+
 
 (web/register-map
  "divcibare"
@@ -113,13 +182,11 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [])])
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly zelena-staza-seq)])
   :search-fn nil})
 
 
 
-(storage/import-location-v2-seq-handler
- (map #(add-tag % "@divcibare" "@divcibare-magenta") magenta-staza-seq))
 
 
 

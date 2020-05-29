@@ -39,6 +39,7 @@
      :latitude (Double/parseDouble (:lat (:attrs wpt)))
      :code (first (:content (:name content)))
      :name (first (:content (:groundspeak:name geocache-content)))
+     :owner (first (:content (:groundspeak:placed_by geocache-content)))
      :type (first (:content (:groundspeak:type geocache-content)))
      :hint (first (:content (:groundspeak:encoded_hints geocache-content)))
      :last-log-date (get-in last-log [:groundspeak:date :content 0])

@@ -965,7 +965,7 @@
 (report-howtomap "Knez Petrol")
 
 #_(report-brand "dm" (get brand-info "dm"))
-(report-howtomap "NIS")
+(report-howtomap "Lukoil")
 
 (doseq [[brand mapping] brand-mapping]
   (println "finding candidates for" brand)

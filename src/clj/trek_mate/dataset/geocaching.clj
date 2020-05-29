@@ -26,7 +26,7 @@
    [trek-mate.web :as web]))
 
 (def pocket-query-path (path/child
-                        env/*global-dataset-path*
+                        env/*global-my-dataset-path*
                         "geocaching.com" "pocket-query"))
 (def list-html-path (path/child
                      env/*global-dataset-path*
@@ -39,9 +39,10 @@
                            env/*global-my-dataset-path*
                            "dotstore" "geocaching-myfind"))
 
+(def beograd (wikidata/id->location :Q3711))
 
-(def myfind-dotstore-pipeline nil)
-(let [context (context/create-state-context)
+#_(def myfind-dotstore-pipeline nil)
+#_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
@@ -78,6 +79,89 @@
 ;; for rendering with dots set to given zoom level, transform back and return
 ;; also routines for retrieve are pipeline go routines
 
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+(def my-finds-seq nil)
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (geocaching/my-find-go
+   (context/wrap-scope context "read")
+   (path/child pocket-query-path "21837783.gpx")
+   (channel-provider :in))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :in)
+   (var my-finds-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+(def my-finds-set
+  (into
+   #{}
+   (map
+   (comp
+    :code
+    :geocaching)
+   my-finds-seq)))
+
+(first (filter #(= "vanjakom" (get-in % [:geocaching :owner])) geocache-seq))
+
+(get-in (first geocache-seq) [:geocaching :owner])
+
+(def geocache-seq nil)
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "read")
+   (path/child pocket-query-path "21902078_serbia.gpx")
+   (channel-provider :filter-my-finds))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-my-finds")
+   (channel-provider :filter-my-finds)
+   (filter #(not (contains? my-finds-set (get-in % [:geocaching :code]))))
+   (channel-provider :filter-my-hides))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-my-finds")
+   (channel-provider :filter-my-hides)
+   (filter #(not (= "vanjakom" (get-in % [:geocaching :owner]))))
+   (channel-provider :capture))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var geocache-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+(web/register-map
+ "geocaching"
+ {
+  :configuration {
+                  :longitude (:longitude beograd) 
+                  :latitude (:latitude beograd)
+                  :zoom 10}
+   :vector-tile-fn (web/tile-vector-dotstore-fn
+                  [(fn [_ _ _ _] geocache-seq)])})
+
+(web/register-map
+ "geocaching-sigurica"
+ {
+  :configuration {
+                  :longitude (:longitude beograd) 
+                  :latitude (:latitude beograd)
+                  :zoom 10}
+   :vector-tile-fn (web/tile-vector-dotstore-fn
+                    [(fn [_ _ _ _] (filter
+                                    (fn [geocache]
+                                      (and
+                                       (contains? (:tags geocache) "#last-found")
+                                       (contains? (:tags geocache) "#traditional-cache")))
+                                    geocache-seq))])})
+
+
+
+
+(web/create-server)
 
 
 

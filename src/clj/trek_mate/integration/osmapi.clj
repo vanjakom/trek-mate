@@ -41,6 +41,150 @@
           :comment comment))
         (io/write-new-line os)))))
 
+;; conversion utils
+
+(defn node-xml->node
+  [node]
+  {
+   :id (as/as-long (:id (:attrs node)))
+   :version (as/as-long (:version (:attrs node)))
+   ;; keep longitude and latitude as strings to prevent diff as result of conversion ?
+   :longitude (:lon (:attrs node))
+   :latitude (:lat (:attrs node))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (:content node))})
+
+(defn node->node-xml
+  [node]
+  {
+   :tag :node
+   :attrs {
+           :id (str (:id node))
+           :version (str (:version node))
+           :lon (:longitude node)
+           :lat (:latitude node)}
+   :content
+   (map
+    (fn [[key value]]
+      {:tag :tag :attrs {:k key :v value}})
+    (:tags node))})
+
+(defn way-xml->way
+  [way]
+  {
+   :id (as/as-long (:id (:attrs way)))
+   :version (as/as-long (:version (:attrs way)))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (filter
+           #(= (:tag %) :tag)
+           (:content way)))
+   :nodes (map
+           #(as/as-long (:ref (:attrs %)))
+           (filter
+            #(= (:tag %) :nd)
+            (:content way)))})
+
+(defn way->way-xml
+  [way]
+  {
+   :tag :way
+   :attrs {
+           :id (str (:id way))
+           :version (str (:version way))}
+   :content
+   (concat
+    (map
+     (fn [id]
+       {:tag :nd :attrs {:ref (str id)}})
+     (:nodes way))
+    (map
+     (fn [[key value]]
+       {:tag :tag :attrs {:k key :v value}})
+     (:tags way)))})
+
+(defn relation-xml->relation
+  [relation]
+  {
+   :id (as/as-long (:id (:attrs relation)))
+   :version (as/as-long (:version (:attrs relation)))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (filter
+           #(= (:tag %) :tag)
+           (:content relation)))
+   :members (map
+             (fn [member]
+               {
+                :id (as/as-long (:ref (:attrs member)))
+                :type (keyword (:type (:attrs member)))
+                :role (:role (:attrs member))})
+             (filter
+              #(= (:tag %) :member)
+              (:content relation)))})
+
+(defn relation->relation-xml
+  [relation]
+  {
+   :tag :relation
+   :attrs {
+           :id (str (:id relation))
+           :version (str (:version relation))}
+   :content
+   (concat
+    (map
+     (fn [member]
+       {
+        :tag :member
+        :attrs {
+                :ref (str (:id member))
+                :role (:role member)
+                :type (name (:type member))}})
+     (:members relation))
+    (map
+     (fn [[key value]]
+       {:tag :tag :attrs {:k key :v value}})
+     (:tags relation)))})
+
+;; except node, way and relation objects full methods ( for way and
+;; relation ) return dataset object, map of nodes, ways and relations
+;; by id
+
+(defn full-xml->dataset
+  [elements]
+  (reduce
+   (fn [dataset element]
+     (cond
+        (= (:tag element) :node)
+        (let [node (node-xml->node element)]
+          (update-in dataset [:nodes (:id node)] (constantly node)))
+        (= (:tag element) :way)
+        (let [way (way-xml->way element)]
+          (update-in dataset [:ways (:id way)] (constantly way)))
+        (= (:tag element) :relation)
+        (let [relation (relation-xml->relation element)]
+          (update-in dataset [:relations (:id relation)] (constantly relation)))
+        :else
+        dataset))
+   {}
+   elements))
+
 (defn permissions
   "Performs /api/0.6/permissions"
   []
@@ -89,38 +233,6 @@
            :tag :osm
            :content
            []})))))))
-
-(defn node-xml->node
-  [node]
-  {
-   :id (as/as-long (:id (:attrs node)))
-   :version (as/as-long (:version (:attrs node)))
-   ;; keep longitude and latitude as strings to prevent diff as result of conversion
-   :longitude (:lon (:attrs node))
-   :latitude (:lat (:attrs node))
-   :tags (reduce
-          (fn [tags tag]
-            (assoc
-             tags
-             (:k (:attrs tag))
-             (:v (:attrs tag))))
-          {}
-          (:content node))})
-
-(defn node->node-xml
-  [node]
-  {
-   :tag :node
-   :attrs {
-           :id (str (:id node))
-           :version (str (:version node))
-           :lon (:longitude node)
-           :lat (:latitude node)}
-   :content
-   (map
-    (fn [[key value]]
-      {:tag :tag :attrs {:k key :v value}})
-    (:tags node))})
 
 (defn node
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -192,52 +304,23 @@
    (http/get-as-stream
     (str *server* "/api/0.6/node/" id "/history.json"))))
 
-(defn way-xml->way
-  [way]
-  {
-   :id (as/as-long (:id (:attrs way)))
-   :version (as/as-long (:version (:attrs way)))
-   :tags (reduce
-          (fn [tags tag]
-            (assoc
-             tags
-             (:k (:attrs tag))
-             (:v (:attrs tag))))
-          {}
-          (filter
-           #(= (:tag %) :tag)
-           (:content way)))
-   :nodes (map
-           #(as/as-long (:ref (:attrs %)))
-           (filter
-            #(= (:tag %) :nd)
-            (:content way)))})
-
-(defn way->way-xml
-  [way]
-  {
-   :tag :way
-   :attrs {
-           :id (str (:id way))
-           :version (str (:version way))}
-   :content
-   (concat
-    (map
-     (fn [id]
-       {:tag :nd :attrs {:ref (str id)}})
-     (:nodes way))
-    (map
-     (fn [[key value]]
-       {:tag :tag :attrs {:k key :v value}})
-     (:tags way)))})
-
 (defn way
   "Performs /api/0.6/[node|way|relation]/#id"
   [id]
-  (let [node (xml/parse
+  (let [way (xml/parse
               (http/get-as-stream
                (str *server* "/api/0.6/way/" id)))]
-    (way-xml->way (first (:content node)))))
+    (way-xml->way (first (:content way)))))
+
+(defn way-full
+  "Performs /api/0.6/[node|way|relation]/#id/full"
+  [id]
+  (let [way (xml/parse
+              (http/get-as-stream
+               (str *server* "/api/0.6/way/" id "/full")))]
+    (full-xml->dataset (:content way))))
+
+#_(def a (way-full 373368159))
 
 (defn way-update
   "Performs /api/0.6/[node|way|relation]/#id
@@ -305,6 +388,31 @@
    (http/get-as-stream
     (str *server* "/api/0.6/way/" id "/history.json"))))
 
+(defn relation
+  "Performs /api/0.6/[node|way|relation]/#id"
+  [id]
+  (let [relation (xml/parse
+              (http/get-as-stream
+               (str *server* "/api/0.6/relation/" id)))]
+    (relation-xml->relation (first (:content relation)))))
+
+#_(def a (:content
+          (xml/parse
+           (http/get-as-stream
+            (str *server* "/api/0.6/relation/" 10948917)))))
+#_(def b (relation-xml->relation (first a)))
+#_(def c (relation->relation-xml b))
+#_(def d (relation 10948917))
+
+(defn relation-full
+  "Performs /api/0.6/[node|way|relation]/#id/full"
+  [id]
+  (let [relation (xml/parse
+              (http/get-as-stream
+               (str *server* "/api/0.6/relation/" id "/full")))]
+    ;; todo parse, returns raw response
+    (full-xml->dataset (:content relation))))
+
 (defn relation-history
   "Performs
   /api/0.6/[node|way|relation]/#id/history"
@@ -312,6 +420,40 @@
   (json/read-keyworded
    (http/get-as-stream
     (str *server* "/api/0.6/relation/" id "/history.json"))))
+
+#_(def a (relation-history 10903395))
+#_(first (:members (first (:elements a))))
+#_{:type "way", :ref 373445686, :role ""}
+
+#_(count (:elements a))
+#_(def b (:members (get (:elements a) 0)))
+#_(def c (:members (get (:elements a) 4)))
+
+
+;; todo
+;; 20200526
+(defn calculate-member-change
+  [old new]
+  (let [old (map #(assoc % :id (str (str (first (:type %))) (:ref %))) old)
+        new (map #(assoc % :id (str (str (first (:type %))) (:ref %))) new)
+        old-set (into #{} (map :id old))
+        new-set (into #{} (map :id new))]
+    (reduce
+     (fn [[change-seq new-member-seq] old-member]
+       
+       
+       )
+     [[] new]
+     old)
+
+    #_(reduce
+     #(if (contains? old-set %2) %1 (conj %1 %2))
+     #{}
+     new-set)))
+
+(str (first "vanja"))
+
+(calculate-member-change b c)
 
 (defn compare-element
   [old new]
@@ -333,7 +475,19 @@
          :changeset (:changeset new)
          :tag tag
          :value value})
-      (:tags new)))
+      (:tags new))
+     (map
+      (fn [member]
+        {
+         :change :member-add
+         :user (:user new)
+         :timestamp (:timestamp new)
+         :version (:version new)
+         :changeset (:changeset new)
+         :type (:type member)
+         :id (:ref member)
+         :role (when (not (empty? (:role member))) (:role member))})
+      (:members new)))
     (filter
      some?
      (concat
@@ -370,8 +524,7 @@
             :timestamp (:timestamp new)
             :version (:version new)
             :changeset (:changeset new)
-            :old (:nodes old)
-            :new (:nodes new)}]))
+            :members (:members new)}]))
       ;; test new tags
       (map
        (fn [[tag value]]
@@ -456,7 +609,6 @@
        next])
     []
     (:elements (relation-history id)))))
-
 
 (defn report-change [version change]
   (when (not (= version (:version change)))

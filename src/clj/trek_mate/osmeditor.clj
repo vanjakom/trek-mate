@@ -155,7 +155,19 @@
                   (osmapi/node-apply-change-seq id comment change-seq)
                   (= type :way)
                   (osmapi/way-apply-change-seq id comment change-seq))})))))
-
+  (compojure.core/GET
+   "/api/osm/history/:type/:id"
+   [type id]
+   (cond
+     (= type "node")
+     {
+      :status 200
+      :headers {
+                "Content-Type" "application/json; charset=utf-8"}
+      :body (json/write-to-string (osmapi/calculate-node-change id))}
+     :else
+     {:status 404}))
+  
   (compojure.core/GET
    "/tasks"
    _
@@ -327,19 +339,6 @@
         (str
          "/view/osm/history/" (name (:type candidate)) "/" (:id candidate))))
      {:status 404}))
-
-  (compojure.core/GET
-   "/api/osm/history/:type/:id"
-   [type id]
-   (cond
-     (= type "node")
-     {
-      :status 200
-      :headers {
-                "Content-Type" "application/json; charset=utf-8"}
-      :body (json/write-to-string (osmapi/calculate-node-change id))}
-     :else
-     {:status 404}))
   ;; proxy routes since they require center
   (compojure.core/GET
    "/proxy/mapillary/:type/:id"
@@ -428,8 +427,16 @@
                     [:div "moved"]
                     (= (:change change) :nodes)
                     [:div "changed nodes"]
+                    (= (:change change) :member-add)
+                    [:div {:style "color:green;"} (:type change) " " (:id change) (when (some? (:role change)) (str " as " (:role change)))]
                     (= (:change change) :members)
-                    [:div "changed members"]
+                    (concat
+                     (list
+                      [:div "changed members:"])
+                     (map
+                      (fn [member]
+                        [:div (:type member) " " (:ref member) (when (some? (:role member)) (str " as " (:role member)))])
+                      (:members change)))
                     (= (:change change) :tag-add)
                     [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
                     (= (:change change) :tag-remove)
@@ -453,6 +460,28 @@
    {
     :status 200
     :body (jvm/resource-as-stream ["web" "poi.html"])})
+  (compojure.core/GET
+   "/view/relation/:id"
+   [id]
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body
+    (hiccup/html
+     [:head
+      [:link {:rel "stylesheet" :href "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"}]
+      [:script {:src "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"}]]
+     [:html
+      [:div {:id "map" :style "position: absolute;left: 0px;top: 0px;right: 0px;bottom: 0px;cursor: crosshair;"}]
+      [:script {:type "text/javascript"}
+       "var map = L.map('map', {maxBoundsViscosity: 1.0})\n"
+       "map.setView([44.81667, 20.46667], 10)\n"
+       "L.tileLayer(\n"
+       "\t'https://tile.openstreetmap.org/{z}/{x}/{y}.png',\n"
+       "\t{\n"
+       "\t\tmaxZoom: 18, bounds:[[-90, -180], [90, 180]],\n"
+       "\t\tnoWrap:true}).addTo(map)\n"]])})
   ;; to be used as unified view of osm element, map, tags, images, history?
   (compojure.core/GET
    "/view/:type/:id"
@@ -475,6 +504,7 @@
       (hiccup/html
        [:html
         [:body {:style "font-family:arial;"}
+         ;; todo use same code as for history, this one is outdated
          (cond
            (= type :node)
            [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id] [:br]]
