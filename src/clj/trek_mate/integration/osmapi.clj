@@ -451,10 +451,6 @@
      #{}
      new-set)))
 
-(str (first "vanja"))
-
-(calculate-member-change b c)
-
 (defn compare-element
   [old new]
   (if (nil? old)
@@ -680,7 +676,6 @@
      min-longitude "," min-latitude "," max-longitude "," max-latitude
      "&page=0"))))
 
-(def a (gpx-bounding-box 21.53945 21.55005 44.26249 44.26810))
 
 
 

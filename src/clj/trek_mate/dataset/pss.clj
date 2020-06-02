@@ -78,7 +78,6 @@
     (with-open [os (fs/output-stream (path/child dataset-path "posts.json"))]
       (json/write-to-stream posts os))))
 
-
 (def posts
   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
     (json/read-keyworded is)))
@@ -141,7 +140,6 @@
        [(inc sum) y (inc n)])))
  [0 0 0]
  posts) ; [202 89 113]
-
 
 #_(count
  (into
@@ -266,7 +264,6 @@
                [:post :postmeta]
                #(view/seq->map :label %)))))
 
-
 #_(do
   (require 'clj-common.debug)
   (clj-common.debug/run-debug-server))
@@ -340,7 +337,7 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
 (def relation-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -377,9 +374,8 @@
    (var relation-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-
 ;; using overpass for latest results
-#_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
+(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
 
 #_(first relation-seq)
 #_(count relation-seq)
@@ -456,9 +452,8 @@
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
       note]]))
 
-dataset-path
-
-(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+;; prepare wiki table
+#_(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
   (binding [*out* (new java.io.OutputStreamWriter os)]
     (do
      (println "== Trenutno stanje ==")

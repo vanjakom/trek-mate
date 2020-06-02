@@ -113,7 +113,6 @@
 	 ;; read way-in = 1109580
 	 ;; read way-out = 1109580
 
-
 (def brand-seq nil)
 
 ;; extract brand-seq
@@ -209,7 +208,8 @@
         (when (not (contains? ignore-tag tag))
           (println "\t\t" tag "=" value))))))
 
-(do
+;; report brands in serbia
+#_(do
   (println "brands in serbia:")
   (run!
    #(apply report-brand %)
@@ -241,7 +241,6 @@
     (filter
      #(.startsWith (first %) "name")
      tags))))
-
 
 (def brand-mapping
   ;; gas stations
@@ -962,12 +961,13 @@
     (println "\t" key "=" value)))
 
 #_(report-howtomap "Kafeterija")
-(report-howtomap "Knez Petrol")
+#_(report-howtomap "Knez Petrol")
 
 #_(report-brand "dm" (get brand-info "dm"))
-(report-howtomap "Lukoil")
+#_(report-howtomap "Lukoil")
 
-(doseq [[brand mapping] brand-mapping]
+;; report possible tasks
+#_(doseq [[brand mapping] brand-mapping]
   (println "finding candidates for" brand)
   (osmeditor/task-report
    (str "brand-" (.replace brand " " "_"))
@@ -1014,7 +1014,6 @@
            edn/read
            (io/input-stream->line-seq is)))))))))
 
-
 #_(with-open [is (fs/input-stream (path/child dataset-path "input.edn"))]
    (doall
     (filter
@@ -1027,28 +1026,6 @@
  :banca-intesa-bank
  "adding brand based on name and mapillary"
  candidates)
-
-;; simple http server for editing
-;; use trek-mate.osmeditor
-
-
-;; node to test
-;; avia
-;; 611627001
-
-
-
-;; testing procedure on nis
-
-
-
-
-
-;; todo, next
-;; extract common tags for brands
-
-;; todo, second cycle
-;; recommend tags ...
 
 
 

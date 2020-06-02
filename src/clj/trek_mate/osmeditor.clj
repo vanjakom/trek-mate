@@ -106,6 +106,96 @@
 #_(parse-operation-seq
  (list "add" "brand" "NIS Petrol" "website" "http://nis.eu" "update" "test" "true" "remove" "tag1" "add" "tag2" "value2"))
 
+(defn extract-relation-geometry [dataset id]
+  (if-let [relation (get-in dataset [:relations id])]
+    {
+     :type "FeatureCollection"
+     :properties {}
+     :features
+     (concat
+      ;; ways as lines
+      (filter
+       some?
+       (map
+        (fn [member]
+          (cond
+            (= (:type member) :way)
+            (let [nodes (map
+                         (fn [id]
+                           (let [node (get-in dataset [:nodes id])]
+                             [(as/as-double (:longitude node)) (as/as-double (:latitude node))]))
+                         (:nodes (get-in dataset [:ways (:id member)])))
+                  center (nth nodes (int (Math/floor (/ (count nodes) 2))))]
+              {
+                 :type "Feature"
+                 :properties {}
+                 :geometry {
+                            :type "LineString"
+                            :coordinates nodes}})
+            :else
+            nil))
+        (:members relation)))
+      ;; guideposts and ways as markers with indexes
+      (vals
+       (first
+        (reduce
+         (fn [[feature-map index] member]
+           (cond
+             ;; temporary
+             #_(= (:type member) :node)
+             #_(let [node (get-in dataset [:nodes (:id member)])
+                   id (str "n" (:id member))
+                   feature (or
+                            (get feature-map id)
+                            {
+                             :type "Feature"
+                             :properties {
+                                          :index []
+                                          :role (:role member)
+                                          :type "node"
+                                          :id (:id member)}
+                             :geometry {
+                                        :type "Point"
+                                        :coordinates [
+                                                      (as/as-double (:longitude node))
+                                                      (as/as-double (:latitude node))]}})]
+               [
+                (assoc
+                 feature-map
+                 id
+                 (update-in feature [:properties :index] conj index))
+                (inc index)])
+             (= (:type member) :way)
+             (let [nodes (map
+                          (fn [id]
+                            (let [node (get-in dataset [:nodes id])]
+                              [(as/as-double (:longitude node)) (as/as-double (:latitude node))]))
+                          (:nodes (get-in dataset [:ways (:id member)])))
+                   center (nth nodes (int (Math/floor (/ (count nodes) 2))))
+                   id (str "w" (:id member))
+                   feature (or
+                            (get feature-map id)
+                            {
+                             :type "Feature"
+                             :properties {
+                                          :index []
+                                          :role (:role member)
+                                          :type "way"
+                                          :id (:id member)}
+                             :geometry {
+                                        :type "Point"
+                                        :coordinates center}})]
+               [
+                (assoc
+                 feature-map
+                 id
+                 (update-in feature [:properties :index] conj index))
+                (inc index)])
+             :else
+             [feature-map (inc index)]))
+         [{} 0]
+         (:members relation)))))}))
+
 (def tasks (atom {}))
 
 (defn tasks-reset []
@@ -463,25 +553,42 @@
   (compojure.core/GET
    "/view/relation/:id"
    [id]
-   {
-    :status 200
-    :headers {
-              "Content-Type" "text/html; charset=utf-8"}
-    :body
-    (hiccup/html
-     [:head
-      [:link {:rel "stylesheet" :href "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"}]
-      [:script {:src "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"}]]
-     [:html
-      [:div {:id "map" :style "position: absolute;left: 0px;top: 0px;right: 0px;bottom: 0px;cursor: crosshair;"}]
-      [:script {:type "text/javascript"}
-       "var map = L.map('map', {maxBoundsViscosity: 1.0})\n"
-       "map.setView([44.81667, 20.46667], 10)\n"
-       "L.tileLayer(\n"
-       "\t'https://tile.openstreetmap.org/{z}/{x}/{y}.png',\n"
-       "\t{\n"
-       "\t\tmaxZoom: 18, bounds:[[-90, -180], [90, 180]],\n"
-       "\t\tnoWrap:true}).addTo(map)\n"]])})
+   (let [id (as/as-long id)
+         data (extract-relation-geometry (osmapi/relation-full id) id)]
+     {
+      :status 200
+      :headers {
+                "Content-Type" "text/html; charset=utf-8"}
+      :body
+      (hiccup/html
+       [:head
+        [:link {:rel "stylesheet" :href "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"}]
+        [:script {:src "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"}]]
+       [:html
+        [:div {:id "map" :style "position: absolute;left: 0px;top: 0px;right: 0px;bottom: 0px;cursor: crosshair;"}]
+        [:script {:type "text/javascript"}
+         "var map = L.map('map', {maxBoundsViscosity: 1.0})\n"
+         "map.setView([44.81667, 20.46667], 10)\n"
+         "L.tileLayer(\n"
+         "\t'https://tile.openstreetmap.org/{z}/{x}/{y}.png',\n"
+         "\t{\n"
+         "\t\tmaxZoom: 18, bounds:[[-90, -180], [90, 180]],\n"
+         "\t\tnoWrap:true}).addTo(map)\n"]
+        [:script {:type "text/javascript"}
+         (str "var data = " (json/write-to-string data) "\n")
+         "var pointToLayerFn = function(point, latlng) {\n"
+         "\tvar label = point.properties.index.join(', ')\n"
+         "\tvar text = point.properties.role == 'guidepost' ? '<b>' + label + '</b>' : label\n"
+         "\tvar icon = L.divIcon({\n"
+         "\t\ticonSize: [60, 30],\n"
+         "\t\ticonAnchor: [30, 15],\n"
+         "\t\thtml: '<div style=\\'text-align:center;vertical-align:middle;line-height:30px;font-size: 15px\\'>' + text + '</div>'})\n"
+         "\tvar marker = L.marker(latlng, {icon: icon})\n"
+         "\tmarker.bindPopup(point.properties.type + ' ' + point.properties.id)\n"
+         "\treturn marker}\n"
+         "var dataLayer = L.geoJSON(data, { pointToLayer: pointToLayerFn})\n"
+         "dataLayer.addTo(map)\n"
+         "map.fitBounds(dataLayer.getBounds())\n"]])}))
   ;; to be used as unified view of osm element, map, tags, images, history?
   (compojure.core/GET
    "/view/:type/:id"
@@ -565,3 +672,4 @@
                  [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
              image-row)])
            (partition 3 3 nil image-seq))]]])}))))
+

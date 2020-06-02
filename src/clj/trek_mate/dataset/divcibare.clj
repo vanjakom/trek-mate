@@ -42,7 +42,7 @@
 (def vidikovac (osm/extract-tags (overpass/node-id->location 5984343524)))
 
 ;; plava staza
-(def plava-staza-seq
+#_(def plava-staza-seq
   [
    divcibare
    vidikovac
@@ -62,7 +62,7 @@
    {:longitude 19.92564 :latitude 44.14007 :tags #{"@waypoint" "!izlazak na put"}}])
 
 ;; magneta staza
-(def magenta-staza-seq
+#_(def magenta-staza-seq
   [
    divcibare
    {:longitude 20.01327 :latitude 44.12031 :tags #{"@waypoint" "!skretanje sa puta"}}
@@ -103,7 +103,7 @@
    {:longitude 20.02741 :latitude 44.12475 :tags #{"@waypoint" "!ovuda"}}
    #_{:longitude :latitude :tags #{"@waypoint" "!"}}
    ])
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map #(add-tag % "@divcibare" "@divcibare-magenta") magenta-staza-seq))
 
 
@@ -117,7 +117,7 @@
 (defn l [longitude latitude & tags]
   {:longitude longitude :latitude latitude :tags (into #{}  tags)})
 
-(def zelena-staza-seq
+#_(def zelena-staza-seq
   [(l 19.92409, 44.11625 "!start")
   (l 19.95975, 44.09859 "!desno")
   (l 19.95025, 44.09486 "!drzi levo")
@@ -141,35 +141,8 @@
   (l 19.90075, 44.10910 "!desno")
   (l 19.91993, 44.11942 "!levo")])
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map #(add-tag % "@divcibare" "@divcibare-zelena") zelena-staza-seq))
-
-(def a (with-open [is (fs/input-stream
-                       (path/child
-                        env/*global-my-dataset-path*
-                        "zelena-ruta-preparation.osc"))]
-         (map
-          (comp :ref :attrs)
-          (filter
-           #(= (get-in % [:attrs :type]) "way")
-           (get-in (xml/parse is) [:content 0 :content 0 :content])))))
-
-(def b
-  (doall
-   (map
-    osmapi/way
-    (with-open [is (fs/input-stream
-                    (path/child
-                     env/*global-my-dataset-path*
-                     "zelena-ruta-preparation.osc"))]
-      (map
-       (comp :ref :attrs)
-       (filter
-        #(= (get-in % [:attrs :type]) "way")
-        (get-in (xml/parse is) [:content 0 :content 0 :content])))))))
-
-(def c (osmapi/way-full "519052435"))
-
 
 (web/register-map
  "divcibare"
@@ -182,7 +155,7 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly zelena-staza-seq)])
+  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [])])
   :search-fn nil})
 
 
