@@ -486,7 +486,7 @@
          (println "|" (if-let [note (get (:osm relation) "note")]
                         note
                         ""))))
-     (println "|}")))) 
+     (println "|}"))))
 
 (http-server/create-server
  7079

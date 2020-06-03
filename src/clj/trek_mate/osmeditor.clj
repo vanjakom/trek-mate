@@ -21,7 +21,9 @@
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.tag :as tag]
-   [trek-mate.util :as util]))
+   [trek-mate.util :as util]
+
+   [trek-mate.dataset.brands :as brands]))
 
 ;; note
 ;; new key is added to osm object :change-seq which is used to caputre seq of
@@ -141,9 +143,8 @@
         (reduce
          (fn [[feature-map index] member]
            (cond
-             ;; temporary
-             #_(= (:type member) :node)
-             #_(let [node (get-in dataset [:nodes (:id member)])
+             (= (:type member) :node)
+             (let [node (get-in dataset [:nodes (:id member)])
                    id (str "n" (:id member))
                    feature (or
                             (get feature-map id)
@@ -196,6 +197,43 @@
          [{} 0]
          (:members relation)))))}))
 
+(defn render-relation-geometry
+  [data]
+  {
+   :status 200
+   :headers {
+             "Content-Type" "text/html; charset=utf-8"}
+   :body
+   (hiccup/html
+    [:head
+     [:link {:rel "stylesheet" :href "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"}]
+     [:script {:src "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"}]]
+    [:html
+     [:div {:id "map" :style "position: absolute;left: 0px;top: 0px;right: 0px;bottom: 0px;cursor: crosshair;"}]
+     [:script {:type "text/javascript"}
+      "var map = L.map('map', {maxBoundsViscosity: 1.0})\n"
+      "map.setView([44.81667, 20.46667], 10)\n"
+      "L.tileLayer(\n"
+      "\t'https://tile.openstreetmap.org/{z}/{x}/{y}.png',\n"
+      "\t{\n"
+      "\t\tmaxZoom: 18, bounds:[[-90, -180], [90, 180]],\n"
+      "\t\tnoWrap:true}).addTo(map)\n"]
+     [:script {:type "text/javascript"}
+      (str "var data = " (json/write-to-string data) "\n")
+      "var pointToLayerFn = function(point, latlng) {\n"
+      "\tvar label = point.properties.index.join(', ')\n"
+      "\tvar text = point.properties.role == 'guidepost' ? '<b>' + label + '</b>' : label\n"
+      "\tvar icon = L.divIcon({\n"
+      "\t\ticonSize: [60, 30],\n"
+      "\t\ticonAnchor: [30, 15],\n"
+      "\t\thtml: '<div style=\\'text-align:center;vertical-align:middle;line-height:30px;font-size: 15px\\'>' + text + '</div>'})\n"
+      "\tvar marker = L.marker(latlng, {icon: icon})\n"
+      "\tmarker.bindPopup(point.properties.type + ' ' + point.properties.id)\n"
+      "\treturn marker}\n"
+      "var dataLayer = L.geoJSON(data, { pointToLayer: pointToLayerFn})\n"
+      "dataLayer.addTo(map)\n"
+      "map.fitBounds(dataLayer.getBounds())\n"]])})
+
 (def tasks (atom {}))
 
 (defn tasks-reset []
@@ -220,6 +258,8 @@
 
 (defn tasks-list []
   (vals (deref tasks)))
+
+
 
 (http-server/create-server
  7077
@@ -429,6 +469,44 @@
         (str
          "/view/osm/history/" (name (:type candidate)) "/" (:id candidate))))
      {:status 404}))
+
+  ;; how to map
+  ;; todo integrate other mappings, for now just brands
+  
+  (compojure.core/GET
+   "/howto"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:body  {:style "font-family:arial;"}
+            [:table {:style "border-collapse:collapse;"}
+             (map
+              (fn [mapping]
+                [:tr
+                 [:td {:style "border: 1px solid black; padding: 5px;"}
+                  [:a {:href (str "/howto/" (url-encode mapping)) :target "_blank"} mapping]]])
+              (keys brands/howtomap-mapping))]])})
+
+  (compojure.core/GET
+   "/howto/:mapping-name"
+   [mapping-name]
+   (if-let [mapping (get brands/howtomap-mapping (url-decode mapping-name))]
+     {
+      :status 200
+      :headers {
+                "Content-Type" "text/html; charset=utf-8"}
+      :body (hiccup/html
+             [:body  {:style "font-family:arial;"}
+              (map
+               (fn [[key value]]
+                 [:div (str key " = " value)])
+               mapping)])}
+     {
+      :status 404}))
+
   ;; proxy routes since they require center
   (compojure.core/GET
    "/proxy/mapillary/:type/:id"
@@ -551,44 +629,29 @@
     :status 200
     :body (jvm/resource-as-stream ["web" "poi.html"])})
   (compojure.core/GET
+   "/view/relation/:id/:version"
+   [id version]
+   (let [id (as/as-long id)
+        version (as/as-long version)
+        relation (osmapi/relation-version id version)
+        way-id-seq (map :id (filter #(= (:type %) :way) (:members relation)))
+        way-dataset (osmapi/ways way-id-seq)
+        node-id-seq (into
+                     #{}
+                     (concat
+                      (map :id (filter #(= (:type %) :node) (:members relation)))
+                      (mapcat :nodes (vals (:ways way-dataset)))))
+        node-dataset (when (not (empty? node-id-seq)) (osmapi/nodes node-id-seq))
+        data (extract-relation-geometry
+              (merge {:relations {id relation}} way-dataset node-dataset)
+              id)]
+     (render-relation-geometry data)))
+  (compojure.core/GET
    "/view/relation/:id"
    [id]
    (let [id (as/as-long id)
          data (extract-relation-geometry (osmapi/relation-full id) id)]
-     {
-      :status 200
-      :headers {
-                "Content-Type" "text/html; charset=utf-8"}
-      :body
-      (hiccup/html
-       [:head
-        [:link {:rel "stylesheet" :href "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"}]
-        [:script {:src "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"}]]
-       [:html
-        [:div {:id "map" :style "position: absolute;left: 0px;top: 0px;right: 0px;bottom: 0px;cursor: crosshair;"}]
-        [:script {:type "text/javascript"}
-         "var map = L.map('map', {maxBoundsViscosity: 1.0})\n"
-         "map.setView([44.81667, 20.46667], 10)\n"
-         "L.tileLayer(\n"
-         "\t'https://tile.openstreetmap.org/{z}/{x}/{y}.png',\n"
-         "\t{\n"
-         "\t\tmaxZoom: 18, bounds:[[-90, -180], [90, 180]],\n"
-         "\t\tnoWrap:true}).addTo(map)\n"]
-        [:script {:type "text/javascript"}
-         (str "var data = " (json/write-to-string data) "\n")
-         "var pointToLayerFn = function(point, latlng) {\n"
-         "\tvar label = point.properties.index.join(', ')\n"
-         "\tvar text = point.properties.role == 'guidepost' ? '<b>' + label + '</b>' : label\n"
-         "\tvar icon = L.divIcon({\n"
-         "\t\ticonSize: [60, 30],\n"
-         "\t\ticonAnchor: [30, 15],\n"
-         "\t\thtml: '<div style=\\'text-align:center;vertical-align:middle;line-height:30px;font-size: 15px\\'>' + text + '</div>'})\n"
-         "\tvar marker = L.marker(latlng, {icon: icon})\n"
-         "\tmarker.bindPopup(point.properties.type + ' ' + point.properties.id)\n"
-         "\treturn marker}\n"
-         "var dataLayer = L.geoJSON(data, { pointToLayer: pointToLayerFn})\n"
-         "dataLayer.addTo(map)\n"
-         "map.fitBounds(dataLayer.getBounds())\n"]])}))
+     (render-relation-geometry data)))
   ;; to be used as unified view of osm element, map, tags, images, history?
   (compojure.core/GET
    "/view/:type/:id"
@@ -672,4 +735,3 @@
                  [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
              image-row)])
            (partition 3 3 nil image-seq))]]])}))))
-

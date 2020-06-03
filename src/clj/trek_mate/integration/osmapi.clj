@@ -242,6 +242,20 @@
                (str *server* "/api/0.6/node/" id)))]
     (node-xml->node (first (:content node)))))
 
+(defn nodes
+  "Performs /api/0.6/[nodes|ways|relations]?#parameters
+  Returns dataset object"
+  [node-id-seq]
+  (let [nodes (xml/parse
+               (http/get-as-stream
+                (str
+                 *server*
+                 "/api/0.6/nodes?nodes="
+                 (clojure.string/join "," node-id-seq))))]
+    (full-xml->dataset (:content nodes))))
+
+#_(def a (nodes [5360954914 7579653984]))
+
 (defn node-update
   "Performs /api/0.6/[node|way|relation]/#id
   Note: changeset should be open changeset
@@ -311,6 +325,18 @@
               (http/get-as-stream
                (str *server* "/api/0.6/way/" id)))]
     (way-xml->way (first (:content way)))))
+
+(defn ways
+  "Performs /api/0.6/[nodes|ways|relations]?#parameters
+  Returns dataset object"
+  [way-id-seq]
+  (let [ways (xml/parse
+               (http/get-as-stream
+                (str
+                 *server*
+                 "/api/0.6/ways?ways="
+                 (clojure.string/join "," way-id-seq))))]
+    (full-xml->dataset (:content ways))))
 
 (defn way-full
   "Performs /api/0.6/[node|way|relation]/#id/full"
@@ -413,6 +439,18 @@
     ;; todo parse, returns raw response
     (full-xml->dataset (:content relation))))
 
+(defn relation-version
+  "Performs /api/0.6/[node|way|relation]/#id/#version"
+  [id version]
+  (let [relation (xml/parse
+              (http/get-as-stream
+               (str *server* "/api/0.6/relation/" id "/" version)))]
+    (relation-xml->relation (first (:content relation)))))
+
+#_(def a (relation-version 11164146 2))
+
+(map :id (filter #(= (:type %) :way) (:members a)))
+
 (defn relation-history
   "Performs
   /api/0.6/[node|way|relation]/#id/history"
@@ -429,6 +467,7 @@
 #_(def b (:members (get (:elements a) 0)))
 #_(def c (:members (get (:elements a) 4)))
 
+(defn )
 
 ;; todo
 ;; 20200526
