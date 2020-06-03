@@ -27,7 +27,8 @@
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
-   [trek-mate.osmeditor :as osmeditor]
+;;   circular dependency ...
+;;   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
@@ -969,7 +970,8 @@
 ;; report possible tasks
 #_(doseq [[brand mapping] brand-mapping]
   (println "finding candidates for" brand)
-  (osmeditor/task-report
+  ;; cirucal dependency
+  (trek-mate.osmeditor/task-report
    (str "brand-" (.replace brand " " "_"))
    "adding brand based on name and mapillary"
    (let [match-fn (:match-fn mapping)

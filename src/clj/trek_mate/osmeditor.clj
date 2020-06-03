@@ -603,7 +603,17 @@
                       [:div "changed members:"])
                      (map
                       (fn [member]
-                        [:div (:type member) " " (:ref member) (when (some? (:role member)) (str " as " (:role member)))])
+                        [:div
+                         (cond
+                           (= (:type member) "way")
+                           "wy"
+                           (= (:type member) "node")
+                           "nd"
+                           (= (:type member) "relation")
+                           "rel")
+                         " "
+                         (:ref member)
+                         (:role member)])
                       (:members change)))
                     (= (:change change) :tag-add)
                     [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]

@@ -449,8 +449,6 @@
 
 #_(def a (relation-version 11164146 2))
 
-(map :id (filter #(= (:type %) :way) (:members a)))
-
 (defn relation-history
   "Performs
   /api/0.6/[node|way|relation]/#id/history"
@@ -466,8 +464,6 @@
 #_(count (:elements a))
 #_(def b (:members (get (:elements a) 0)))
 #_(def c (:members (get (:elements a) 4)))
-
-(defn )
 
 ;; todo
 ;; 20200526
