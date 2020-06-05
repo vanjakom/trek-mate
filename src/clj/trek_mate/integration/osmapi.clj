@@ -700,6 +700,25 @@
 #_(report-way-history 404209416)
 #_(report-relation-history 10833727)
 
+(defn map-bounding-box
+  "Performs /api/0.6/map"
+  [left bottom right top]
+  (let [bbox (xml/parse
+                  (http/get-as-stream
+                   (str
+                    *server*
+                    "/api/0.6/map?bbox=" left "," bottom "," right "," top)))]
+    ;; todo parse, returns raw response
+    (full-xml->dataset (:content bbox))))
+
+;; 20.61906, 45.19471
+;; 20.62567, 45.19066
+
+
+(def a (map-bounding-box 20.61906 45.19066 20.62567 45.19471))
+
+
+
 (defn gpx-bounding-box
   "Performs /api/0.6/trackpoints"
   [min-longitude max-longitude min-latitude max-latitude]

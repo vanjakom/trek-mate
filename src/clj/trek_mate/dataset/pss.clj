@@ -395,9 +395,8 @@
 
 ;; mapping notes to be displayed in wiki
 (def note-map
-  {"4-49-3" "čudan track, trebalo bi da je kružna staza"
-   "2-8-2"
-   "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"})
+  {"3-3-2" "jako malo poklapanja sa trenutnim putevima, sat i gpx ne pomazu"
+   "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"})
 
 (defn id->region
   [id]
@@ -447,6 +446,11 @@
           [:a {
              :href (str "https://openstreetmap.org/relation/" osm-id)
                :target "_blank"} "osm"]
+          [:br]
+          [:a {
+             :href (str "http://localhost:7077/view/relation/" osm-id)
+               :target "_blank"} "order"]
+          
           [:br]
           osm-id))]
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
@@ -566,7 +570,9 @@
                                        (cond
                                          (contains? relation-map (:id route)) "mapped"
                                          (contains? note-map (:id route)) "noted"
-                                         :else "ready"))
+                                         :else "ready")
+                                       :osm-id
+                                       (get-in relation-map [(:id route) :id]))
                           :geometry {
                                      :type "Point"
                                      :coordinates [(:longitude (:location route))
