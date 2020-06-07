@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.js"></script>
     
-    <script type= "text/javascript" src= "/lib/core.js"></script>
     <style>
       ::-webkit-scrollbar {
 	  display: none;
@@ -334,66 +333,114 @@
 	  },
       });
 
-      var markers = L.featureGroup()
-      markers.addTo(map)
-      var overpassRefreshFn = function () {
-	  // [out:json]
-	  // [bbox:44.81302, 19.83856, 44.98229, 20.17365];
-	  // nwr[amenity=fuel];
-	  // out center;
-	  
-	  var query = "[out:json]"
-	  query += "[bbox:" + map.getBounds().getSouth() + "," + map.getBounds().getWest() + "," + map.getBounds().getNorth() + "," + map.getBounds().getEast() + "];"
-	  query += "nwr[amenity=fuel];"
-	  query += "out center;"
-
-	  var button = this
-	  button.setText("retrieving ...")
-	  
-	  fetch("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query))
-	      .then(response => response.json())
-	      .then(function(data) {
-		  markers.remove()
-		  markers = L.featureGroup()
-		  data["elements"].forEach(function(element) {
-		      var tags = element.tags
-		      var longitude = null
-		      var latitude = null
-		      if (element.type == "way") {
-			  longitude = element.center.lon
-			  latitude = element.center.lat
-		      } else if (element.type == "relation") {
-			  longitude = element.center.lon
-			  latitude = element.center.lat
-		      } else {
-			  longitude = element.lon
-			  latitude = element.lat
-		      }
-
-		      var info = element.type + " " + element.id + "</br>"
-		      for (var key in element.tags) {
-			  info += key + " = " + element.tags[key] + "</br>"
-		      }
-		      info += "<a href=\"http://level0.osmz.ru/?url=https%3A%2F%2Fwww.openstreetmap.org%2F" + element.type + "%2F" + element.id + "\" target=\"_blank\">level0</a></br>"
-		      info += "<a href=\"/view/" + element.type + "/" + element.id + "\" target=\"blank\">view</a></br>" 
-		      
-		      var marker = L.marker([latitude, longitude], {})
-		      marker.bindPopup(
-			  info,
-			  {maxWidth: "auto"})
-		  
-		      markers.addLayer(marker)
-		  })
-		  markers.addTo(map)
-		  button.setText("refresh")
-	      })
+      
+      if (!Array.prototype.last){
+	  Array.prototype.last = function(){
+              return this[this.length - 1]
+	  }
       }
-     
-      new L.Control.Button(
-	  {
-	      'text': 'refresh',
-	      'onClick': overpassRefreshFn,
-	  }).addTo(map);
+      var routeId = window.location.pathname.split("/").last()
+      var relationDataset = null
+      // pointer to relation from dataset, mutates with changes and it's reported
+      var relation = null
+
+      var relationLayer = L.featureGroup()
+      relationLayer.addTo(map)
+      var selectedLayer = null
+      var selectedIndex = -1
+
+      var refreshRelationFn = function() {
+	  var memberMap = new Map()
+	  relation.members.forEach(function (member, index) {
+	      let id = member.type + member.id
+	      var memberInfo = memberMap.get(id)
+	      if (memberInfo == null) {
+		  memberInfo = {
+		      id: member.id,
+		      type: member.type,
+		      indexes: []}
+		  memberMap.set(id, memberInfo)
+	      }
+	      memberInfo.indexes.push(index)
+	  })
+
+	  relationLayer.clearLayers()
+	  
+	  memberMap.forEach(function (memberInfo) {
+	      if (memberInfo.type == "node") {
+		  let node = relationDataset.nodes[memberInfo.id]
+		  	  
+	      } else if (memberInfo.type == "way") {
+		  let way = relationDataset.ways[memberInfo.id]
+		  let coords = []
+		  way.nodes.forEach(function (nodeId) {
+		      let node = relationDataset.nodes[nodeId]
+		      coords.push([
+			  parseFloat(node.latitude),
+			  parseFloat(node.longitude)])
+		  })
+		  var color = "blue"
+		  if (memberInfo.indexes.includes(selectedIndex)) {
+		      color = "red"
+		  }
+		  let polyline = L.polyline(coords, {color: color})
+		  if (color == "red") {
+		      selectedLayer = polyline
+		  }
+		  let setMarkerTextFn = function(polyline) {
+		      var text = "<div style='text-align:center;vertical-align:middle;line-height:20px;font-size: 10px'>"
+		      polyline.memberInfo.indexes.forEach(function(index, offset) {
+			  if (offset > 0) {
+			      text += "<span style='color:black'>, </span>"
+			  }
+			  if (index == selectedIndex) {
+			      text += "<span style='color:red'>" + index + "</span>" 
+			  } else {
+			      text += "<span style='color:blue'>" + index + "</span>" 
+			  }
+		      })
+		      text += "</div>"
+		      let icon = L.divIcon({
+			  iconSize: [polyline.memberInfo.indexes.length * 20, 20],
+			  iconAnchor: [polyline.memberInfo.indexes.length * 10, 10],
+			  html: text})
+		      polyline.marker.setIcon(icon)
+		  }
+		  polyline.on({
+		      click: function() {
+			  if (selectedLayer == polyline) {
+			      selectedIndex = polyline.memberInfo.indexes[(polyline.memberInfo.indexes.indexOf(selectedIndex) + 1) % polyline.memberInfo.indexes.length]
+			  } else {
+			      if (selectedLayer != null) {
+				  selectedLayer.setStyle({color: "blue"})
+				  // to enable reset of color
+				  selectedIndex = -1
+				  setMarkerTextFn(selectedLayer)
+			      }
+			      polyline.setStyle({color: 'red'})
+			      selectedLayer = polyline
+			      selectedIndex = polyline.memberInfo.indexes[0]
+			  }
+			  setMarkerTextFn(polyline)
+			  console.log(selectedIndex)
+		      }
+		  })
+		  polyline.memberInfo = memberInfo
+		  relationLayer.addLayer(polyline)
+		  let marker = L.marker(coords[Math.floor(coords.length / 2)], {interactive: false})
+		  polyline.marker = marker
+		  setMarkerTextFn(polyline)
+		  relationLayer.addLayer(marker)		
+	      }
+	  })
+      }
+      
+      fetch("/route/edit/" + routeId + "/retrieve").then(response => response.json()).then(function(data) {
+	  relationDataset = data
+	  relation = data.relations[routeId]
+	  refreshRelationFn()
+	  map.fitBounds(relationLayer.getBounds())
+      })
       
       new L.Control.Geocoder({
 	  geocoder: L.Control.Geocoder.nominatim(),
@@ -410,8 +457,72 @@
 		  map.fitBounds(poly.getBounds());
 	      }).addTo(map)
 
-      var mousedownInterval;
+      var reloadAvailableDataFn = function() {
+
+      }
+      new L.Control.Button({
+	  'text': 'refresh',
+	  'onClick': reloadAvailableDataFn,
+      }).addTo(map);
+
+      var moveUpFn = function() {
+	  if (selectedIndex != -1 && selectedIndex > 0) {
+	      var temp = relation.members[selectedIndex - 1]
+	      relation.members[selectedIndex - 1] = relation.members[selectedIndex]
+	      relation.members[selectedIndex] = temp
+	      selectedIndex = selectedIndex - 1
+	      refreshRelationFn()
+	  } else {
+	      console.log("invalid up, " + selectedIndex)
+	  }
+      }
+      new L.Control.Button({
+	  'text': 'up',
+	  'onClick': moveUpFn,
+      }).addTo(map);
+
+      var moveDownFn = function() {
+	  if (selectedIndex != -1 && selectedIndex < relation.members.length - 1) {
+	      var temp = relation.members[selectedIndex + 1]
+	      relation.members[selectedIndex + 1] = relation.members[selectedIndex]
+	      relation.members[selectedIndex] = temp
+	      selectedIndex = selectedIndex + 1
+	      refreshRelationFn()
+	  } else {
+	      console.log("invalid down, " + selectedIndex)
+	  }
+      }
+      new L.Control.Button({
+	  'text': 'down',
+	  'onClick': moveDownFn,
+      }).addTo(map);
+
+      var addFn = function() {
+	  alert("not implemented")
+
+      }
+      new L.Control.Button({
+	  'text': 'add',
+	  'onClick': addFn,
+      }).addTo(map);
       
+      var removeFn = function() {
+	  alert("not implemented")
+      }
+      new L.Control.Button({
+	  'text': 'remove',
+	  'onClick': reloadAvailableDataFn,
+      }).addTo(map);
+
+      var anchorFn = function() {
+	  alert("not implemented")
+      }
+      new L.Control.Button({
+	  'text': 'anchor',
+	  'onClick': reloadAvailableDataFn,
+      }).addTo(map);
+      
+      var mousedownInterval;      
       map.on (
 	  "mousedown",
 	  function (e) {

@@ -234,6 +234,40 @@
       "dataLayer.addTo(map)\n"
       "map.fitBounds(dataLayer.getBounds())\n"]])})
 
+(defn prepare-route-data [id]
+  (if-let [dataset (osmapi/relation-full id)]
+    dataset
+    #_(let [relation (get-in dataset [:relations id])]
+      {
+       :geometry
+       (filter
+        some?
+        (map
+         (fn [member]
+           (cond
+             (= (:type member) :way)
+             {
+              :type "way"
+              :id (:id member)
+              :coordinates
+              (map
+               (fn [node-id]
+                 (let [node (get-in dataset [:nodes node-id])]
+                   [(as/as-double (:latitude node)) (as/as-double (:longitude node))]))
+               (:nodes (get-in dataset [:ways (:id member)])))}
+             ;; todo support nodes
+           :else
+           nil))
+         (:members relation)))})))
+
+(prepare-route-data 10948917)
+#_(osmapi/relation-full 10948917)
+
+(defn prepare-explore-data [id left top right bottom])
+
+
+
+
 (def tasks (atom {}))
 
 (defn tasks-reset []
@@ -285,6 +319,7 @@
                   (osmapi/node-apply-change-seq id comment change-seq)
                   (= type :way)
                   (osmapi/way-apply-change-seq id comment change-seq))})))))
+
   (compojure.core/GET
    "/api/osm/history/:type/:id"
    [type id]
@@ -553,6 +588,7 @@
         "/"
         (:longitude location)))
        {:status 404})))
+
   (compojure.core/GET
    "/view/osm/history/:type/:id"
    [type id]
@@ -638,6 +674,7 @@
    {
     :status 200
     :body (jvm/resource-as-stream ["web" "poi.html"])})
+
   (compojure.core/GET
    "/view/relation/:id/:version"
    [id version]
@@ -656,6 +693,7 @@
               (merge {:relations {id relation}} way-dataset node-dataset)
               id)]
      (render-relation-geometry data)))
+  
   (compojure.core/GET
    "/view/relation/:id"
    [id]
@@ -663,6 +701,7 @@
          data (extract-relation-geometry (osmapi/relation-full id) id)]
      (render-relation-geometry data)))
   ;; to be used as unified view of osm element, map, tags, images, history?
+
   (compojure.core/GET
    "/view/:type/:id"
    [type id]
@@ -744,4 +783,37 @@
                  {:href (:url image) :target "_blank"}
                  [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
              image-row)])
-           (partition 3 3 nil image-seq))]]])}))))
+           (partition 3 3 nil image-seq))]]])}))
+
+  (compojure.core/GET
+    "/route/edit/:id/retrieve"
+    [id]
+    (let [id (as/as-long id)
+          data (prepare-route-data id)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+
+  (compojure.core/GET
+    "/route/edit/:id/explore/:left/:top/:right/:bottom"
+    [id left top right bottom]
+    (let [id (as/as-long id)
+          left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-explore-data id left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+
+  (compojure.core/GET
+    "/route/edit/:id"
+    [id]
+    {
+     :status 200
+     :body (jvm/resource-as-stream ["web" "route-editor.html"])})))
