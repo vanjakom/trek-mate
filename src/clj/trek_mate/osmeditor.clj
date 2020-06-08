@@ -263,9 +263,9 @@
 (prepare-route-data 10948917)
 #_(osmapi/relation-full 10948917)
 
-(defn prepare-explore-data [id left top right bottom])
-
-
+(defn prepare-explore-data [id left top right bottom]
+  (if-let [dataset (osmapi/map-bounding-box left bottom right top)]
+    dataset))
 
 
 (def tasks (atom {}))
@@ -320,7 +320,8 @@
                   (= type :way)
                   (osmapi/way-apply-change-seq id comment change-seq))})))))
 
-  (compojure.core/GET
+  ;; depricated, if not found to be used remove
+  #_(compojure.core/GET
    "/api/osm/history/:type/:id"
    [type id]
    (cond
@@ -632,11 +633,35 @@
                     (= (:change change) :nodes)
                     [:div "changed nodes"]
                     (= (:change change) :member-add)
-                    [:div {:style "color:green;"} (:type change) " " (:id change) (when (some? (:role change)) (str " as " (:role change)))]
+                    [:div {:style "color:green;"}
+                     (cond
+                       (= (:type change) "way")
+                       "wy"
+                       (= (:type change) "node")
+                       "nd"
+                       (= (:type change) "relation")
+                       "rel")
+                     " "
+                     (:id change)
+                     (when (some? (:role change))
+                       (str " as " (:role change)))]
+                    (= (:change change) :member-remove)
+                    [:div {:style "color:red;"}
+                     (cond
+                       (= (:type change) "way")
+                       "wy"
+                       (= (:type change) "node")
+                       "nd"
+                       (= (:type change) "relation")
+                       "rel")
+                     " "
+                     (:id change)
+                     (when (some? (:role change))
+                       (str " as " (:role change)))]
                     (= (:change change) :members)
                     (concat
                      (list
-                      [:div "changed members:"])
+                      [:div "changed members order or made circular:"])
                      (map
                       (fn [member]
                         [:div
@@ -649,6 +674,7 @@
                            "rel")
                          " "
                          (:ref member)
+                         " "
                          (:role member)])
                       (:members change)))
                     (= (:change change) :tag-add)
@@ -700,8 +726,8 @@
    (let [id (as/as-long id)
          data (extract-relation-geometry (osmapi/relation-full id) id)]
      (render-relation-geometry data)))
+  
   ;; to be used as unified view of osm element, map, tags, images, history?
-
   (compojure.core/GET
    "/view/:type/:id"
    [type id]
@@ -723,7 +749,6 @@
       (hiccup/html
        [:html
         [:body {:style "font-family:arial;"}
-         ;; todo use same code as for history, this one is outdated
          (cond
            (= type :node)
            [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id] [:br]]
@@ -731,47 +756,6 @@
            [:div "way: " [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id] [:br]]
            (= type :relation)
            [:div "relation: " [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id] [:br]])
-         (reverse (first
-            (reduce
-             (fn [[changes version] change]
-               (let [changes (if (not (= version (:version change)))
-                               (conj
-                                changes
-                                [:div
-                                 [:br]
-                                 "v: " (:version change)
-                                 ", t: " (:timestamp change) 
-                                 ", c: " [:a {:href (str "https://www.openstreetmap.org/changeset/" (:changeset change)) :target "_blank"} (:changeset change)]
-                                 ", u: " [:a {:href (str "https://www.openstreetmap.org/user/" (:user change)) :target "_blank"} (:user change)]])
-                               changes)]
-                [(conj
-                  changes
-                  (cond
-                    (= (:change change) :create)
-                    [:div "created"]
-                    (= (:change change) :location)
-                    [:div "moved"]
-                    (= (:change change) :nodes)
-                    [:div "changed nodes"]
-                    (= (:change change) :members)
-                    [:div "changed members"]
-                    (= (:change change) :tag-add)
-                    [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
-                    (= (:change change) :tag-remove)
-                    [:div {:style "color:red;"} (name (:tag change)) " = " (:value change) ]
-                    (= (:change change) :tag-change)
-                    [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
-                    :else
-                    [:div "unknown"]))
-                 (:version change)]))
-             ['() nil]
-             (cond
-               (= type :node)
-               (osmapi/calculate-node-change id)
-               (= type :way)
-               (osmapi/calculate-way-change id)
-               (= type :relation)
-               (osmapi/calculate-relation-change id)))))
          [:table
           (map
            (fn [image-row]
@@ -810,6 +794,32 @@
        :headers {
                  "Content-Type" "application/json; charset=utf-8"}
        :body (json/write-to-string data)}))
+
+  (compojure.core/POST
+   "/route/edit/:id/update"
+   request
+   (let [id (get-in request [:params :id])
+         relation (json/read-keyworded (:body request))]
+     (println "relation:")
+     (run!
+      println
+      (map
+       (fn [member]
+         (str
+          (cond
+            (= (:type member) "way")
+            "wy"
+            (= (:type member) "node")
+            "nd"
+            (= (:type member) "relation")
+            "rel")
+          " "
+          (:id member)
+          " "
+          (:role member)))
+       (:members relation)))
+     {
+      :status 200}))
 
   (compojure.core/GET
     "/route/edit/:id"

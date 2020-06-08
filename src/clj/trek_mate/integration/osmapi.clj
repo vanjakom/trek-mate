@@ -134,7 +134,8 @@
                {
                 :id (as/as-long (:ref (:attrs member)))
                 :type (keyword (:type (:attrs member)))
-                :role (:role (:attrs member))})
+                :role (let [role (:role (:attrs member))]
+                        (if (not (empty? role)) role nil))})
              (filter
               #(= (:tag %) :member)
               (:content relation)))})
@@ -154,7 +155,7 @@
         :tag :member
         :attrs {
                 :ref (str (:id member))
-                :role (:role member)
+                :role (or (:role member) "")
                 :type (name (:type member))}})
      (:members relation))
     (map
@@ -465,26 +466,61 @@
 #_(def b (:members (get (:elements a) 0)))
 #_(def c (:members (get (:elements a) 4)))
 
-;; todo
-;; 20200526
 (defn calculate-member-change
-  [old new]
+  "Note: current version doesn't understand order, better would be to identify
+  members which are present in both versions and calculate changes between those
+  pairs. Concept in paper notes 20200608."
+  
+  [user timestamp version changeset old new]
   (let [old (map #(assoc % :id (str (str (first (:type %))) (:ref %))) old)
         new (map #(assoc % :id (str (str (first (:type %))) (:ref %))) new)
         old-set (into #{} (map :id old))
         new-set (into #{} (map :id new))]
-    (reduce
-     (fn [[change-seq new-member-seq] old-member]
-       
-       
-       )
-     [[] new]
-     old)
+    (if
+        (and
+         (= old-set new-set)
+         (not (= old new)))
+      ;; note does not support adding circular members, reports as changed order
+      ;; temporary to support change in order
+      [
+       {
+        :change :members
+        :user user
+        :timestamp timestamp
+        :version version
+        :changeset changeset
+        :members new}]
+      (concat
+      (map
+       (fn [member]
+         {
+          :change :member-remove
+          :user user
+          :timestamp timestamp
+          :version version
+          :changeset changeset
+          :type (:type member)
+          :id (:ref member)
+          :role (when (not (empty? (:role member)))(:role member))})
+       (filter #(not (contains? new-set (:id %))) old))
+      (map
+       (fn [member]
+         {
+          :change :member-add
+          :user user
+          :timestamp timestamp
+          :version version
+          :changeset changeset
+          :type (:type member)
+          :id (:ref member)
+          :role (when (not (empty? (:role member)))(:role member))})
+       (filter #(not (contains? old-set (:id %))) new))))))
 
-    #_(reduce
-     #(if (contains? old-set %2) %1 (conj %1 %2))
-     #{}
-     new-set)))
+#_(let [relation-history (relation-history 11043543)]
+  (calculate-member-change
+   1 1 1 1
+   (get-in relation-history [:elements 0 :members])
+   (get-in relation-history [:elements 1 :members])))
 
 (defn compare-element
   [old new]
@@ -507,18 +543,9 @@
          :tag tag
          :value value})
       (:tags new))
-     (map
-      (fn [member]
-        {
-         :change :member-add
-         :user (:user new)
-         :timestamp (:timestamp new)
-         :version (:version new)
-         :changeset (:changeset new)
-         :type (:type member)
-         :id (:ref member)
-         :role (when (not (empty? (:role member))) (:role member))})
-      (:members new)))
+     (calculate-member-change
+      (:user new) (:timestamp new) (:version new) (:changeset new)
+      '() (:members new)))
     (filter
      some?
      (concat
@@ -549,7 +576,10 @@
             :new (:nodes new)}])
         (= (:type new) "relation")
         (when (not (= (:members old) (:members new)))
-          [{
+          (calculate-member-change
+           (:user new) (:timestamp new) (:version new) (:changeset new)
+           (:members old) (:members new))
+          #_[{
             :change :members
             :user (:user new)
             :timestamp (:timestamp new)
