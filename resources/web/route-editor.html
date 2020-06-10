@@ -365,11 +365,40 @@
 	  })
 
 	  relationLayer.clearLayers()
+
+	  let setMarkerTextFn = function(memberInfo, selectedIndex, marker) {
+	      var text = "<div style='text-align:center;vertical-align:middle;line-height:20px;font-size: 10px'>"
+	      memberInfo.indexes.forEach(function(index, offset) {
+		  if (offset > 0) {
+		      text += "<span style='color:black'>, </span>"
+		  }
+		  if (index == selectedIndex) {
+		      text += "<span style='color:red'>" + index + "</span>" 
+		  } else {
+		      text += "<span style='color:blue'>" + index + "</span>" 
+		  }
+	      })
+	      text += "</div>"
+	      let icon = L.divIcon({
+		  iconSize: [memberInfo.indexes.length * 20, 20],
+		  iconAnchor: [memberInfo.indexes.length * 10, 10],
+		  html: text})
+	      marker.setIcon(icon)
+	  }
 	  
 	  memberMap.forEach(function (memberInfo) {
+	      let featureLayer = L.featureGroup()
+	      relationLayer.addLayer(featureLayer)
 	      if (memberInfo.type == "node") {
 		  let node = relationDataset.nodes[memberInfo.id]
-		  	  
+		  let marker =  L.marker([node.latitude, node.longitude])
+		  featureLayer.addLayer(marker)
+		  featureLayer.select = function() {
+		      setMarkerTextFn(memberInfo, selectedIndex, marker)
+		      if (memberInfo.indexes.includes(selectedIndex)) {
+			  selectedLayer = featureLayer
+		      }
+		  }
 	      } else if (memberInfo.type == "way") {
 		  let way = relationDataset.ways[memberInfo.id]
 		  let coords = []
@@ -379,59 +408,34 @@
 			  parseFloat(node.latitude),
 			  parseFloat(node.longitude)])
 		  })
-		  var color = "blue"
-		  if (memberInfo.indexes.includes(selectedIndex)) {
-		      color = "red"
-		  }
-		  let polyline = L.polyline(coords, {color: color})
-		  if (color == "red") {
-		      selectedLayer = polyline
-		  }
-		  let setMarkerTextFn = function(polyline) {
-		      var text = "<div style='text-align:center;vertical-align:middle;line-height:20px;font-size: 10px'>"
-		      polyline.memberInfo.indexes.forEach(function(index, offset) {
-			  if (offset > 0) {
-			      text += "<span style='color:black'>, </span>"
-			  }
-			  if (index == selectedIndex) {
-			      text += "<span style='color:red'>" + index + "</span>" 
-			  } else {
-			      text += "<span style='color:blue'>" + index + "</span>" 
-			  }
-		      })
-		      text += "</div>"
-		      let icon = L.divIcon({
-			  iconSize: [polyline.memberInfo.indexes.length * 20, 20],
-			  iconAnchor: [polyline.memberInfo.indexes.length * 10, 10],
-			  html: text})
-		      polyline.marker.setIcon(icon)
-		  }
-		  polyline.on({
-		      click: function() {
-			  if (selectedLayer == polyline) {
-			      selectedIndex = polyline.memberInfo.indexes[(polyline.memberInfo.indexes.indexOf(selectedIndex) + 1) % polyline.memberInfo.indexes.length]
-			  } else {
-			      if (selectedLayer != null) {
-				  selectedLayer.setStyle({color: "blue"})
-				  // to enable reset of color
-				  selectedIndex = -1
-				  setMarkerTextFn(selectedLayer)
-			      }
-			      polyline.setStyle({color: 'red'})
-			      selectedLayer = polyline
-			      selectedIndex = polyline.memberInfo.indexes[0]
-			  }
-			  setMarkerTextFn(polyline)
-			  console.log(selectedIndex)
+		  let polyline = L.polyline(coords, {color: "blue"})
+		  let marker = L.marker(coords[Math.floor(coords.length / 2)])
+		  featureLayer.addLayer(polyline)
+		  featureLayer.addLayer(marker)
+		  featureLayer.select = function() {
+		      setMarkerTextFn(memberInfo, selectedIndex, marker)
+		      if (memberInfo.indexes.includes(selectedIndex)) {
+			  polyline.setStyle({color: "red"})
+			  selectedLayer = featureLayer
+		      } else {
+			  polyline.setStyle({color: "blue"})
 		      }
-		  })
-		  polyline.memberInfo = memberInfo
-		  relationLayer.addLayer(polyline)
-		  let marker = L.marker(coords[Math.floor(coords.length / 2)], {interactive: false})
-		  polyline.marker = marker
-		  setMarkerTextFn(polyline)
-		  relationLayer.addLayer(marker)		
+		  }
 	      }
+	      featureLayer.on({click: function() {
+		  if (selectedLayer == featureLayer) {
+		      selectedIndex = memberInfo.indexes[(memberInfo.indexes.indexOf(selectedIndex) + 1) % memberInfo.indexes.length]
+		  } else {
+		      selectedIndex = memberInfo.indexes[0]
+		      if (selectedLayer != null) {
+			  selectedLayer.select()
+		      }
+		      selectedLayer = featureLayer
+		  }
+		  featureLayer.select()
+		  console.log(selectedIndex)
+	      }})
+	      featureLayer.select()
 	  })
       }
       
@@ -511,7 +515,7 @@
       }
       new L.Control.Button({
 	  'text': 'remove',
-	  'onClick': reloadAvailableDataFn,
+	  'onClick': removeFn,
       }).addTo(map);
 
       var anchorFn = function() {
@@ -519,7 +523,19 @@
       }
       new L.Control.Button({
 	  'text': 'anchor',
-	  'onClick': reloadAvailableDataFn,
+	  'onClick': anchorFn,
+      }).addTo(map);
+
+      var saveFn = function() {
+	  fetch(
+	      "/route/edit/" + routeId + "/update",
+	      {
+		  method: "POST",
+		  body: JSON.stringify(relation)})
+      }
+      new L.Control.Button({
+	  'text': 'save',
+	  'onClick': saveFn,
       }).addTo(map);
       
       var mousedownInterval;      
