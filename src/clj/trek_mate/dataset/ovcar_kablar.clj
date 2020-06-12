@@ -21,6 +21,7 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
@@ -44,6 +45,23 @@
   {:longitude longitude :latitude latitude :tags (into #{}  tags)})
 
 (def ovcar-banja (osm/extract-tags (overpass/wikidata-id->location :Q2283351)))
+(def kablar-wellness-centar (dot/enrich-tags
+                             (osm/extract-tags
+                              (overpass/node-id->location 6580428085))))
+(def overpass-location-seq
+  (map
+   osm/extract-tags
+   (overpass/query-dot-seq
+    (str
+     "("
+     "nwr[amenity=monastery](43.87067, 20.15502, 43.93641, 20.25484);"
+     "nwr[amenity=place_of_worship](43.87067, 20.15502, 43.93641, 20.25484);"
+     "nwr[amenity=drinking_water](43.87067, 20.15502, 43.93641, 20.25484);"
+     "nwr[waterway=waterfall](43.87067, 20.15502, 43.93641, 20.25484);"
+     "nwr[natural=peak](43.87067, 20.15502, 43.93641, 20.25484);"
+     ");"))))
+
+#_(count overpass-location-seq) ; 32
 
 (web/register-map
  "ovcar-kablar"
@@ -54,10 +72,23 @@
                   :zoom 14}
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [(fn [_ _ _ _]
-                       [ovcar-banja])])})
+                       (concat
+                        overpass-location-seq
+                        [
+                         ovcar-banja
+                         kablar-wellness-centar]))])})
 
 
-(do
+#_(storage/import-location-v2-seq-handler
+ (map
+  #(add-tag % "@kablar2020")
+  (concat
+   overpass-location-seq
+   [
+    ovcar-banja
+    kablar-wellness-centar])))
+
+#_(do
   (let [location-seq (with-open [is (fs/input-stream
                                      (path/child
                                       env/*global-my-dataset-path*

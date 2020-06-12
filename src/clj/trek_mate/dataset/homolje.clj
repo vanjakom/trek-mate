@@ -104,12 +104,12 @@
 
 (web/create-server)
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag % "@homolje2020")
   location-seq))
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag % "@homolje2020")
   [sporna-tacka-1

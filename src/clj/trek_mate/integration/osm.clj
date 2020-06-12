@@ -640,9 +640,11 @@
     #(when (= (get % "place") "square") tag/tag-history)
 
     #(when (= (get % "amenity") "place_of_worship") tag/tag-church)
+    #(when (= (get % "amenity") "monastery") tag/tag-church)
     #(when (= (get % "amenity") "cafe") tag/tag-cafe)
     #(when (= (get % "amenity") "fuel") tag/tag-gas-station)
     #(when (= (get % "amenity") "restaurant") tag/tag-restaurant)
+    #(when (= (get % "amenity") "drinking_water") tag/tag-water)
     
     #(when (= (get % "historic") "monument") tag/tag-history)
     #(when (= (get % "historic") "memorial") tag/tag-history)
@@ -654,7 +656,7 @@
     #(when (= (get % "tourism") "viewpoint") tag/tag-view)
     #(when (= (get % "tourism") "picnic_site") tag/tag-rest)
 
-    #(when (= (get % "waterway") "waterfall") tag/tag-river)
+    #(when (= (get % "waterway") "waterfall") tag/tag-creek)
 
     #(when (= (get % "landuse") "recreation_ground") tag/tag-rest)
     
@@ -714,7 +716,8 @@
      (osm-tags->tags (:osm location))))
 
 
-
+;;; use dot/enrich-tags
+;;; deprecated, remove if not used
 ;;; simplistic for start, to understand scope
 (defn hydrate-tags [dot]
   (update-in
