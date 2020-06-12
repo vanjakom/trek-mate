@@ -262,6 +262,24 @@
 	      noWrap: true
 	  })
 
+      var waymarkedHikeTile = L.tileLayer(
+	  'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+
+      var waymarkedCycleTile = L.tileLayer(
+	  'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 18,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
       
       L.EmptyLayer = L.GridLayer.extend({
 	  initialize: function(options) {
@@ -397,7 +415,7 @@
 	  "empty white tile": emptyWhiteTile,
 	  "maptiler satellite": maptilerSatelliteTile,
 	  "osm wms de hillshade" : osmWmsDeTile,
-	  "wmflabs hillshade": wmflabsHillshadeTile
+	  "wmflabs hillshade": wmflabsHillshadeTile,
       }
       
       var overlayMaps = {
@@ -407,6 +425,8 @@
 	  "strava heatmap": stravaHeatmapTile,
 	  "strava auth heatmap": stravaAuthHeatmapTile,
 	  "cyclOSM lite": cyclOSMTile,
+	  "waymakred hike": waymarkedHikeTile,
+	  "waymakred cycle": waymarkedCycleTile,
 	  "track": trackTile}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
