@@ -122,27 +122,6 @@
 
 ;; filter captured locations
 
-(last (storage/location-request-seq-from-backup env/*trek-mate-user*))
-{:location {:latitude 44.82175776672968, :longitude 20.435536684124006, :horizontalAccuracy 0.0, :altitude 0.0, :verticalAccuracy -1.0, :speed -1.0, :course -1.0, :timestamp 1577819681525}, :status "pending", :tags ["#recycle-glass-bottle" "|+#recycle-glass-bottle" "#pending" "#trekmate-original" "|+#trekmate-original"], :_id "5094A724-A485-4387-8393-034FD14D1CB9"}
-
-(take 5 (storage/location-request-seq-from-backup env/*trek-mate-user*))
-
-(def a
-  (first
-   (filter
-    #(contains? (:tags %) "#zapis")
-    (map
-     storage/location-request->dot
-     (storage/location-request-seq-from-backup env/*trek-mate-user*)))))
-
-(tile-math/zoom->location->tile 10 a)
-
-(take
- 5
- (map
-  storage/location-request->dot
-  (storage/location-request-seq-from-backup env/*trek-mate-user*)))
-
 (def location-seq
   (filter
    #(= [9 284 186] (tile-math/zoom->location->tile 9 %))
