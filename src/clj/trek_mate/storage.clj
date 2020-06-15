@@ -210,8 +210,6 @@
     ['() '()]
     location-seq))
 
-
-
 (defn import-location-seq-handler
   "Imports seq of locations, doing overwrite. Public tags will go
   to LocationSystem and personal to LocationPersonal, for user
@@ -374,7 +372,6 @@
     [(filter/greater "___createTime" from-timestamp)]
     [(sort/ascending "___createTime")])))
 
-
 (defn backup-location-requests [from-timestamp]
   (let [[max-timestamp per-user-map ]
         (reduce
@@ -410,12 +407,20 @@
         (json/read-lines-keyworded is))))
    (fs/list (path/child location-request-backup-path user))))
 
+(defn location-request->dot
+  [location-request]
+  {
+   :longitude (:longitude (:location location-request))
+   :latitude (:latitude (:location location-request))
+   :tags (into #{} (:tags location-request))})
 
 ;; ----------- location backup ---------------
 ;; call to backup latest location requests, once backup is done prepare
 ;; write down next timestamp
-
-;; next timestamp 1581964619998
+;; run nex
+#_(backup-location-requests 1592216594730)
+#_(backup-location-requests 1592209473916)
+#_(backup-location-requests 1581964619998)
 #_(backup-location-requests 1577819683229)
 #_(backup-location-requests 1577793443926)
 #_(backup-location-requests 1576576198085)
@@ -427,6 +432,8 @@
 ;; run latest prepared command, once finished prepare new command by using
 ;; latest timestamp reported to stdout
 ;; run next
+#_(backup-tracks 1592140720)
+#_(backup-tracks 1592035455)
 #_(backup-tracks 1590834123)
 #_(backup-tracks 1590403654)
 #_(backup-tracks 1590260330)

@@ -16,6 +16,7 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
@@ -116,3 +117,86 @@
                          (web/create-osm-external-raster-tile-fn)
                          :track
                          [(constantly [draw/color-blue 2])])))})))
+
+;; after party
+
+;; filter captured locations
+
+(last (storage/location-request-seq-from-backup env/*trek-mate-user*))
+{:location {:latitude 44.82175776672968, :longitude 20.435536684124006, :horizontalAccuracy 0.0, :altitude 0.0, :verticalAccuracy -1.0, :speed -1.0, :course -1.0, :timestamp 1577819681525}, :status "pending", :tags ["#recycle-glass-bottle" "|+#recycle-glass-bottle" "#pending" "#trekmate-original" "|+#trekmate-original"], :_id "5094A724-A485-4387-8393-034FD14D1CB9"}
+
+(take 5 (storage/location-request-seq-from-backup env/*trek-mate-user*))
+
+(def a
+  (first
+   (filter
+    #(contains? (:tags %) "#zapis")
+    (map
+     storage/location-request->dot
+     (storage/location-request-seq-from-backup env/*trek-mate-user*)))))
+
+(tile-math/zoom->location->tile 10 a)
+
+(take
+ 5
+ (map
+  storage/location-request->dot
+  (storage/location-request-seq-from-backup env/*trek-mate-user*)))
+
+(def location-seq
+  (filter
+   #(= [9 284 186] (tile-math/zoom->location->tile 9 %))
+   (map
+    storage/location-request->dot
+    (storage/location-request-seq-from-backup env/*trek-mate-user*))))
+
+(count location-seq)
+
+(with-open [is (fs/input-stream
+                (path/child
+                 env/*global-my-dataset-path*
+                 "trek-mate" "cloudkit" "track"
+                 env/*trek-mate-user* "1592035455.json"))
+            os (fs/output-stream ["tmp" "ovcar-kablar.geojson"])]
+  (let [track (json/read-keyworded is)]
+    (json/write-to-stream
+     {
+      :type "FeatureCollection"
+      :properties {}
+      :features
+      (conj
+       (map
+        (fn [dot]
+          {
+           :type "Feature"
+           :properties {:tags (:tags dot)}
+           :geometry {
+                      :type "Point"
+                      :coordinates [(:longitude dot) (:latitude dot)]}})
+        location-seq)
+       {
+        :type "Feature"
+        :properties {}
+        :geometry {
+                   :type "LineString"
+                   :coordinates (map
+                                 (fn [dot]
+                                   [(:longitude dot) (:latitude dot)])
+                                 (:locations track))}})}
+     os)))
+
+
+(web/register-map
+ "ovcar-kablar-after"
+ {
+  :configuration {
+                  :longitude (:longitude ovcar-banja) 
+                  :latitude (:latitude ovcar-banja)
+                  :zoom 14}
+   :vector-tile-fn (web/tile-vector-dotstore-fn
+                    [(fn [_ _ _ _]
+                       location-seq)])})
+
+
+
+(count location-seq)

@@ -499,14 +499,15 @@
 
 ;; #osm #track #submit
 ;; submit track to osm
-#_(with-open [is (fs/input-stream
-                    (path/child
-                     env/*global-my-dataset-path*
-                     "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1590834123.json"))
-            os (fs/output-stream ["tmp" "track.gpx"])]
-  (let [track (json/read-keyworded is)]
-    (gpx/write-track-gpx os [] (:locations track))))
+#_(let  [track-id 1592120330]
+  (with-open [is (fs/input-stream
+                  (path/child
+                   env/*global-my-dataset-path*
+                   "trek-mate" "cloudkit" "track"
+                   env/*trek-mate-user* (str track-id ".json")))
+              os (fs/output-stream ["tmp" (str track-id ".gpx")])]
+    (let [track (json/read-keyworded is)]
+      (gpx/write-track-gpx os [] (:locations track)))))
 ;; description: Voznja biciklovima unutar rezervata prirode Obedska Bara
 ;; tags: bike, brompton, source:1587110767:full
 ;; visibility: identifiable
