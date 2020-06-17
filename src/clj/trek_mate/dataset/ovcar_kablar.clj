@@ -123,14 +123,41 @@
 ;; filter captured locations
 
 (def location-seq
-  (filter
-   #(= [9 284 186] (tile-math/zoom->location->tile 9 %))
-   (map
-    storage/location-request->dot
-    (storage/location-request-seq-from-backup env/*trek-mate-user*))))
+  (map
+   (fn [location]
+     (update-in
+      location
+      [:tags]
+      (fn [tags]
+        (into #{} (filter #(not (or (.startsWith % "|+") (.startsWith % "|-"))) tags)))))
+   (filter
+    #(= [9 284 186] (tile-math/zoom->location->tile 9 %))
+    (map
+     storage/location-request->dot
+     (storage/location-request-seq-from-backup env/*trek-mate-user*)))))
 
+;; extract images with icloud py
+;; flatten to one directory
+;; convert to jpg
+;; import to photo-map
+;; mungolab_log 20200615
+
+(def photo-seq
+  (map
+   (fn [feature]
+     (update-in
+      feature
+      [:properties :url]
+      #(str "http://localhost:7076" %)))
+   (:features
+    (json/read-keyworded
+     (http/get-as-stream "http://localhost:7076/query")))))
+
+(count photo-seq)
 (count location-seq)
 
+
+;; prepare file for id editor
 (with-open [is (fs/input-stream
                 (path/child
                  env/*global-my-dataset-path*
@@ -144,15 +171,17 @@
       :properties {}
       :features
       (conj
-       (map
-        (fn [dot]
-          {
-           :type "Feature"
-           :properties {:tags (:tags dot)}
-           :geometry {
-                      :type "Point"
-                      :coordinates [(:longitude dot) (:latitude dot)]}})
-        location-seq)
+       (concat
+        (map
+         (fn [dot]
+           {
+            :type "Feature"
+            :properties (into {} (map-indexed #(vector (str %1) %2) (:tags dot)))
+            :geometry {
+                       :type "Point"
+                       :coordinates [(:longitude dot) (:latitude dot)]}})
+         location-seq)
+        photo-seq)
        {
         :type "Feature"
         :properties {}
@@ -165,6 +194,31 @@
      os)))
 
 
+(do
+  (def track-location-seq
+    (with-open [is (fs/input-stream
+                    (path/child
+                     env/*global-my-dataset-path*
+                     "trek-mate" "cloudkit" "track"
+                     env/*trek-mate-user* "1592035455.json"))]
+      (storage/track->location-seq (json/read-keyworded is))))
+
+  (web/register-dotstore
+   :track
+   (dot/location-seq-var->dotstore (var track-location-seq)))
+
+  (web/register-map
+   "track-transparent"
+   {
+    :configuration {
+                    :longitude (:longitude ovcar-banja)
+                    :latitude (:latitude ovcar-banja)
+                    :zoom 7}
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                       :track
+                       [(constantly [draw/color-blue 2])])}))
+
 (web/register-map
  "ovcar-kablar-after"
  {
@@ -174,8 +228,18 @@
                   :zoom 14}
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [(fn [_ _ _ _]
-                       location-seq)])})
-
+                       (concat
+                        location-seq
+                        (map
+                         (fn [feature]
+                           {
+                            :longitude (get-in feature [:geometry :coordinates 0])
+                            :latitude (get-in feature [:geometry :coordinates 1])
+                            :tags #{
+                                    tag/tag-photo
+                                    (tag/url-tag "url" (get-in feature [:properties :url]))}})
+                         photo-seq))
+                       )])})
 
 
 (count location-seq)

@@ -73,6 +73,7 @@
 (def no-tags-pin "no_tags_pin")
 (def trek-mate-original-pin "trekmate-original_pin")
 (def location-pin "location_pin")
+(def photo-pin "photo_pin")
 
 (defn base-pin-trigger [tags]
   (cond
@@ -166,7 +167,11 @@
      outdoor-trigger
      integration-trigger
      personal-trigger
-     
+
+     ;; photo pin
+     (fn [tags]
+       (when (contains? tags tag/tag-photo)
+         photo-pin))
      ;; no tags pin
      (fn [tags]
        (if (= (count tags) 0)

@@ -381,7 +381,7 @@
     (str "<b>" (.substring tag 1) "</b>")
     tag))
 
-(defn location->web-location [location]
+#_(defn location->web-location [location]
   {
    :longitude (:longitude location)
    :latitude (:latitude location)
@@ -391,6 +391,7 @@
                                           (:tags location)))
    :pin (take 2 (pin/calculate-pins (:tags location)))})
 
+;; todo should take location instead of feature seq
 (defn enrich-locations
   "Used to add id required for deduplication by Leaflet Realtime"
   [geojson]
@@ -448,7 +449,9 @@
                              (:properties feature))))
               pin-url (let [pin-seq (pin/calculate-pins
                                      (:properties feature))]
-                        (str "/pin/" (first pin-seq) "/" (second pin-seq)))]
+                        (str "/pin/" (first pin-seq) "/" (second pin-seq)))
+              photo-url (when (contains? (:properties feature) tag/tag-photo)
+                          (tag/url-tag->url (first (filter tag/url-tag? (:properties feature)))))]
           (update-in
            feature
            [:properties]
@@ -460,6 +463,8 @@
               (clojure.string/join "@" (:coordinates (:geometry feature)))
               :pin
               pin-url
+              :photo
+              photo-url
               :description
               description)))))
       features))))
