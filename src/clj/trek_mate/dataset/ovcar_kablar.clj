@@ -156,53 +156,22 @@
 (count photo-seq)
 (count location-seq)
 
-
-;; prepare file for id editor
-(with-open [is (fs/input-stream
-                (path/child
-                 env/*global-my-dataset-path*
-                 "trek-mate" "cloudkit" "track"
-                 env/*trek-mate-user* "1592035455.json"))
-            os (fs/output-stream ["tmp" "ovcar-kablar.geojson"])]
-  (let [track (json/read-keyworded is)]
-    (json/write-to-stream
-     {
-      :type "FeatureCollection"
-      :properties {}
-      :features
-      (conj
-       (concat
-        (map
-         (fn [dot]
-           {
-            :type "Feature"
-            :properties (into {} (map-indexed #(vector (str %1) %2) (:tags dot)))
-            :geometry {
-                       :type "Point"
-                       :coordinates [(:longitude dot) (:latitude dot)]}})
-         location-seq)
-        photo-seq)
-       {
-        :type "Feature"
-        :properties {}
-        :geometry {
-                   :type "LineString"
-                   :coordinates (map
-                                 (fn [dot]
-                                   [(:longitude dot) (:latitude dot)])
-                                 (:locations track))}})}
-     os)))
-
+(def track-location-seq
+    (concat
+     (with-open [is (fs/input-stream
+                     (path/child
+                      env/*global-my-dataset-path*
+                      "trek-mate" "cloudkit" "track"
+                      env/*trek-mate-user* "1592035455.json"))]
+       (storage/track->location-seq (json/read-keyworded is)))
+     (with-open [is (fs/input-stream
+                     (path/child
+                      env/*global-my-dataset-path*
+                      "trek-mate" "cloudkit" "track"
+                      env/*trek-mate-user* "1592120330.json"))]
+       (storage/track->location-seq (json/read-keyworded is)))))
 
 (do
-  (def track-location-seq
-    (with-open [is (fs/input-stream
-                    (path/child
-                     env/*global-my-dataset-path*
-                     "trek-mate" "cloudkit" "track"
-                     env/*trek-mate-user* "1592035455.json"))]
-      (storage/track->location-seq (json/read-keyworded is))))
-
   (web/register-dotstore
    :track
    (dot/location-seq-var->dotstore (var track-location-seq)))
@@ -218,6 +187,37 @@
                      (web/create-transparent-raster-tile-fn)
                        :track
                        [(constantly [draw/color-blue 2])])}))
+
+;; prepare file for id editor
+(with-open [os (fs/output-stream ["tmp" "ovcar-kablar.geojson"])]
+  (json/write-to-stream
+   {
+    :type "FeatureCollection"
+    :properties {}
+    :features
+    (conj
+     (concat
+      (map
+       (fn [dot]
+         {
+          :type "Feature"
+          :properties (into {} (map-indexed #(vector (str %1) %2) (:tags dot)))
+          :geometry {
+                     :type "Point"
+                     :coordinates [(:longitude dot) (:latitude dot)]}})
+       location-seq)
+      photo-seq)
+     {
+      :type "Feature"
+      :properties {}
+      :geometry {
+                 :type "LineString"
+                 :coordinates (map
+                               (fn [dot]
+                                 [(:longitude dot) (:latitude dot)])
+                               track-location-seq)}})}
+   os))
+
 
 (web/register-map
  "ovcar-kablar-after"
