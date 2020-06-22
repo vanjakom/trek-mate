@@ -397,7 +397,8 @@
 (def note-map
   {"3-3-2" "jako malo poklapanja sa trenutnim putevima, sat i gpx ne pomazu"
    "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
-   "4-45-3" "gpx je problematican, deluje da je kruzna staza"})
+   "4-45-3" "gpx je problematican, deluje da je kruzna staza"
+   "7-3-5" "gpx vodi pored ucrtanih puteva, malo poklapanja sa sat snimcima"})
 
 (defn id->region
   [id]

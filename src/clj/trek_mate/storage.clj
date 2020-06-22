@@ -407,6 +407,17 @@
         (json/read-lines-keyworded is))))
    (fs/list (path/child location-request-backup-path user))))
 
+(defn location-request-seq-last-from-backup
+  [user]
+  (with-open [is (fs/input-stream
+                  (last
+                   (sort-by
+                    last
+                    (fs/list
+                     (path/child location-request-backup-path user)))))]
+    (doall
+     (json/read-lines-keyworded is))))
+
 (defn location-request->dot
   [location-request]
   {
@@ -418,6 +429,8 @@
 ;; call to backup latest location requests, once backup is done prepare
 ;; write down next timestamp
 ;; run nex
+#_(backup-location-requests 1592813346458)
+#_(backup-location-requests 1592763812432)
 #_(backup-location-requests 1592216594730)
 #_(backup-location-requests 1592209473916)
 #_(backup-location-requests 1581964619998)
@@ -432,6 +445,7 @@
 ;; run latest prepared command, once finished prepare new command by using
 ;; latest timestamp reported to stdout
 ;; run next
+#_(backup-tracks 1592736533)
 #_(backup-tracks 1592140720)
 #_(backup-tracks 1592035455)
 #_(backup-tracks 1590834123)
@@ -452,4 +466,3 @@
 #_(backup-tracks 1570870898)
 #_(backup-tracks 1566638746)
 #_(backup-tracks 0)
-

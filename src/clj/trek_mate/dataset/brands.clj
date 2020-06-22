@@ -388,6 +388,17 @@
      "brand:wikidata" "Q329347"
      "operator" "LUKOIL SRBIJA AD"
      "website" "https://lukoil.rs/"}}
+   "Art Petrol"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "amenity"]) "fuel")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "Art Petrol"
+     "website" "https://www.artpetrol.rs/"}}
    
    ;; banks
    "Banca Intesa"
@@ -735,8 +746,16 @@
     {
      "amenity" "fuel"
      "name" "LUKOIL"
-     "name:srl-Latn" "LUKOIL"
+     "name:sr-Latn" "LUKOIL"
      "name:sr" "ЛУКОИЛ"})
+   "Art Petrol"
+   (merge
+    (get-in brand-mapping ["Art Petrol" :tags])
+    {
+     "amenity" "fuel"
+     "name" "Арт Петрол"
+     "name:sr-Latn" "Art Petrol"
+     "name:sr" "Арт Петрол"})
 
    ;; banks
    "Banca Intesa"

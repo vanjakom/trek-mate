@@ -823,7 +823,36 @@
                (geojson/location-seq->geojson
                 (search-fn query))))}
       {
-       :status 404}))))
+       :status 404}))
+   (compojure.core/GET
+    "/proxy/photo-map/gopro/:zoom/:x/:y"
+    [zoom x y]
+    (let [response (json/read-keyworded
+                    (http/get-as-stream (str "http://localhost:7076/tile/all/" zoom "/" x "/" y)))]
+      {
+       :status 200
+       :body (json/write-to-string
+              (update-in
+               response
+               [:features]
+               (fn [features]
+                 (map
+                  (fn [feature]
+                    (update-in
+                     feature
+                     [:properties]
+                     (fn [properties]
+                       (assoc
+                        properties
+                        :photo
+                        (str "http://localhost:7076" (:url properties))
+                        :pin
+                        "/pin/grey_base/photo_pin"
+                        :id (str
+                             (get-in feature [:geometry :coordinates 0])
+                             "@"
+                             (get-in feature [:geometry :coordinates 0]))))))
+                  features))))}))))
 
 (defn create-server
   []

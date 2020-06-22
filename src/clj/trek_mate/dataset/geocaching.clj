@@ -113,9 +113,9 @@
     :geocaching)
    my-finds-seq)))
 
-(first (filter #(= "vanjakom" (get-in % [:geocaching :owner])) geocache-seq))
+#_(first (filter #(= "vanjakom" (get-in % [:geocaching :owner])) geocache-seq))
 
-(get-in (first geocache-seq) [:geocaching :owner])
+#_(get-in (first geocache-seq) [:geocaching :owner])
 
 (def geocache-seq nil)
 #_(let [context (context/create-state-context)

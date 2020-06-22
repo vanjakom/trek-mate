@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Map</title>
+    <title>route editor</title>
     <!--<link rel="stylesheet" href="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/css/ol.css" type="text/css">-->
     <!--<script type= "text/javascript" src= "https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script>-->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>
@@ -349,6 +349,10 @@
       var selectedLayer = null
       var selectedIndex = -1
 
+      // used to contain data that is loaded ad hoc
+      var availableLayer = L.featureGroup()
+      availableLayer.addTo(map)
+
       var refreshRelationFn = function() {
 	  var memberMap = new Map()
 	  relation.members.forEach(function (member, index) {
@@ -462,7 +466,17 @@
 	      }).addTo(map)
 
       var reloadAvailableDataFn = function() {
-
+	  fetch(
+	      "/route/edit/" + routeId + "/explore/" +
+		  map.getBounds().getWest() + "/" + map.getBounds().getNorth() + "/" +
+		  map.getBounds().getEast() + "/" + map.getBounds().getSouth())
+	      .then(response => response.json()).then(function(data) {
+		  // todo
+		  //relationDataset = data
+		  //relation = data.relations[routeId]
+		  //refreshRelationFn()
+		  //map.fitBounds(relationLayer.getBounds())
+	  })
       }
       new L.Control.Button({
 	  'text': 'refresh',

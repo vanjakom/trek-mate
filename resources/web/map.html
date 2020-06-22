@@ -89,10 +89,11 @@
 
       // stores currently active tiles and assigned markers ...
 //      var tileStore = new Map()
-      var markerStore = new Map()
       L.GridLayer.MarkerLoader = L.GridLayer.extend({
 	  initialize: function(url, options) {
+	      var markerStore = new Map()
               this._url = url
+	      this.markerStore = markerStore
               L.GridLayer.prototype.initialize.call(this, options)
 	      this.on("tileunload", function(tileEvent) {
 		  var key = tileEvent.coords.z + "/" + tileEvent.coords.x + "/" + tileEvent.coords.y
@@ -106,6 +107,7 @@
 	  createTile: function(coords, done) {
 	      var key = coords.z + "/" + coords.x + "/" + coords.y
               var tile = null // tileStore.get(key)
+	      var markerStore = this.markerStore
 
 	      if (tile == null) {
 		  var tileUrl = L.Util.template(this._url, L.extend(coords, this.options))
@@ -423,8 +425,27 @@
 	  "osm wms de hillshade" : osmWmsDeTile,
 	  "wmflabs hillshade": wmflabsHillshadeTile,
       }
+
+      var trekMateDot = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      trekMateDot.addTo(map)
+
       
+      var goProEvidence = new L.GridLayer.MarkerLoader(
+	  "/proxy/photo-map/gopro/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+          
       var overlayMaps = {
+	  "trek-mate dot": trekMateDot,
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
 	  "tile bounds": boundsTile,
@@ -433,7 +454,8 @@
 	  "cyclOSM lite": cyclOSMTile,
 	  "waymakred hike": waymarkedHikeTile,
 	  "waymakred cycle": waymarkedCycleTile,
-	  "track": trackTile}
+	  "track": trackTile,
+	  "gopro evidence": goProEvidence}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       
@@ -469,14 +491,6 @@
 		      noWrap: true
 		  }).addTo(map)
 	      */
-	      
-	      new L.GridLayer.MarkerLoader(
-		  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
-		  {
-		      maxZoom: 21,
-		      bounds: [[-90,-180], [90, 180]],
-		      noWrap: true
-		  }).addTo(map)
 
 	      var mousedownInterval;
 	      

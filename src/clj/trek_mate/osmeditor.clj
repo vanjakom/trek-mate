@@ -264,8 +264,10 @@
 #_(osmapi/relation-full 10948917)
 
 (defn prepare-explore-data [id left top right bottom]
-  (if-let [dataset (osmapi/map-bounding-box left bottom right top)]
+  (println id left top right bottom)
+  #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
     dataset))
+
 
 
 (def tasks (atom {}))

@@ -14,6 +14,7 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.geojson :as geojson]
+   [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
@@ -659,27 +660,27 @@
 
 ;; kupinovo
 
-(defr kupinovo
+#_(defr kupinovo
   (osm/hydrate-tags
    (osm/extract-tags
     (overpass/wikidata-id->location :Q921181))))
 
-(defr crkva-majke-angeline
+#_(defr crkva-majke-angeline
   (osm/hydrate-tags
    (osm/extract-tags
     (overpass/wikidata-id->location :Q20437346))))
 
-(defr crkva-svetog-luke
+#_(defr crkva-svetog-luke
   (osm/hydrate-tags
    (osm/extract-tags
     (overpass/wikidata-id->location :Q3582422))))
 
-(defr tvrdjava-kupinik
+#_(defr tvrdjava-kupinik
   (osm/hydrate-tags
    (osm/extract-tags
     (overpass/wikidata-id->location :Q20437778))))
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag % "@kupinovo")
   [
@@ -687,3 +688,69 @@
    crkva-majke-angeline
    crkva-svetog-luke
    tvrdjava-kupinik]))
+
+(let [track-id 1592736533
+      location-seq
+      (with-open [is (fs/input-stream
+                      (path/child
+                       env/*global-my-dataset-path*
+                       "trek-mate" "cloudkit" "track"
+                       env/*trek-mate-user* (str track-id ".json")))]
+        (:locations (json/read-keyworded is)))]
+  (web/register-dotstore
+   :track
+   (dot/location-seq->dotstore location-seq))
+  (web/register-map
+   "track-transparent"
+   {
+    :configuration {
+                    :longitude (:longitude beograd)
+                    :latitude (:latitude beograd)
+                    :zoom 7}
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                       :track
+                       [(constantly [draw/color-blue 2])])})
+  (with-open [os (fs/output-stream ["tmp" (str track-id ".gpx")])]
+     (gpx/write-track-gpx os [] location-seq)))
+
+;; set last location requests for mapping
+
+(let [location-seq (map
+                    (fn [location]
+                      (update-in
+                       location
+                       [:tags]
+                       (fn [tags]
+                         (into
+                          #{}
+                          (filter #(not (or (.startsWith % "|+") (.startsWith % "|-"))) tags)))))
+                    (map
+                     storage/location-request->dot
+                     (storage/location-request-seq-last-from-backup env/*trek-mate-user*)))
+      ;; todo, see ovcar i kablar ...
+      photo-seq '() ]
+  (web/register-map
+   "mapping"
+   {
+    :configuration {
+                    :longitude (:longitude beograd) 
+                    :latitude (:latitude beograd)
+                    :zoom 12}
+    :vector-tile-fn (web/tile-vector-dotstore-fn
+                     [(fn [_ _ _ _]
+                        (concat
+                         location-seq
+                         (map
+                          (fn [feature]
+                            {
+                             :longitude (get-in feature [:geometry :coordinates 0])
+                             :latitude (get-in feature [:geometry :coordinates 1])
+                             :tags #{
+                                     tag/tag-photo
+                                     (tag/url-tag "url" (get-in feature [:properties :url]))}})
+                          photo-seq))
+                        )])}))
+
+
+
