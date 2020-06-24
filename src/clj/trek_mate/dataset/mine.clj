@@ -119,6 +119,8 @@
    (q 12749989 "#prerast")
    (q 61132097)
    
+   (q 31182653 tag/tag-hike)
+   
    (l 20.55705, 43.65073 "!kajak spust Ibar" tag/tag-kayak)
    (q 959733)
 
@@ -131,6 +133,14 @@
    (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
    (r 11144136)
 
+   (q 1264703) ;; manastir manasija
+   (q 2453168) ;; resavska pecina
+   (l 21.441389 44.088889
+      "!Винатовача"
+      "prašuma"
+      (tag/url-tag "wikipedia" "https://sr.wikipedia.org/wiki/Винатовача")
+      (tag/url-tag "srbija inspirise" "https://inspiracija.srbijastvara.rs/files/Resava-Srbija%20Stvara%20inspiraciju-CIR.pdf")) 
+   
    ;; arilje
    (l 19.91661, 43.64074 "bazeni pored reke" tag/tag-beach (tag/url-tag "website" "http://www.srbijaplus.net/visocka-banja-arilje.htm"))
    (l 19.93326, 43.70182
