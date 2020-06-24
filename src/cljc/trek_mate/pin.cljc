@@ -75,6 +75,11 @@
 (def location-pin "location_pin")
 (def photo-pin "photo_pin")
 
+;; activity
+(def bike-pin "bike_route_pin")
+(def hike-pin "hike_route_pin")
+(def kayak-pin "kayak_route_pin")
+
 (defn base-pin-trigger [tags]
   (cond
     (and
@@ -137,6 +142,7 @@
   (or   
    (if (contains? tags tag/tag-water) water-pin)
    (if (contains? tags tag/tag-rest) rest-pin)
+   (if (contains? tags tag/tag-river) creek-pin)
    (if (contains? tags tag/tag-creek) creek-pin)
    (if (contains? tags tag/tag-view) view-pin)
    (if (contains? tags tag/tag-sign) sign-pin)
@@ -145,6 +151,12 @@
    (if (contains? tags tag/tag-footpath) footpath-pin)
    (if (contains? tags tag/tag-crossroad) crossroad-pin)
    (if (contains? tags tag/tag-road) road-pin)))
+
+(defn activity-trigger [tags]
+  (or
+   (if (contains? tags tag/tag-bike) bike-pin)
+   (if (contains? tags tag/tag-hike) hike-pin)
+   (if (contains? tags tag/tag-kayak) kayak-pin)))
 
 (defn personal-trigger [tags]
   (or
@@ -167,6 +179,8 @@
      outdoor-trigger
      integration-trigger
      personal-trigger
+
+     activity-trigger
 
      ;; photo pin
      (fn [tags]

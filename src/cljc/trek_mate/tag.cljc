@@ -195,15 +195,18 @@
 ;;; maybe personal tag makes more sense ...
 (def tag-life-personal "@life")
 
-(def activity-bike "#bike")
+(def tag-bike "#bike")
+(def activity-bike tag-bike)
 (def activity-drive "#drive")
 (def activity-boat "#boat")
 (def activity-ferry "#ferry")
 (def activity-moto "#moto")
 (def activity-walk "#walk")
 (def activity-run "#run")
-(def activity-hike "#hike")
-(def activity-kayak "#kayak")
+(def tag-hike "#hike")
+(def activity-hike tag-hike)
+(def tag-kayak "#kayak")
+(def activity-kayak tag-kayak)
 (def activity-roller "#roller")
 (def activity-train "#train")
 

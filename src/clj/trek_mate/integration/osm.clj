@@ -628,6 +628,9 @@
            (if-let [name (get osm-tags "name")]
              (tag/name-tag name)
              nil)))))
+
+    #(when (= (get % "leisure") "nature_reserve") tag/tag-national-park)
+    
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
     #(when (= (get % "natural") "peak") tag/tag-mountain)
     #(when (= (get % "natural") "beach") tag/tag-beach)
@@ -645,7 +648,8 @@
     #(when (= (get % "amenity") "fuel") tag/tag-gas-station)
     #(when (= (get % "amenity") "restaurant") tag/tag-restaurant)
     #(when (= (get % "amenity") "drinking_water") tag/tag-water)
-    
+
+    #(when (= (get % "historic") "castle") tag/tag-history)
     #(when (= (get % "historic") "monument") tag/tag-history)
     #(when (= (get % "historic") "memorial") tag/tag-history)
     #(when (= (get % "historic") "ruins") tag/tag-history)
@@ -657,8 +661,13 @@
     #(when (= (get % "tourism") "picnic_site") tag/tag-rest)
 
     #(when (= (get % "waterway") "waterfall") tag/tag-creek)
+    #(when (= (get % "waterway") "river") tag/tag-river)
 
     #(when (= (get % "landuse") "recreation_ground") tag/tag-rest)
+
+    ;; routes
+    #(when (and (= (get % "type") "route") (= (get % "route") "bicycle")) tag/tag-bike)
+    #(when (and (= (get % "type") "route") (= (get % "route") "hiking")) tag/tag-hike)
     
     #(when (contains? % "heritage") tag/tag-history)
     #(when (= (get % "heritage:operator") "whc")

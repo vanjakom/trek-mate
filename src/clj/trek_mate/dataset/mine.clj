@@ -32,96 +32,138 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(web/create-server)
+(defn add-tag
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
 
-(def dataset-path (path/child
-                   env/*global-my-dataset-path*
-                   "extract"
-                   "mine"))
+(defn n [n & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/node-id->location n))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
+(defn w [w & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/way-id->location w))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
+(defn r [r & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/relation-id->location r))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))
+(def t add-tag)
+(defn q [q & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/wikidata-id->location (keyword (str "Q" q))))
+   [:tags]
+   into
+   tags))
+(defn l [longitude latitude & tags]
+  {:longitude longitude :latitude latitude :tags (into #{}  tags)})
 
 ;; work on location list
 ;; Q3533204 - Triangle building, Paris
 ;; Q189476 - Abraj Al Bait towers, Mecca
 
-;; todo copy
-;; requires data-cache-path to be definied, maybe use *ns*/data-cache-path to
-;; allow defr to be defined in clj-common
-(def data-cache-path (path/child dataset-path "data-cache"))
-(defmacro defr [name body]
-  `(let [restore-path# (path/child data-cache-path ~(str name))]
-     (if (fs/exists? restore-path#)
-       (def ~name (with-open [is# (fs/input-stream restore-path#)]
-                    (edn/read-object is#)))
-       (def ~name (with-open [os# (fs/output-stream restore-path#)]
-                    (let [data# ~body]
-                      (edn/write-object os# data#)
-                      data#))))))
+(def beograd (wikidata/id->location :Q3711))
 
-(defn remove-cache [symbol]
-  (fs/delete (path/child data-cache-path (name symbol))))
-#_(remove-cache 'geocache-seq)
+;; use @around for not accurate locations
 
-(def active-pipeline nil)
-#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+(def sleeps
+  [
+   (l 19.92263, 43.39666 "#sleep" "!Vila Uvac" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/villa-uvac.en-gb.html"))
+   (l 21.92958, 43.77246 "#sleep" "!Ramonda" "@around" (tag/url-tag "website" "https://ramondahotel.com"))
+   (l 21.87245, 43.64232 "#sleep" "!nataly spa" "@around" (tag/url-tag "website" "http://www.natalyspa.com"))
+   (n 3950012577)
+   ])
 
+(def eats
+  [
+   (l 22.35306, 44.29087 "#eat" "milan kafana")])
 
-(defr belgrade (wikidata/id->location :Q3711))
+(def dones [])
 
-(defr location-map
-  (reduce
-   (fn [location-map location]
-     (let [location-id (util/location->location-id location)]
-       (update-in
-        location-map
-        [location-id]
-        (fn [old-location]
-          (if old-location
-            (do
-              (report "multiple location")
-              
-              (report old-location)
-              (report location)
-              
-              (call-and-pass
-               report
-               (assoc
-                location
-                :tags
-                (clojure.set/union (:tags location) (:tags old-location)))))
-            location)))))
-   {}
-   (map
-    (fn [location-request]
-      {
-       :longitude (:longitude (:location location-request))
-       :latitude (:latitude (:location location-request))
-       :tags (into #{} (:tags location-request))})
-    (storage/location-request-seq-from-backup env/*trek-mate-user*))))
-(remove-cache 'location-map)
-(count location-map)
+(def todos
+  [
+   (q 3444519
+      "@todo" "ruta sava zavrsiti" "biciklisticka staza" "vikend"
+      (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
+   (r 11227980)
+   
+   ;; vojvodina
+   (q 2629582)
+   
+   ;; golubac
+   (l 21.63431, 44.65217 "!Golubac tvrdjava i hike" tag/tag-hike)
+   (l 22.30019, 44.63788 "!kajak spust Dunav" "Trajanova tabla" "klisura" tag/tag-kayak)
+   (n 5789949238)
+   (n 1918839400)
+   (n 6967861244)
+   (q 12749989 "#prerast")
+   (q 61132097)
+   
+   (l 20.55705, 43.65073 "!kajak spust Ibar" tag/tag-kayak)
+   (q 959733)
+
+   ;; ozren, devica, rtanj
+   (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
+   (l 21.89352, 43.77618 tag/tag-hike "!planinarenje, Rtanj")
+   
+   ;; divcibare
+   (r 11161806)
+   (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
+   (r 11144136)
+
+   ;; arilje
+   (l 19.91661, 43.64074 "bazeni pored reke" tag/tag-beach (tag/url-tag "website" "http://www.srbijaplus.net/visocka-banja-arilje.htm"))
+   (l 19.93326, 43.70182
+      "!spust Rzav" tag/tag-kayak
+      (tag/url-tag "tifran organizacija" "https://www.tifran.org/veliki-rzav/")
+      "pocetak most Gureši" "kraj Roge"
+      (tag/url-tag "youtube" "https://www.youtube.com/watch?v=31h3P5vs7aw")
+      (tag/url-tag "youtube: Veliki Rzav - Drežnik" "https://www.youtube.com/watch?v=ZGmU-PSrtj0")
+      (tag/url-tag "youtube: Rzav, Arilje" "https://www.youtube.com/watch?v=vkqbigljpRE"))
+   ])
 
 (web/register-map
  "mine"
  {
   :configuration {
-                  
-                  :longitude (:longitude belgrade)
-                  :latitude (:latitude belgrade)
-                  :zoom 12}
-  :raster-tile-fn (web/tile-border-overlay-fn
-                   (web/tile-number-overlay-fn
-                    (web/create-osm-external-raster-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly (vals location-map))])
-  :search-fn nil})
-#_(web/register-dotstore :mine (constantly (vals location-map)))
+                  :longitude (:longitude beograd) 
+                  :latitude (:latitude beograd)
+                  :zoom 10}
+  :vector-tile-fn (web/tile-vector-dotstore-fn
+                   [(fn [_ _ _ _]
+                      (concat
+                       sleeps
+                       eats
+                       dones
+                       todos))])})
+
 
 
 ;; filtering of all tracks
 ;; tracks are located under my-dataset, trek-mate.storage is used for backup from CK
 ;; tracks are stored in TrackV1 on CK, sortable by timestamp field
-
-(def track-repository-path (path/child dataset-path "track-repository"))
-(def track-repository-pipeline nil)
+#_(def track-repository-path (path/child dataset-path "track-repository"))
+#_(def track-repository-pipeline nil)
 #_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
@@ -213,20 +255,17 @@
                      track-repository-path)))
   :locations-fn (fn [] location-seq)})
 
-
-
-
 ;; prepare track split
 ;; using same logic as for way split in osm, serbia dataset
-(def track-backup-path (path/child
+#_(def track-backup-path (path/child
                         storage/track-backup-path
                         env/*trek-mate-user*))
-(def track-split-path
+#_(def track-split-path
   #_(path/child dataset-path "track-split")
   ["tmp" "track-split"])
 
 ;; code taken from serbia osm split
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       channel-provider (pipeline/create-channels-provider)
       context-thread (pipeline/create-state-context-reporting-finite-thread
                       context
@@ -251,7 +290,7 @@
        channel))
    (channel-provider :track-in))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
-(pipeline/stop-pipeline (:track-in active-pipeline))
+#_(pipeline/stop-pipeline (:track-in active-pipeline))
 
 #_(pipeline/closed? (:track-in track-split-pipeline))
 
