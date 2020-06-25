@@ -29,6 +29,52 @@
    [trek-mate.util :as util]
    [trek-mate.web :as web]))
 
+
+(defn n [n & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/node-id->location n))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
+(defn w [w & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/way-id->location w))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
+(defn r [r & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/relation-id->location r))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))
+(defn t
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
+(defn q [q & tags]
+  (update-in
+   (osm/extract-tags
+    (overpass/wikidata-id->location (keyword (str "Q" q))))
+   [:tags]
+   into
+   tags))
+(defn l [longitude latitude & tags]
+  {:longitude longitude :latitude latitude :tags (into #{}  tags)})
+
+
 (def dataset-path (path/child
                    env/*global-my-dataset-path*
                    "extract"
@@ -688,6 +734,33 @@
    crkva-majke-angeline
    crkva-svetog-luke
    tvrdjava-kupinik]))
+
+(let [golubac (q 845997)
+      location-seq
+      [
+       (n 6967861244)
+       (n 1918839400)
+       (n 7651636349)
+       (l 22.31242, 44.65086 "pocetak staze" "Mali Štrbac")
+       (n 1442233076)
+       (n 1442227477)
+       (l 22.27180, 44.60020 "pocetak staze" "Ploće" "Veliki Štrbac")
+
+       (l 21.75589, 44.64011 "kraj staze" "Golubac - Brnjica")
+       (l 21.67374, 44.65996 "pocetak staze" "Golubac - Brnjica")
+       (n 4205226699)
+       (q 2625461)
+       ]]
+  (web/register-map
+   "golubac"
+   {
+    :configuration {
+                    :longitude (:longitude golubac) 
+                    :latitude (:latitude golubac)
+                    :zoom 12}
+    :vector-tile-fn (web/tile-vector-dotstore-fn
+                     [(fn [_ _ _ _]
+                        location-seq)])}))
 
 (let [track-id 1592736533
       location-seq

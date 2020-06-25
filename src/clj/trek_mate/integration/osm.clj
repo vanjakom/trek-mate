@@ -656,6 +656,7 @@
     #(when (= (get % "tourism") "attraction") tag/tag-tourism)
     #(when (= (get % "tourism") "museum") tag/tag-museum)
     #(when (= (get % "tourism") "hotel") tag/tag-hotel)
+    #(when (= (get % "tourism") "guest_house") tag/tag-sleep)
     #(when (= (get % "tourism") "alpine_hut") tag/tag-sleep)
     #(when (= (get % "tourism") "viewpoint") tag/tag-view)
     #(when (= (get % "tourism") "picnic_site") tag/tag-rest)

@@ -32,14 +32,6 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(defn add-tag
-  [location & tag-seq]
-  (update-in
-   location
-   [:tags]
-   clojure.set/union
-   (into #{} (map as/as-string tag-seq))))
-
 (defn n [n & tags]
   (update-in
    (osm/extract-tags
@@ -67,7 +59,13 @@
    (conj
     tags
     (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))
-(def t add-tag)
+(def t
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
 (defn q [q & tags]
   (update-in
    (osm/extract-tags
