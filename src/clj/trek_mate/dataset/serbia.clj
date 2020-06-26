@@ -22,6 +22,7 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.render :as render]
    [trek-mate.storage :as storage]
@@ -738,6 +739,7 @@
 (let [golubac (q 845997)
       location-seq
       [
+       (n 1852468788)
        (n 6967861244)
        (n 1918839400)
        (n 7651636349)
@@ -761,6 +763,42 @@
     :vector-tile-fn (web/tile-vector-dotstore-fn
                      [(fn [_ _ _ _]
                         location-seq)])}))
+
+(let [way-id-seq [819363302 338433006 508021461 337044054]
+      dataset-seq (map osmapi/way-full way-id-seq)
+      dataset (osmapi/merge-datasets dataset-seq)
+      way-seq (map
+               (fn [way]
+                 (map
+                  (fn [location]
+                    (assoc
+                     location
+                     :longitude
+                     (as/as-double (:longitude location))
+                     :latitude
+                     (as/as-double (:latitude location))))
+                  (:nodes way)))
+               (map (partial osmapi/extract-way dataset) way-id-seq))]
+  (def a way-seq))
+
+(first a)
+
+(keys (:ways b))
+(keys (:ways (second c)))
+
+(keys (:ways (merge (first c) (second c))))
+
+(first (keys (:nodes a))) 4974174193
+(get-in a [:nodes 4974174193])
+(count a)
+(first a)
+
+(with-open [os (fs/output-stream ["tmp" "test.geojson"])]
+  (json/write-to-stream   
+   (geojson/geojson
+    [
+     (geojson/location-seq-seq->multi-line-string a)])
+   os))
 
 (let [track-id 1592736533
       location-seq

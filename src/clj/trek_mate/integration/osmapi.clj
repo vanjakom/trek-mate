@@ -741,13 +741,7 @@
     ;; todo parse, returns raw response
     (full-xml->dataset (:content bbox))))
 
-;; 20.61906, 45.19471
-;; 20.62567, 45.19066
-
-
-(def a (map-bounding-box 20.61906 45.19066 20.62567 45.19471))
-
-
+#_(map-bounding-box 20.61906 45.19066 20.62567 45.19471)
 
 (defn gpx-bounding-box
   "Performs /api/0.6/trackpoints"
@@ -760,6 +754,28 @@
      min-longitude "," min-latitude "," max-longitude "," max-latitude
      "&page=0"))))
 
+;; util functions to work with extracted dataset
+(defn merge-datasets [dataset-seq]
+  (reduce
+   (fn [final dataset]
+     (assoc
+      final
+      :nodes
+      (merge (:nodes final) (:nodes dataset))
+      :ways
+      (merge (:ways final) (:ways dataset))
+      :relations
+      (merge (:relations final) (:relations dataset))))
+   (first dataset-seq)
+   (rest dataset-seq)))
 
-
+(defn extract-way
+  [dataset way-id]
+  (update-in
+   (get-in dataset [:ways way-id])
+   [:nodes]
+   (fn [ids]
+     (map
+      #(get-in dataset [:nodes %])
+      ids))))
 
