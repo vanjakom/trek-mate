@@ -428,7 +428,8 @@
 ;; ----------- location backup ---------------
 ;; call to backup latest location requests, once backup is done prepare
 ;; write down next timestamp
-;; run nex
+;; run next
+#_(backup-location-requests 1593417079456)
 #_(backup-location-requests 1592813346458)
 #_(backup-location-requests 1592763812432)
 #_(backup-location-requests 1592216594730)
@@ -440,11 +441,11 @@
 #_(backup-location-requests 1572251631966)
 #_(backup-location-requests 0)
 
-
 ;; ----------- track backup --------------
 ;; run latest prepared command, once finished prepare new command by using
 ;; latest timestamp reported to stdout
 ;; run next
+#_(backup-tracks 1593354319)
 #_(backup-tracks 1592736533)
 #_(backup-tracks 1592140720)
 #_(backup-tracks 1592035455)

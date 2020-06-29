@@ -762,7 +762,9 @@
                     :zoom 12}
     :vector-tile-fn (web/tile-vector-dotstore-fn
                      [(fn [_ _ _ _]
-                        location-seq)])}))
+                        location-seq)])})
+  (storage/import-location-v2-seq-handler
+   (map #(t % "@golubac2020") location-seq)))
 
 (let [way-id-seq [819363302 338433006 508021461 337044054]
       dataset-seq (map osmapi/way-full way-id-seq)
@@ -826,7 +828,6 @@
      (gpx/write-track-gpx os [] location-seq)))
 
 ;; set last location requests for mapping
-
 (let [location-seq (map
                     (fn [location]
                       (update-in
