@@ -59,7 +59,7 @@
    (conj
     tags
     (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))
-(def t
+(defn t
   [location & tag-seq]
   (update-in
    location
@@ -148,6 +148,9 @@
       (tag/url-tag "youtube" "https://www.youtube.com/watch?v=31h3P5vs7aw")
       (tag/url-tag "youtube: Veliki Rzav - Drežnik" "https://www.youtube.com/watch?v=ZGmU-PSrtj0")
       (tag/url-tag "youtube: Rzav, Arilje" "https://www.youtube.com/watch?v=vkqbigljpRE"))
+
+   ;; tara
+   (q 1266612 "bike, hike vacation")
    ])
 
 (web/register-map

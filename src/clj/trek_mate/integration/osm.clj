@@ -629,6 +629,7 @@
              (tag/name-tag name)
              nil)))))
 
+    #(when (= (get % "boundary") "national_park") tag/tag-national-park)
     #(when (= (get % "leisure") "nature_reserve") tag/tag-national-park)
     
     #(when (= (get % "natural") "mountain_range") tag/tag-mountain)
