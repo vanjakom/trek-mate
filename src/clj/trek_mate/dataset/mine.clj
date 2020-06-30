@@ -34,8 +34,9 @@
 
 (defn n [n & tags]
   (update-in
-   (osm/extract-tags
-    (overpass/node-id->location n))
+   (dot/enrich-tags
+    (osm/extract-tags
+     (overpass/node-id->location n)))
    [:tags]
    into
    (conj
@@ -43,22 +44,24 @@
     (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
 (defn w [w & tags]
   (update-in
-   (osm/extract-tags
-    (overpass/way-id->location w))
+   (dot/enrich-tags
+    (osm/extract-tags
+     (overpass/way-id->location w)))
    [:tags]
    into
    (conj
     tags
     (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
 (defn r [r & tags]
-  (update-in
-   (osm/extract-tags
-    (overpass/relation-id->location r))
-   [:tags]
-   into
-   (conj
-    tags
-    (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))
+  (dot/enrich-tags
+   (update-in
+    (osm/extract-tags
+     (overpass/relation-id->location r))
+    [:tags]
+    into
+    (conj
+     tags
+     (tag/url-tag r (str "http://openstreetmap.org/relation/" r))))))
 (defn t
   [location & tag-seq]
   (update-in
@@ -68,8 +71,9 @@
    (into #{} (map as/as-string tag-seq))))
 (defn q [q & tags]
   (update-in
-   (osm/extract-tags
-    (overpass/wikidata-id->location (keyword (str "Q" q))))
+   (dot/enrich-tags
+    (osm/extract-tags
+     (overpass/wikidata-id->location (keyword (str "Q" q)))))
    [:tags]
    into
    tags))
@@ -92,9 +96,18 @@
    (n 3950012577)
    ])
 
+(def sleeps-recommend
+  [])
+
 (def eats
   [
    (l 22.35306, 44.29087 "#eat" "milan kafana")])
+
+(def eats-recommend
+  [
+   (n 5715111221) ;; veliko gradiste, kasina kod ajduka
+   (n 7669082032) ;; donji milanovac, kapetan
+   ])
 
 (def dones [])
 
@@ -164,7 +177,9 @@
                    [(fn [_ _ _ _]
                       (concat
                        sleeps
+                       sleeps-recommend
                        eats
+                       eats-recommend
                        dones
                        todos))])})
 
