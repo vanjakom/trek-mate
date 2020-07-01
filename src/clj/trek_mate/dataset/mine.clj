@@ -164,6 +164,8 @@
 
    ;; tara
    (q 1266612 "bike, hike vacation")
+
+   (q 341936) ;; djavolja varos
    ])
 
 (web/register-map
