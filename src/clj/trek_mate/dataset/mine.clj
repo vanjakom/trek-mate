@@ -101,6 +101,7 @@
 
 (def eats
   [
+   (w 519051385 "DivciBAR")
    (l 22.35306, 44.29087 "#eat" "milan kafana")])
 
 (def eats-recommend
@@ -168,6 +169,12 @@
    (q 341936) ;; djavolja varos
    ])
 
+(def todos-bosna
+  [
+   ;; sutjeska
+   (q 1262800)
+   (q 539439)])
+
 (web/register-map
  "mine"
  {
@@ -183,7 +190,8 @@
                        eats
                        eats-recommend
                        dones
-                       todos))])})
+                       todos
+                       todos-bosna))])})
 
 
 
