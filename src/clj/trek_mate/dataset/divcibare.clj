@@ -144,6 +144,127 @@
 #_(storage/import-location-v2-seq-handler
  (map #(add-tag % "@divcibare" "@divcibare-zelena") zelena-staza-seq))
 
+(defn n [n & tags]
+  (update-in
+   (dot/enrich-tags
+    (osm/extract-tags
+     (overpass/node-id->location n)))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
+(defn w [w & tags]
+  (update-in
+   (dot/enrich-tags
+    (osm/extract-tags
+     (overpass/way-id->location w)))
+   [:tags]
+   into
+   (conj
+    tags
+    (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
+(defn r [r & tags]
+  (dot/enrich-tags
+   (update-in
+    (osm/extract-tags
+     (overpass/relation-id->location r))
+    [:tags]
+    into
+    (conj
+     tags
+     (tag/url-tag r (str "http://openstreetmap.org/relation/" r))))))
+(defn t
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
+(defn q [q & tags]
+  (update-in
+   (dot/enrich-tags
+    (osm/extract-tags
+     (overpass/wikidata-id->location (keyword (str "Q" q)))))
+   [:tags]
+   into
+   tags))
+(defn l [longitude latitude & tags]
+  {:longitude longitude :latitude latitude :tags (into #{}  tags)})
+
+
+;; 20200703, kruzna staza hike
+
+(do
+  #_(let [track-id 1588917825
+       location-seq
+       (with-open [is (fs/input-stream
+                       (path/child
+                        env/*global-my-dataset-path*
+                        "trek-mate" "cloudkit" "track"
+                        env/*trek-mate-user* (str track-id ".json")))]
+         (:locations (json/read-keyworded is)))]
+   (web/register-dotstore
+    :track
+    (dot/location-seq->dotstore location-seq)))
+  (let [track-id 1590403654
+        location-seq
+        (with-open [is (fs/input-stream
+                        (path/child
+                         env/*global-my-dataset-path*
+                         "trek-mate" "cloudkit" "track"
+                         env/*trek-mate-user* (str track-id ".json")))]
+          (:locations (json/read-keyworded is)))]
+    (web/register-dotstore
+     :track
+     (dot/location-seq->dotstore location-seq)))
+  (web/register-map
+    "track-transparent"
+    {
+     :configuration {
+                     :longitude (:longitude divcibare)
+                     :latitude (:latitude divcibare)
+                     :zoom 7}
+     :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                      (web/create-transparent-raster-tile-fn)
+                      :track
+                      [(constantly [draw/color-blue 2])])}))
+
+(def peaks
+  [
+   (n 1641073999)
+   (n 3059116548 tag/tag-todo)
+   (n 1030149129 tag/tag-todo)
+   (n 6828440585 tag/tag-todo "deluje da nije")
+   (n 417395433)
+   (n 416824566)
+   (n 1642964111 tag/tag-todo)
+   (n 417396302 tag/tag-todo)])
+
+(def waypoints
+  [
+   (l 20.02368, 44.11675 "desno")
+   (l 20.02155, 44.11457 "pravo")
+   (l 20.01872, 44.11441 "pravo")
+   (l 20.01291, 44.11198 "desno")
+   (l 20.00658, 44.10839 "levo")
+   (l 20.00503, 44.10361 "desno")
+   (l 20.01076, 44.10383 "pravo ili levo, spajaju se")
+   (l 20.01299, 44.10119 "levo za vidikovac")
+   (l 20.00797, 44.10108 "pravo")
+   (l 20.00050, 44.09757 "vrh staze")
+   (l 19.99660, 44.09631 "levo" "u nastavku staza ka gradu?")
+   (l 19.99218, 44.09554 "pravo")
+   (l 19.98968, 44.09652 "pravo ili dole")
+   ;; nastavak kroz beogradsko naselje
+   (l 19.97814, 44.09890 "desno")
+   (l 19.97750, 44.10726 "levo")
+   (l 19.97589, 44.10996 "levo za golubac")
+   
+   ])
+
+
+
 (web/register-map
  "divcibare"
  {
@@ -155,8 +276,16 @@
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
-  :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [])])
+  :vector-tile-fn (web/tile-vector-dotstore-fn
+                   [(constantly
+                     (concat
+                      peaks
+                      waypoints))])
   :search-fn nil})
+
+(storage/import-location-v2-seq-handler
+ (map #(add-tag % "@divcibare" "@divcibare-kruzna") (concat peaks waypoints)))
+
 
 
 

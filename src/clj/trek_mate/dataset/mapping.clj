@@ -122,7 +122,7 @@
 
 
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-(let [track-id 1593258104
+(let [track-id 1593759487
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
@@ -182,6 +182,15 @@
        (geojson/location-seq->line-string
         track-location-seq)))
      os))
+  (web/register-map
+   "mapping"
+   {
+    :configuration {
+                    :longitude (:longitude beograd) 
+                    :latitude (:latitude beograd)
+                    :zoom 12}
+    :vector-tile-fn (web/tile-vector-dotstore-fn
+                     [(fn [_ _ _ _] location-seq)])})
   (web/register-dotstore
    :track
    (dot/location-seq->dotstore track-location-seq))
