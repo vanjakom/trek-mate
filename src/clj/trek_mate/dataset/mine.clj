@@ -175,6 +175,12 @@
    (q 1262800)
    (q 539439)])
 
+(def monuments
+  [
+   ;; serbia
+   (q 3066255) ;; cegar
+   ])
+
 (web/register-map
  "mine"
  {
@@ -191,7 +197,8 @@
                        eats-recommend
                        dones
                        todos
-                       todos-bosna))])})
+                       todos-bosna
+                       monuments))])})
 
 
 
