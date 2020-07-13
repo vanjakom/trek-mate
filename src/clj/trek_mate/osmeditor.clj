@@ -295,7 +295,26 @@
 (defn tasks-list []
   (vals (deref tasks)))
 
+;; to be used for extension of editor with various projects, brands, hiking,
+;; wikidata and other intergrations
+(def projects (atom {}))
 
+(defn project-report
+  [route description routes]
+  (swap!
+   projects
+   assoc
+   route
+   {
+    :description description
+    :routes routes})
+  nil)
+
+(defn project-list []
+  (deref projects))
+
+(defn project-get [name]
+  (get (deref projects) name))
 
 (http-server/create-server
  7077
@@ -354,6 +373,31 @@
                 [:td {:style "border: 1px solid black; padding: 5px;"}
                  (count (filter #(not (= (:done %) true)) (:candidate-seq task)))]])
              (tasks-list))]])})
+
+  (compojure.core/GET
+   "/projects"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:body  {:style "font-family:arial;"}
+            [:table {:style "border-collapse:collapse;"}
+             (map
+              (fn [[id info]]
+                [:tr
+                 [:td {:style "border: 1px solid black; padding: 5px;"}
+                  [:a {:href (str "/projects/" id "/index") :target "_blank"}
+                   (:description info)]]])
+              (project-list))]])})
+
+  (compojure.core/GET
+   "/projects/:id/*"
+   _
+   (fn [request]
+     (println request)
+     (if-let [project (project-get (get-in request [:params :id]))]
+       ((:routes project) request)
+       {:status 404})))
   
   (compojure.core/GET
    "/candidates/:task-id"

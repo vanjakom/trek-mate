@@ -8,11 +8,13 @@
    [clj-common.context :as context]
    [clj-common.edn :as edn]
    [clj-common.io :as io]
+   [clj-common.http :as http]
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-common.time :as time]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
@@ -81,10 +83,26 @@
                    "extract"
                    "serbia"))
 
+(def osm-pbf-root-path (path/child
+                        env/*global-dataset-path*
+                        "geofabrik.de"))
 (def osm-pbf-path (path/child
-                   env/*global-dataset-path*
-                   "geofabrik.de"
+                   osm-pbf-root-path
                    "serbia-latest.osm.pbf"))
+
+;; download latest serbia geofabrik export
+;; #serbia-latest
+#_(let [date (time/date)
+      download-path (path/child
+                     osm-pbf-root-path
+                     (str "serbia-" date ".osm.pbf"))
+      upstream-url "http://download.geofabrik.de/europe/serbia-latest.osm.pbf"]
+  (with-open [is (http/get-as-stream upstream-url)
+              os (fs/output-stream download-path)]
+    (io/copy-input-to-output-stream is os)
+    (when (fs/exists? osm-pbf-path)
+      (fs/delete osm-pbf-path))
+    (fs/link download-path osm-pbf-path)))
 
 ;; flatten relations and ways to nodes
 ;; osmconvert \
