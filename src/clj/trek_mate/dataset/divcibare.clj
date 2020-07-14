@@ -195,7 +195,7 @@
 
 ;; 20200703, kruzna staza hike
 
-(do
+#_(do
   #_(let [track-id 1588917825
        location-seq
        (with-open [is (fs/input-stream
@@ -230,7 +230,7 @@
                       :track
                       [(constantly [draw/color-blue 2])])}))
 
-(def peaks
+#_(def peaks
   [
    (n 1641073999)
    (n 3059116548 tag/tag-todo)
@@ -241,7 +241,7 @@
    (n 1642964111 tag/tag-todo)
    (n 417396302 tag/tag-todo)])
 
-(def waypoints
+#_(def waypoints
   [
    (l 20.02368, 44.11675 "desno")
    (l 20.02155, 44.11457 "pravo")
@@ -263,6 +263,14 @@
    
    ])
 
+;; divcibare general map
+(def divcibare-seq
+  [
+   (l 19.98549 44.09859 "Zlatni breg")
+   (l 19.99047 44.10155 "WindResort")
+   (l 19.99468 44.11151 "Borovi")
+   (l 20.00282 44.11367 "~Promaja")])
+
 
 
 (web/register-map
@@ -279,11 +287,10 @@
   :vector-tile-fn (web/tile-vector-dotstore-fn
                    [(constantly
                      (concat
-                      peaks
-                      waypoints))])
+                      divcibare-seq))])
   :search-fn nil})
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map #(add-tag % "@divcibare" "@divcibare-kruzna") (concat peaks waypoints)))
 
 
