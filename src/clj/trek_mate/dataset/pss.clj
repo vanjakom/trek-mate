@@ -25,6 +25,7 @@
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
@@ -139,7 +140,9 @@
        [(inc sum) (inc y) n]
        [(inc sum) y (inc n)])))
  [0 0 0]
- posts) ; [202 89 113]
+ posts)
+;; 20200720 [214 102 112]
+;; 20200422 [202 89 113]
 
 #_(count
  (into
@@ -395,11 +398,14 @@
 
 ;; mapping notes to be displayed in wiki
 (def note-map
-  {"3-3-2" "jako malo poklapanja sa trenutnim putevima, sat i gpx ne pomazu"
-   "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
-   "4-45-3" "gpx je problematican, deluje da je kruzna staza"
-   "7-3-5" "gpx vodi pored ucrtanih puteva, malo poklapanja sa sat snimcima"
-   "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"})
+  {"3-3-2" "malo poklapanja sa unešenim putevima, snimci i tragovi ne pomazu"
+   ;; staza nema gpx
+   ;; "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
+   "4-45-3" "gpx je problematičan, deluje da je kružna staza"
+   "7-3-5" "gpx vodi pored ucrtanih puteva, malo poklapanja sa snimcima"
+   "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
+   "4-40-1" "kretanje železničkom prugom kroz tunele?"
+   "4-31-9" "gpx problematičan, dosta odstupanja"})
 
 (defn id->region
   [id]
@@ -453,7 +459,10 @@
           [:a {
              :href (str "http://localhost:7077/view/relation/" osm-id)
                :target "_blank"} "order"]
-          
+          [:br]
+          [:a {
+             :href (str "http://localhost:7077/route/edit/" osm-id)
+               :target "_blank"} "edit"]          
           [:br]
           osm-id))]
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
@@ -492,124 +501,13 @@
                         ""))
          (println "|" (if-let [note (get (:osm relation) "note")]
                         note
-                        ""))))
+                        (if-let [note (get note-map id)]
+                          note
+                          "")))))
      (println "|}"))))
 
-(http-server/create-server
- 7079
- (compojure.core/routes
-  (compojure.core/GET
-   "/map"
-   _
-   {
-    :status 200
-    :body (jvm/resource-as-stream ["web" "pss.html"])})
-  (compojure.core/GET
-   "/state"
-   _
-   {
-    :status 200
-    :headers {
-              "Content-Type" "text/html; charset=utf-8"}
-    :body (let [[mapped-routes routes-with-gpx rest-of-routes]
-                (reduce
-                 (fn [[mapped gpx rest-of] route]
-                   (if (some? (get relation-map (:id route)))
-                     [(conj mapped route) gpx rest-of]
-                     (if (some? (get route :gpx-path))
-                       [mapped (conj gpx route) rest-of]
-                       [mapped gpx (conj rest-of route)])))
-                 [[] [] []]
-                 (vals routes))]
-            (hiccup/html
-            [:html
-             [:body {:style "font-family:arial;"}
-              [:div (str "mapirane rute (" (count mapped-routes)  ")")]
-              [:table {:style "border-collapse:collapse;"}
-               (map
-                (comp
-                 render-route
-                 :id)
-                (sort
-                 #(id-compare (:id %1) (:id %2))
-                 mapped-routes))]
-              [:br]
-              [:div (str "rute koje poseduju gpx (" (count routes-with-gpx) ")")]
-              [:table {:style "border-collapse:collapse;"}
-               (map
-                (comp
-                 render-route
-                 :id)
-                (sort
-                 #(id-compare (:id %1) (:id %2))
-                 routes-with-gpx))]
-              [:br]
-              [:div (str "ostale rute (" (count rest-of-routes) ")")]
-              [:table {:style "border-collapse:collapse;"}
-               (map
-                (comp
-                 render-route
-                 :id)
-                (sort
-                 #(id-compare (:id %1) (:id %2))
-                 rest-of-routes))]]]))})
-  (compojure.core/GET
-   "/data/list"
-   _
-   {
-    :status 200
-    :headers {
-              "Content-Type" "application/json; charset=utf-8"}
-    :body (json/write-to-string
-           {
-            :type "FeatureCollection"
-            :features (map
-                       (fn [route]
-                         {
-                          :type "Feature"
-                          :properties (assoc
-                                       route
-                                       :status
-                                       (cond
-                                         (contains? relation-map (:id route)) "mapped"
-                                         (contains? note-map (:id route)) "noted"
-                                         :else "ready")
-                                       :osm-id
-                                       (get-in relation-map [(:id route) :id]))
-                          :geometry {
-                                     :type "Point"
-                                     :coordinates [(:longitude (:location route))
-                                                   (:latitude (:location route))]}})
-                       (vals routes))})})
-  (compojure.core/GET
-   "/data/route/:id"
-   [id]
-   (let [route (get routes id)
-         info (with-open [is (fs/input-stream (:gpx-path route))]
-                (gpx/read-track-gpx is))
-         location-seq (map
-                       (fn [location]
-                         [(:longitude location) (:latitude location)])
-                       (apply concat (:track-seq info)))]
-     {
-      :status 200
-      :headers {
-                "Content-Type" "application/json; charset=utf-8"}
-      :body (json/write-to-string
-             {
-              :type "FeatureCollection"
-              :properties {}
-              :features [
-                         {
-                          :type "Feature"
-                          :properties {}
-                          :geometry {
-                                     :type "LineString"
-                                     :coordinates location-seq}}]})}))))
-
-
 ;; set tile to be mapped
-(do
+#_(do
   (let [location-seq (with-open [is (fs/input-stream
                                      (path/child
                                       dataset-path
@@ -638,3 +536,136 @@
                          :pss
                          [(constantly [draw/color-blue 2])])))})))
 ;;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
+
+
+
+(osmeditor/project-report
+ "pss"
+ "pss.rs hiking trails"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/pss/index"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:html
+            [:body
+             [:a {:href "/projects/pss/map"} "map"]
+             [:br]
+             [:a {:href "/projects/pss/state"} "list"]
+             [:br]]])})
+  (compojure.core/GET
+   "/projects/pss/map"
+   _
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "pss.html"])})
+  (compojure.core/GET
+   "/projects/pss/state"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (let [[mapped-routes routes-with-gpx rest-of-routes]
+                (reduce
+                 (fn [[mapped gpx rest-of] route]
+                   (if (some? (get relation-map (:id route)))
+                     [(conj mapped route) gpx rest-of]
+                     (if (some? (get route :gpx-path))
+                       [mapped (conj gpx route) rest-of]
+                       [mapped gpx (conj rest-of route)])))
+                 [[] [] []]
+                 (vals routes))]
+            (hiccup/html
+            [:html
+             [:body {:style "font-family:arial;"}
+              [:br]
+              [:div (str "rute koje poseduju gpx a nisu mapirane (" (count routes-with-gpx) ")")]
+              [:br]
+              [:table {:style "border-collapse:collapse;"}
+               (map
+                (comp
+                 render-route
+                 :id)
+                (sort
+                 #(id-compare (:id %1) (:id %2))
+                 routes-with-gpx))]
+              [:br]
+              [:div (str "mapirane rute (" (count mapped-routes)  ")")]
+              [:br]
+              [:table {:style "border-collapse:collapse;"}
+               (map
+                (comp
+                 render-route
+                 :id)
+                (sort
+                 #(id-compare (:id %1) (:id %2))
+                 mapped-routes))]
+              [:br]
+              [:div (str "ostale rute (" (count rest-of-routes) ")")]
+              [:br]
+              [:table {:style "border-collapse:collapse;"}
+               (map
+                (comp
+                 render-route
+                 :id)
+                (sort
+                 #(id-compare (:id %1) (:id %2))
+                 rest-of-routes))]]]))})
+  (compojure.core/GET
+   "/projects/pss/data/list"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "application/json; charset=utf-8"}
+    :body (json/write-to-string
+           {
+            :type "FeatureCollection"
+            :features (map
+                       (fn [route]
+                         {
+                          :type "Feature"
+                          :properties (assoc
+                                       route
+                                       :status
+                                       (cond
+                                         (contains? relation-map (:id route)) "mapped"
+                                         (contains? note-map (:id route)) "noted"
+                                         :else "ready")
+                                       :osm-id
+                                       (get-in relation-map [(:id route) :id]))
+                          :geometry {
+                                     :type "Point"
+                                     :coordinates [(:longitude (:location route))
+                                                   (:latitude (:location route))]}})
+                       (vals routes))})})
+  (compojure.core/GET
+   "projects/pss/data/route/:id"
+   [id]
+   (let [route (get routes id)
+         info (with-open [is (fs/input-stream (:gpx-path route))]
+                (gpx/read-track-gpx is))
+         location-seq (map
+                       (fn [location]
+                         [(:longitude location) (:latitude location)])
+                       (apply concat (:track-seq info)))]
+     {
+      :status 200
+      :headers {
+                "Content-Type" "application/json; charset=utf-8"}
+      :body (json/write-to-string
+             {
+              :type "FeatureCollection"
+              :properties {}
+              :features [
+                         {
+                          :type "Feature"
+                          :properties {}
+                          :geometry {
+                                     :type "LineString"
+                                     :coordinates location-seq}}]})}))))
+
+

@@ -32,36 +32,86 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+(def dataset (atom {}))
+
+(defn dataset-add [location]
+  (let [id (util/create-location-id (:longitude location) (:latitude location))]
+    (swap!
+     dataset
+     assoc
+     id
+     location)))
+
 (defn n [n & tags]
-  (update-in
-   (dot/enrich-tags
-    (osm/extract-tags
-     (overpass/node-id->location n)))
-   [:tags]
-   into
-   (conj
-    tags
-    (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
-(defn w [w & tags]
-  (update-in
-   (dot/enrich-tags
-    (osm/extract-tags
-     (overpass/way-id->location w)))
-   [:tags]
-   into
-   (conj
-    tags
-    (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
-(defn r [r & tags]
-  (dot/enrich-tags
+  (dataset-add
    (update-in
-    (osm/extract-tags
-     (overpass/relation-id->location r))
+    (dot/enrich-tags
+     (osm/extract-tags
+      (loop []
+        (if-let [data (try
+                        (overpass/node-id->location n)
+                        (catch Exception e (println "retrying ...")))]
+          data
+          (recur)))))
     [:tags]
     into
     (conj
      tags
-     (tag/url-tag r (str "http://openstreetmap.org/relation/" r))))))
+     (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
+  nil)
+(defn w [w & tags]
+  (dataset-add
+   (update-in
+    (dot/enrich-tags
+     (osm/extract-tags
+      (loop []
+        (if-let [data (try
+                        (overpass/way-id->location w)
+                        (catch Exception e (println "retrying ...")))]
+          data
+          (recur)))))
+    [:tags]
+    into
+    (conj
+     tags
+     (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
+  nil)
+(defn r [r & tags]
+  (dataset-add
+   (dot/enrich-tags
+    (update-in
+     (osm/extract-tags
+      (loop []
+        (if-let [data (try
+                        (overpass/relation-id->location r)
+                        (catch Exception e (println "retrying ...")))]
+          data
+          (recur))))
+     [:tags]
+     into
+     (conj
+      tags
+      (tag/url-tag r (str "http://openstreetmap.org/relation/" r))))))
+  nil)
+(defn q [q & tags]
+  (dataset-add
+   (update-in
+    (dot/enrich-tags
+     (osm/extract-tags
+      (loop []
+        (if-let [data (try
+                        (overpass/wikidata-id->location (keyword (str "Q" q)))
+                        (catch Exception e (println "retrying ...")))]
+          data
+          (recur)))))
+    [:tags]
+    into
+    tags))
+  nil)
+(defn l [longitude latitude & tags]
+  (dataset-add
+   {:longitude longitude :latitude latitude :tags (into #{}  tags)})
+  nil)
 (defn t
   [location & tag-seq]
   (update-in
@@ -69,16 +119,7 @@
    [:tags]
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
-(defn q [q & tags]
-  (update-in
-   (dot/enrich-tags
-    (osm/extract-tags
-     (overpass/wikidata-id->location (keyword (str "Q" q)))))
-   [:tags]
-   into
-   tags))
-(defn l [longitude latitude & tags]
-  {:longitude longitude :latitude latitude :tags (into #{}  tags)})
+
 
 ;; work on location list
 ;; Q3533204 - Triangle building, Paris
@@ -88,98 +129,127 @@
 
 ;; use @around for not accurate locations
 
-(def sleeps
-  [
-   (l 19.92263, 43.39666 "#sleep" "!Vila Uvac" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/villa-uvac.en-gb.html"))
-   (l 21.92958, 43.77246 "#sleep" "!Ramonda" "@around" (tag/url-tag "website" "https://ramondahotel.com"))
-   (l 21.87245, 43.64232 "#sleep" "!nataly spa" "@around" (tag/url-tag "website" "http://www.natalyspa.com"))
-   (n 3950012577)
-   ])
+;; sleeps
+(l 19.92263, 43.39666 "#sleep" "!Vila Uvac" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/villa-uvac.en-gb.html"))
+(l 21.92958, 43.77246 "#sleep" "!Ramonda" "@around" (tag/url-tag "website" "https://ramondahotel.com"))
+(l 21.87245, 43.64232 "#sleep" "!nataly spa" "@around" (tag/url-tag "website" "http://www.natalyspa.com"))
+(l 19.53266, 43.96311 tag/tag-sleep "!Srpski Car" "~ lokacija" (tag/url-tag "website" "http://www.srpskicar.com"))
+(n 3950012577)
 
-(def sleeps-recommend
-  [])
+;; sleeps recommend
 
-(def eats
-  [
-   (w 519051385 "DivciBAR")
-   (l 22.35306, 44.29087 "#eat" "milan kafana")])
+;; eats
+(w 519051385 "DivciBAR")
+(l 22.35306, 44.29087 "#eat" "milan kafana")
 
-(def eats-recommend
-  [
-   (n 5715111221) ;; veliko gradiste, kasina kod ajduka
-   (n 7669082032) ;; donji milanovac, kapetan
-   ])
+;; eats recommend
+(n 5715111221) ;; veliko gradiste, kasina kod ajduka
+(n 7669082032) ;; donji milanovac, kapetan
 
-(def dones [])
+;; dones
 
-(def todos
-  [
-   (q 3444519
-      "@todo" "ruta sava zavrsiti" "biciklisticka staza" "vikend"
-      (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
-   (r 11227980)
-   
-   ;; vojvodina
-   (q 2629582)
-   
-   ;; golubac
-   (l 21.63431, 44.65217 "!Golubac tvrdjava i hike" tag/tag-hike)
-   (l 22.30019, 44.63788 "!kajak spust Dunav" "Trajanova tabla" "klisura" tag/tag-kayak)
-   (n 5789949238)
-   (n 1918839400)
-   (n 6967861244)
-   (q 12749989 "#prerast")
-   (q 61132097)
-   
-   (q 31182653 tag/tag-hike)
-   
-   (l 20.55705, 43.65073 "!kajak spust Ibar" tag/tag-kayak)
-   (q 959733)
+;; todos
+(q 3444519
+   "@todo" "ruta sava zavrsiti" "biciklisticka staza" "vikend"
+   (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
+(r 11227980)
 
-   ;; ozren, devica, rtanj
-   (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
-   (l 21.89352, 43.77618 tag/tag-hike "!planinarenje, Rtanj")
-   
-   ;; divcibare
-   (r 11161806)
-   (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
-   (r 11144136)
+;; vojvodina
+(q 2629582)
 
-   (q 1264703) ;; manastir manasija
-   (q 2453168) ;; resavska pecina
-   (l 21.441389 44.088889
-      "!Винатовача"
-      "prašuma"
-      (tag/url-tag "wikipedia" "https://sr.wikipedia.org/wiki/Винатовача")
-      (tag/url-tag "srbija inspirise" "https://inspiracija.srbijastvara.rs/files/Resava-Srbija%20Stvara%20inspiraciju-CIR.pdf")) 
-   
-   ;; arilje
-   (l 19.91661, 43.64074 "bazeni pored reke" tag/tag-beach (tag/url-tag "website" "http://www.srbijaplus.net/visocka-banja-arilje.htm"))
-   (l 19.93326, 43.70182
-      "!spust Rzav" tag/tag-kayak
-      (tag/url-tag "tifran organizacija" "https://www.tifran.org/veliki-rzav/")
-      "pocetak most Gureši" "kraj Roge"
-      (tag/url-tag "youtube" "https://www.youtube.com/watch?v=31h3P5vs7aw")
-      (tag/url-tag "youtube: Veliki Rzav - Drežnik" "https://www.youtube.com/watch?v=ZGmU-PSrtj0")
-      (tag/url-tag "youtube: Rzav, Arilje" "https://www.youtube.com/watch?v=vkqbigljpRE"))
+;; golubac
+(l 21.63431, 44.65217 "!Golubac tvrdjava i hike" tag/tag-hike)
+(l 22.30019, 44.63788 "!kajak spust Dunav" "Trajanova tabla" "klisura" tag/tag-kayak)
+(n 5789949238)
+(n 1918839400)
+(n 6967861244)
+(q 12749989 "#prerast")
+(q 61132097)
 
-   ;; tara
-   (q 1266612 "bike, hike vacation")
+(q 31182653 tag/tag-hike)
 
-   (q 341936) ;; djavolja varos
-   ])
+(l 20.55705, 43.65073 "!kajak spust Ibar" tag/tag-kayak)
+(q 959733)
 
-(def todos-bosna
-  [
-   ;; sutjeska
-   (q 1262800)
-   (q 539439)])
+;; ozren, devica, rtanj
+(l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
+(l 21.89352, 43.77618 tag/tag-hike "!planinarenje, Rtanj")
 
-(def monuments
-  [
-   ;; serbia
-   (q 3066255) ;; cegar
-   ])
+;; homolje
+(l 21.52500, 44.27491 tag/tag-hike "!Via Ferata Gornjak" (tag/url-tag "website" "https://www.gornjak.org.rs/via-ferata-gornjak/"))
+
+;; divcibare
+(r 11161806)
+(l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
+(r 11144136)
+
+(q 1264703) ;; manastir manasija
+(q 2453168) ;; resavska pecina
+(l 21.441389 44.088889
+   "!Винатовача"
+   "prašuma"
+   (tag/url-tag "wikipedia" "https://sr.wikipedia.org/wiki/Винатовача")
+   (tag/url-tag "srbija inspirise" "https://inspiracija.srbijastvara.rs/files/Resava-Srbija%20Stvara%20inspiraciju-CIR.pdf")) 
+
+;; arilje
+(l 19.91661, 43.64074 "bazeni pored reke" tag/tag-beach (tag/url-tag "website" "http://www.srbijaplus.net/visocka-banja-arilje.htm"))
+(l 20.04746, 43.74122 "!Urijak" tag/tag-beach)
+(l 20.07123, 43.75054  "!Žuta stena" tag/tag-beach "ima i kamp, ok za rooftop")
+(l 20.05624, 43.74570 "!Bosa noga" tag/tag-beach)
+(l 20.08743, 43.74968 "!Uski vir" "ostrvo")
+
+;; zapadna srbija
+(q 6589753) ;; stopica pecina
+
+(l 19.93326, 43.70182
+   "!spust Rzav" tag/tag-kayak
+   (tag/url-tag "tifran organizacija" "https://www.tifran.org/veliki-rzav/")
+   "pocetak most Gureši" "kraj Roge"
+   (tag/url-tag "youtube" "https://www.youtube.com/watch?v=31h3P5vs7aw")
+   (tag/url-tag "youtube: Veliki Rzav - Drežnik" "https://www.youtube.com/watch?v=ZGmU-PSrtj0")
+   (tag/url-tag "youtube: Rzav, Arilje" "https://www.youtube.com/watch?v=vkqbigljpRE"))
+
+;; istocna srbija ( aleksinac )
+(l 21.83490 43.56298 "Lipovac tvrdjava, nema osm, Q12754583")
+(l 21.830323 43.558765 tag/tag-sleep (tag/url-tag "selo.rs" "https://selo.rs/rs/ponuda/etno-selo-lipovac-zuta-kuca"))
+
+;; paracin, zajecar, bor
+(l 21.49870, 43.90411
+   tag/tag-hike
+   "Staza Petruških monaha"
+   (tag/url-tag "blog 1" "http://serbianoutdoor.com/dogadjaj/stazom-petruskih-monaha-mala-sveta-gora-u-klisuri-crnice/")
+   (tag/url-tag "blog 2" "https://www.perpetuummobile.blog/2020/06/stazama-petruskih-monaha.html"))
+
+;; tara
+(q 1266612 "bike, hike vacation")
+
+(q 341936) ;; djavolja varos
+
+;; vojvodina
+(l 19.98038, 45.15546
+   tag/tag-bike
+   "obici Cortanovacku magiju, pesacka staza"
+   (tag/url-tag "osm" "https://www.openstreetmap.org/relation/11314365"))
+
+
+(l 20.40346 45.26543
+   tag/tag-hike
+   "!Carska Bara"
+   "postoji staza zdravlja, krece ispred hotela Sibila"
+   (tag/url-tag "mapa" "http://www.zrenjanin.rs/sr-lat/posetite-i-upoznajte-zrenjanin/obilazak-okoline/carska-bara"))
+
+;; bosnam sutjeska
+(q 1262800)
+(q 539439)
+
+;; todo world
+
+;; svajcarska
+(l 8.31311 46.61400 "!Gelmerbahn")
+
+;; monuments
+;; serbia
+(q 3066255) ;; cegar
 
 (web/register-map
  "mine"
@@ -190,7 +260,8 @@
                   :zoom 10}
   :vector-tile-fn (web/tile-vector-dotstore-fn
                    [(fn [_ _ _ _]
-                      (concat
+                      (vals (deref dataset))
+                      #_(concat
                        sleeps
                        sleeps-recommend
                        eats
@@ -198,6 +269,7 @@
                        dones
                        todos
                        todos-bosna
+                       todos-world
                        monuments))])})
 
 

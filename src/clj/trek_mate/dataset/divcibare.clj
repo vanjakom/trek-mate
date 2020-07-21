@@ -280,7 +280,7 @@
                   
                   :longitude (:longitude divcibare)
                   :latitude (:latitude divcibare)
-                  :zoom 12}
+                  :zoom 14}
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
                     (web/create-osm-external-raster-tile-fn)))
@@ -289,6 +289,9 @@
                      (concat
                       divcibare-seq))])
   :search-fn nil})
+
+#_(storage/import-location-v2-seq-handler
+ (map #(t % "@divcibare-apartmani") divcibare-seq))
 
 #_(storage/import-location-v2-seq-handler
  (map #(add-tag % "@divcibare" "@divcibare-kruzna") (concat peaks waypoints)))

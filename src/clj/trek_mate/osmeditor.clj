@@ -873,3 +873,23 @@
     {
      :status 200
      :body (jvm/resource-as-stream ["web" "route-editor.html"])})))
+
+(project-report
+ "home"
+ "home"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/home/index"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:html
+            [:body
+             [:a {:href "/howto"} "how to map"]
+             [:br]
+             [:a {:href "/tasks"} "active tasks"]
+             [:br]
+             [:a {:href "/view/relation/x"} "view relation order"]
+             [:br]
+             [:a {:href "/route/edit/x"} "edit route order"]]])})))

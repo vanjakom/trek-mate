@@ -93,6 +93,45 @@
     :body (hiccup/html
            [:a {:href "/projects/hikeandbike/test"} "test"])})
   (compojure.core/GET
+   "/projects/hikeandbike/list"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:html
+            [:body {:style "font-family:arial;"}
+             [:div (str "mapirane rute (" (count mapped-routes)  ")")]
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (comp
+                render-route
+                :id)
+               (sort
+                #(id-compare (:id %1) (:id %2))
+                mapped-routes))]
+             [:br]
+             [:div (str "rute koje poseduju gpx (" (count routes-with-gpx) ")")]
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (comp
+                render-route
+                :id)
+               (sort
+                #(id-compare (:id %1) (:id %2))
+                routes-with-gpx))]
+             [:br]
+             [:div (str "ostale rute (" (count rest-of-routes) ")")]
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (comp
+                render-route
+                :id)
+               (sort
+                #(id-compare (:id %1) (:id %2))
+                rest-of-routes))]]])})
+  (compojure.core/GET
    "/projects/hikeandbike/test"
    _
    {

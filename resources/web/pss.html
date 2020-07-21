@@ -364,7 +364,7 @@
       
       var activeLayer = null
       jsonGet(
-	  "/data/list",
+	  "/projects/pss/data/list",
 	  function (routes) {
 	      var layer =
 		  L.geoJSON(
@@ -388,7 +388,7 @@
 				  "<a href=\"https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + latlng.lat + ";" + latlng.lng + ";16\" target=\"_blank\">overpass</a></br>"
 			      if (route.properties["osm-id"] != null) {
 				  text += "<a href='https:openstreetmap.org/relation/" + route.properties["osm-id"] + "' target='_blank'>osm</a></br>"
-				  text += "<a href='http://localhost:7077/view/relation/" + route.properties["osm-id"] + "' target='_blank'>show order</a></br>"
+				  text += "<a href='/view/relation/" + route.properties["osm-id"] + "' target='_blank'>show order</a></br>"
 			      }
 			      
  
