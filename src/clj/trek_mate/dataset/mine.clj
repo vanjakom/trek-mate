@@ -156,6 +156,7 @@
 
 ;; vojvodina
 (q 2629582)
+(l 19.42713, 45.90264 "!Pačir" "crveno jezero" tag/tag-beach)
 
 ;; golubac
 (l 21.63431, 44.65217 "!Golubac tvrdjava i hike" tag/tag-hike)
