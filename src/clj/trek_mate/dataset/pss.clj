@@ -405,7 +405,8 @@
    "7-3-5" "gpx vodi pored ucrtanih puteva, malo poklapanja sa snimcima"
    "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
    "4-40-1" "kretanje železničkom prugom kroz tunele?"
-   "4-31-9" "gpx problematičan, dosta odstupanja"})
+   "4-31-9" "gpx problematičan, dosta odstupanja"
+   "2-16-1" "dosta odstupanje, staza nije markirana 20200722"})
 
 (defn id->region
   [id]
