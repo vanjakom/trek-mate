@@ -43,75 +43,80 @@
      location)))
 
 (defn n [n & tags]
-  (dataset-add
-   (update-in
-    (dot/enrich-tags
-     (osm/extract-tags
-      (loop []
-        (if-let [data (try
-                        (overpass/node-id->location n)
-                        (catch Exception e (println "retrying ...")))]
-          data
-          (recur)))))
-    [:tags]
-    into
-    (conj
-     tags
-     (tag/url-tag n (str "http://openstreetmap.org/node/" n)))))
-  nil)
+  (let [location (update-in
+                  (dot/enrich-tags
+                   (osm/extract-tags
+                    (loop []
+                      (if-let [data (try
+                                      (overpass/node-id->location n)
+                                      (catch Exception e (println "retrying ...")))]
+                        data
+                        (recur)))))
+                  [:tags]
+                  into
+                  (conj
+                   tags
+                   (tag/url-tag n (str "http://openstreetmap.org/node/" n))))]
+    (dataset-add location)
+    location))
+
 (defn w [w & tags]
-  (dataset-add
-   (update-in
-    (dot/enrich-tags
-     (osm/extract-tags
-      (loop []
-        (if-let [data (try
-                        (overpass/way-id->location w)
-                        (catch Exception e (println "retrying ...")))]
-          data
-          (recur)))))
-    [:tags]
-    into
-    (conj
-     tags
-     (tag/url-tag w (str "http://openstreetmap.org/way/" w)))))
-  nil)
+  (let [location (update-in
+                  (dot/enrich-tags
+                   (osm/extract-tags
+                    (loop []
+                      (if-let [data (try
+                                      (overpass/way-id->location w)
+                                      (catch Exception e (println "retrying ...")))]
+                        data
+                        (recur)))))
+                  [:tags]
+                  into
+                  (conj
+                   tags
+                   (tag/url-tag w (str "http://openstreetmap.org/way/" w))))]
+    (dataset-add location)
+    location))
+
 (defn r [r & tags]
-  (dataset-add
-   (dot/enrich-tags
-    (update-in
-     (osm/extract-tags
-      (loop []
-        (if-let [data (try
-                        (overpass/relation-id->location r)
-                        (catch Exception e (println "retrying ...")))]
-          data
-          (recur))))
-     [:tags]
-     into
-     (conj
-      tags
-      (tag/url-tag r (str "http://openstreetmap.org/relation/" r))))))
-  nil)
+  (let [location (dot/enrich-tags
+                  (update-in
+                   (osm/extract-tags
+                    (loop []
+                      (if-let [data (try
+                                      (overpass/relation-id->location r)
+                                      (catch Exception e (println "retrying ...")))]
+                        data
+                        (recur))))
+                   [:tags]
+                   into
+                   (conj
+                    tags
+                    (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))]
+    (dataset-add location)
+    location))
+
 (defn q [q & tags]
-  (dataset-add
-   (update-in
-    (dot/enrich-tags
-     (osm/extract-tags
-      (loop []
-        (if-let [data (try
-                        (overpass/wikidata-id->location (keyword (str "Q" q)))
-                        (catch Exception e (println "retrying ...")))]
-          data
-          (recur)))))
-    [:tags]
-    into
-    tags))
-  nil)
+  (let [location (update-in
+                  (dot/enrich-tags
+                   (osm/extract-tags
+                    (loop []
+                      (if-let [data (try
+                                      (overpass/wikidata-id->location (keyword (str "Q" q)))
+                                      (catch Exception e (println "retrying ...")))]
+                        data
+                        (recur)))))
+                  [:tags]
+                  into
+                  tags)]
+    (dataset-add location)
+    location))
+
 (defn l [longitude latitude & tags]
-  (dataset-add
-   {:longitude longitude :latitude latitude :tags (into #{}  tags)})
-  nil)
+  (let [location {:longitude longitude :latitude latitude :tags (into #{}  tags)}]
+    (dataset-add location)
+    location))
+
 (defn t
   [location & tag-seq]
   (update-in
@@ -139,7 +144,7 @@
 ;; sleeps recommend
 
 ;; eats
-(w 519051385 "DivciBAR")
+(n 7682296752)
 (l 22.35306, 44.29087 "#eat" "milan kafana")
 
 ;; eats recommend
@@ -251,6 +256,20 @@
 ;; monuments
 ;; serbia
 (q 3066255) ;; cegar
+
+;; hike staza petruskih monaha
+(q 2733347) ;; popovac
+(q 3574465) ;; zabrega
+(q 2734282) ;; sisevac
+(q 911428) ;; manastir ravanica
+(l 21.58800 43.95516 tag/tag-beach) ;; sisevac bazeni
+(q 16089198) ;; petrus
+
+;; zabrega - sisavac
+;; https://www.wikiloc.com/wikiloc/view.do?pic=hiking-trails&slug=zabrega-sisevac&id=24667423&rd=en
+;; https://www.wikiloc.com/hiking-trails/stazama-petruskih-monaha-14208596
+;; https://www.wikiloc.com/hiking-trails/staza-petruskih-monaha-psk-jastrebac-16945736
+
 
 (web/register-map
  "mine"
