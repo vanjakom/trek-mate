@@ -529,6 +529,7 @@
 				      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
 					  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
 					  "<a href='https://preview.ideditor.com/release/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+					  "<a href='http://localhost:8080/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
 					  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
 					  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
 					  "<a href='https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%20%20node%5Btourism%3Dinformation%5D%5Binformation%3Dguidepost%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";16' target='_blank'>overpass path</a></br>")

@@ -146,7 +146,11 @@
        #(when (contains? % tag/tag-cafe) tag/tag-drink)
        #(when (contains? % tag/tag-restaurant) tag/tag-eat)
        #(when (contains? % tag/tag-hotel) tag/tag-hotel)
-       #(when (contains? % tag/tag-mall) tag/tag-shopping)]))))
+       #(when (contains? % tag/tag-mall) tag/tag-shopping)
+
+       ;; fix for missing pins
+       #(when (contains? % tag/tag-waterfall) tag/tag-river)
+       ]))))
 
 #_(enrich-tags {:tags #{"#starbucks"}})
 

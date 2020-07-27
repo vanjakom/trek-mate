@@ -323,6 +323,7 @@
 			      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
 				  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
 				  "<a href='https://preview.ideditor.com/release/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+				  "<a href='http://localhost:8080/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
 				  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
 				  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
 				  "<a href='http://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";10' target='_blank>overpass</a>'")
@@ -385,6 +386,7 @@
 				  route.properties.id + "</br>" +
 				  "<a href=\"" + route.properties.link + "\" target=\"_blank\">pss</a></br>" +
 				  "<a href='https://preview.ideditor.com/release/#map=16/" + latlng.lat + "/" + latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+				  "<a href='http://localhost:8080/#map=16/" + latlng.lat + "/" + latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
 				  "<a href=\"https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + latlng.lat + ";" + latlng.lng + ";16\" target=\"_blank\">overpass</a></br>"
 			      if (route.properties["osm-id"] != null) {
 				  text += "<a href='https:openstreetmap.org/relation/" + route.properties["osm-id"] + "' target='_blank'>osm</a></br>"
@@ -398,7 +400,7 @@
 				  "click",
 				  function() {
 				      jsonGet(
-					  "/data/route/" + route.properties.id,
+					  "/projects/pss/data/route/" + route.properties.id,
 					  function(data) {
 					      if (activeLayer != null) {
 						  map.removeLayer(activeLayer)
