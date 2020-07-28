@@ -205,6 +205,9 @@
 (l 20.08743, 43.74968 "!Uski vir" "ostrvo")
 
 ;; zapadna srbija
+
+(q 116343 tag/tag-sleep) ;; drvengrad
+
 (q 6589753) ;; stopica pecina
 
 (l 19.93326, 43.70182
