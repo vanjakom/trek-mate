@@ -406,7 +406,7 @@
    "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
    "4-40-1" "kretanje železničkom prugom kroz tunele?"
    "4-31-9" "gpx problematičan, dosta odstupanja"
-   "2-16-1" "dosta odstupanje, staza nije markirana 20200722"})
+   "2-16-1" "dosta odstupanje, staza jos nije markirana 20200722"})
 
 (defn id->region
   [id]
@@ -644,7 +644,7 @@
                                                    (:latitude (:location route))]}})
                        (vals routes))})})
   (compojure.core/GET
-   "projects/pss/data/route/:id"
+   "/projects/pss/data/route/:id"
    [id]
    (let [route (get routes id)
          info (with-open [is (fs/input-stream (:gpx-path route))]
