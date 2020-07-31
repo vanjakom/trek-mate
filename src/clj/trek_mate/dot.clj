@@ -166,6 +166,8 @@
      :latitude latitude
      :tags (:tags dot)}))
 
+(defn dot->name [location]
+  (first (filter tag/name-tag? (:tags location))))
 
 #_(defn import-and-compact-go
   "Adds locations sent to in to existing repository. Performs overwrite of existing location.

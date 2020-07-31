@@ -58,7 +58,7 @@
                    tags
                    (tag/url-tag n (str "http://openstreetmap.org/node/" n))))]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn w [w & tags]
   (let [location (update-in
@@ -76,7 +76,7 @@
                    tags
                    (tag/url-tag w (str "http://openstreetmap.org/way/" w))))]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn r [r & tags]
   (let [location (dot/enrich-tags
@@ -94,7 +94,7 @@
                     tags
                     (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn q [q & tags]
   (let [location (update-in
@@ -255,6 +255,18 @@
 
 ;; svajcarska
 (l 8.31311 46.61400 "!Gelmerbahn")
+
+;; turska plaze
+;; https://www.youtube.com/watch?v=B7zwRqA-zT0
+(w 110726698) ;; "!Kabak Beach" 
+(w 367224515) ;; "!Ölüdeniz"
+(w 308856447);; "!Kleopatra Beach"
+(w 140302070) ;; "!Patara Beach"
+(w 37590224) ;; "!Iztuzu Beach"
+(r 7447994) ;; "!Konyaaltı Plajı"
+(w 28320583) ;; Cirali Beach, Kemer
+(w 92234966) ;; "!Butterfly Valley Beach"
+(w 140302065) ;; "!Kaputas Beach"
 
 ;; monuments
 ;; serbia
