@@ -234,6 +234,9 @@
 
 (q 341936) ;; djavolja varos
 
+;; ibar
+(l 20.71416, 43.69570 tag/tag-sleep "!Brvnara Jez" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/jez.sr.html"))
+
 ;; vojvodina
 (l 19.98038, 45.15546
    tag/tag-bike
