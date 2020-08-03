@@ -46,7 +46,7 @@
 (def active-pipeline nil)
 
 (def relation-seq nil)
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -80,6 +80,32 @@
 
 (first relation-seq)
 
+(defn render-route
+  "prepares hiccup html for route"
+  [relation]
+  (let [osm-id (:id relation)]
+    [:tr
+     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+      osm-id]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+      (get-in relation [:osm "route"])]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+      (get-in relation [:osm "name"])]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 80px; text-align: center;"}
+      (list
+       [:a {
+            :href (str "https://openstreetmap.org/relation/" osm-id)
+            :target "_blank"} "osm"]
+       [:br]
+       [:a {
+            :href (str "http://localhost:7077/view/relation/" osm-id)
+            :target "_blank"} "order"]
+       [:br]
+       [:a {
+            :href (str "http://localhost:7077/route/edit/" osm-id)
+            :target "_blank"} "edit"]          
+       [:br]
+       osm-id)]]))
 
 (osmeditor/project-report
  "hikeandbike"
@@ -91,7 +117,7 @@
    {
     :status 200
     :body (hiccup/html
-           [:a {:href "/projects/hikeandbike/test"} "test"])})
+           [:a {:href "/projects/hikeandbike/list"} "list of routes"])})
   (compojure.core/GET
    "/projects/hikeandbike/list"
    _
@@ -102,35 +128,14 @@
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
-             [:div (str "mapirane rute (" (count mapped-routes)  ")")]
+             [:div (str "mapirane rute (" (count relation-seq)  ")")]
              [:table {:style "border-collapse:collapse;"}
               (map
-               (comp
-                render-route
-                :id)
-               (sort
-                #(id-compare (:id %1) (:id %2))
-                mapped-routes))]
-             [:br]
-             [:div (str "rute koje poseduju gpx (" (count routes-with-gpx) ")")]
-             [:table {:style "border-collapse:collapse;"}
-              (map
-               (comp
-                render-route
-                :id)
-               (sort
-                #(id-compare (:id %1) (:id %2))
-                routes-with-gpx))]
-             [:br]
-             [:div (str "ostale rute (" (count rest-of-routes) ")")]
-             [:table {:style "border-collapse:collapse;"}
-              (map
-               (comp
-                render-route
-                :id)
-               (sort
-                #(id-compare (:id %1) (:id %2))
-                rest-of-routes))]]])})
+               render-route
+               (sort-by
+                :id
+                relation-seq))]
+             [:br]]])})
   (compojure.core/GET
    "/projects/hikeandbike/test"
    _

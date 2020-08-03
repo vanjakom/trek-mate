@@ -619,17 +619,6 @@
                       (geojson/track->geojson track))})))
         {:status 404})))
    
-   (compojure.core/GET
-    "/map/:name"
-    [name]
-    (if-let [map (get (deref configuration) name)]
-      {
-       :status 200
-       :body (jvm/resource-as-stream ["web" "map.html"])}
-      {
-       :status 404}))
-
-
    ;; debugging handlers
    (compojure.core/GET
     "/resource/:name"
@@ -852,7 +841,15 @@
                              (get-in feature [:geometry :coordinates 0])
                              "@"
                              (get-in feature [:geometry :coordinates 0]))))))
-                  features))))}))))
+                  features))))}))
+
+   (compojure.core/POST
+    "/edit"
+    _
+    (fn [request]
+      (let [data (json/read-keyworded (:body request))]
+        (println "editing" data)
+        {:status 200})))))
 
 (defn create-server
   []

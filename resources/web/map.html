@@ -82,11 +82,6 @@
 	  xhr.send();
       }
 
-      // specific
-      function setStatus (status) {
-//	  document.getElementById ("status").innerHTML = status
-      }
-
       // stores currently active tiles and assigned markers ...
 //      var tileStore = new Map()
       L.GridLayer.MarkerLoader = L.GridLayer.extend({
@@ -134,7 +129,8 @@
 			      } else {				  
 				  marker.bindPopup(
 				      location.geometry.coordinates[0] + ", " + location.geometry.coordinates[1] + "</br>" + 
-					  location.properties.description,
+					  location.properties.description + "</br>" +
+					  "<a href='javascript:markDoneFn(\"" + id + "\")'>mark done</a>",
 				      {
 					  maxWidth: "auto"})
 			      }
@@ -189,6 +185,27 @@
       var map = L.map("map", {maxBoundsViscosity: 1.0})
       map.setMaxBounds ([[-90,-180],[90,180]])
 
+
+      var trekMateDot = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      trekMateDot.addTo(map)
+      
+      // specific
+      var markDoneFn = function(id) {
+	  fetch(
+	      "/edit",
+	      {
+		  method: "POST",
+		  body: "{\"test\":\"" + id + "\"}"
+	      })
+	      .then(trekMateDot.redraw())
+      }
+      
       var osmTile = L.tileLayer(
 	  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 	  {
@@ -436,15 +453,6 @@
 	  "wmflabs hillshade": wmflabsHillshadeTile,
 	  "free map sk": freeMapSkTile
       }
-
-      var trekMateDot = new L.GridLayer.MarkerLoader(
-	  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
-	  {
-	      maxZoom: 21,
-	      bounds: [[-90,-180], [90, 180]],
-	      noWrap: true
-	  })
-      trekMateDot.addTo(map)
 
       
       var mySerbiaTile = L.tileLayer(

@@ -122,14 +122,14 @@
 
 
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1595683199
+#_(let [track-id 1596367064
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
                                           "trek-mate" "cloudkit" "track"
                                           env/*trek-mate-user* (str track-id ".json")))]
                            (:locations (json/read-keyworded is)))
-      location-seq (map
+      location-seq [] #_(map
                     (fn [location]
                       (update-in
                        location

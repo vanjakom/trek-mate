@@ -784,7 +784,7 @@
   (storage/import-location-v2-seq-handler
    (map #(t % "@golubac2020") location-seq)))
 
-(let [way-id-seq [819363302 338433006 508021461 337044054]
+#_(let [way-id-seq [819363302 338433006 508021461 337044054]
       dataset-seq (map osmapi/way-full way-id-seq)
       dataset (osmapi/merge-datasets dataset-seq)
       way-seq (map
@@ -801,26 +801,14 @@
                (map (partial osmapi/extract-way dataset) way-id-seq))]
   (def a way-seq))
 
-(first a)
-
-(keys (:ways b))
-(keys (:ways (second c)))
-
-(keys (:ways (merge (first c) (second c))))
-
-(first (keys (:nodes a))) 4974174193
-(get-in a [:nodes 4974174193])
-(count a)
-(first a)
-
-(with-open [os (fs/output-stream ["tmp" "test.geojson"])]
+#_(with-open [os (fs/output-stream ["tmp" "test.geojson"])]
   (json/write-to-stream   
    (geojson/geojson
     [
      (geojson/location-seq-seq->multi-line-string a)])
    os))
 
-(let [track-id 1592736533
+#_(let [track-id 1592736533
       location-seq
       (with-open [is (fs/input-stream
                       (path/child
@@ -846,7 +834,7 @@
      (gpx/write-track-gpx os [] location-seq)))
 
 ;; set last location requests for mapping
-(let [location-seq (map
+#_(let [location-seq (map
                     (fn [location]
                       (update-in
                        location
