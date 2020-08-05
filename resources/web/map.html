@@ -397,6 +397,35 @@
 	      noWrap: true
 	  })
 
+      var slotATile = L.tileLayer(
+	  'http://localhost:8085/tile/raster/slot-a/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var slotBTile = L.tileLayer(
+	  'http://localhost:8085/tile/raster/slot-b/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var slotCTile = L.tileLayer(
+	  'http://localhost:8085/tile/raster/slot-c/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      
+
       var maptilerSatelliteTile = L.tileLayer(
 	  'http://localhost:8085/tile/proxy/maptiler/{z}/{x}/{y}',
 	  {
@@ -485,7 +514,10 @@
 	  "waymakred cycle": waymarkedCycleTile,
 	  "my-serbia": mySerbiaTile,
 	  "track": trackTile,
-	  "gopro evidence": goProEvidence}
+	  "gopro evidence": goProEvidence,
+	  "slot-a": slotATile,
+	  "slot-b": slotBTile,
+	  "slot-c": slotCTile}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       

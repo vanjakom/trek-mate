@@ -159,6 +159,8 @@
    (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
 (r 11227980)
 
+(l 20.46045, 44.16894 tag/tag-hike "!Ostrovica hike")
+
 ;; vojvodina
 (q 2629582)
 (l 19.42713, 45.90264 "!Pačir" "crveno jezero" tag/tag-beach)

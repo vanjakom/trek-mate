@@ -241,5 +241,123 @@
                          photo-seq))
                        )])})
 
+;; 20200805
+;; adding missing routes based on approval from TO Cacak
 
-(count location-seq)
+#_(doseq [file (fs/list (path/child env/*global-my-dataset-path* "turizamcacak.org.rs"))]
+  (println "analyzing "  (path/path->string file))
+  (with-open [is (fs/input-stream file)]
+    (let [track (gpx/read-track-gpx is)]
+      (println "wpts:" (count (:wpt-seq track)) "tracks: " (count (:track-seq track))))))
+
+(def a
+  )
+
+
+
+(let [location-seq (reduce
+                    (fn [location-seq track-path]
+                      (with-open [is (fs/input-stream track-path)]
+                        (let [track (gpx/read-track-gpx is)]
+                          (concat
+                           location-seq
+                           (apply concat (:track-seq track))))))
+                    []
+                    (fs/list
+                     (path/child
+                      env/*global-my-dataset-path* "turizamcacak.org.rs")))]
+    
+  (web/register-dotstore
+   :slot-a
+   (dot/location-seq->dotstore location-seq))
+
+  (web/register-map
+   "slot-a"
+   {
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                       :slot-a
+                       [(constantly [draw/color-blue 2])])}))
+
+(let [location-seq (reduce
+                    (fn [location-seq relation-id]
+                      (let [dataset (osmapi/relation-full relation-id)
+                            current-seq (reduce
+                                         (fn [location-seq member]
+                                           (concat
+                                            location-seq
+                                            (map
+                                             (fn [node-id]
+                                               (let [node (get-in dataset [:nodes node-id])]
+                                                 {
+                                                  :longitude (as/as-double (:longitude node))
+                                                  :latitude (as/as-double (:latitude node))
+                                                  :tags #{}}))
+                                             (:nodes member))))
+                                         []
+                                         (map
+                                          #(get-in dataset [:ways (:id %)])
+                                          (filter
+                                           #(= (:type %) :way)
+                                           (:members (get-in dataset [:relations relation-id])))))]
+                        (concat
+                         location-seq
+                         current-seq)))
+                    []
+                    [
+
+                     11189634 ;; 1 Девојачка стена
+                     11189523 ;; 2 Стаза Светог Саве
+                     11211290 ;; 2A
+                     11189476 ;; 3 Каблар
+                     ;; 3A
+                     ;; 3B
+                     11189458 ;; 4 Грабова коса
+                     11189670 ;; 4А
+                     11189756 ;; 4B
+                     11189613 ;; 5 Кота 889
+                     ;; 5A
+                     11214224 ;; 6 Дебела гора
+                     ;; 6A
+                     11214225 ;; 7 Овчар
+                     ;; 7A
+                     ;; 7B
+                     ;; 8
+                     ;; 8A
+                     ;; 8B
+                     ;; 8C
+                     ;; 8D
+                     ;; 9
+                     11211353 ;; MO Staza Miloša Obrenovića
+                     ;; OKT
+                     ])]
+  (web/register-dotstore
+   :slot-b
+   (dot/location-seq->dotstore location-seq))
+
+  (web/register-map
+   "slot-b"
+   {
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                     :slot-b
+                     [(constantly [draw/color-red 2])])}))
+
+
+
+(println "analyzing "  (path/path->string file))
+(with-open [is (fs/input-stream file)]
+  (let [track (gpx/read-track-gpx is)]
+    (println "wpts:" (count (:wpt-seq track)) "tracks: " (count (:track-seq track)))))
+
+
+
+
+
+(clj-common.debug/run-debug-server)
+
+
+
+
+
+

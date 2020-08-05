@@ -1139,8 +1139,7 @@
      (deref location-seq-var))))
 
 (defn location-seq->dotstore
-  "Returns dotstore compatible function, to be used with web/register-dotstore.
-  Note: function accepts variable as input to ensure update when dataset is altered"
+  "Returns dotstore compatible function, to be used with web/register-dotstore."
   [location-seq]
   (fn [min-longitude max-longitude min-latitude max-latitude]
     (filter
