@@ -127,44 +127,83 @@
    (into #{} (map as/as-string tag-seq))))
 
 ;; hike staza petruskih monaha
-(q 2733347) ;; popovac
-(q 3574465) ;; zabrega
-(q 2734282) ;; sisevac
-(q 911428) ;; manastir ravanica
-(l 21.58800 43.95516 tag/tag-beach) ;; sisevac bazeni
-(q 16089198) ;; petrus
+#_(do
+  (q 2733347) ;; popovac
+  (q 3574465) ;; zabrega
+  (q 2734282) ;; sisevac
+  (q 911428) ;; manastir ravanica
+  (l 21.58800 43.95516 tag/tag-beach) ;; sisevac bazeni
+  (q 16089198) ;; petrus
 
 
-(l 21.46933, 43.86706 tag/tag-crossroad "skretanje Popovac")
-(l 21.47252 43.95971 tag/tag-crossroad "skretanje Popovac")
-(l 21.55429, 43.97440 tag/tag-crossroad "skretanje Sisevac")
+  (l 21.46933, 43.86706 tag/tag-crossroad "skretanje Popovac")
+  (l 21.47252 43.95971 tag/tag-crossroad "skretanje Popovac")
+  (l 21.55429, 43.97440 tag/tag-crossroad "skretanje Sisevac")
 
-(l 21.51222, 43.92683 tag/tag-parking)
-(l 21.51860, 43.91416 tag/tag-parking)
+  (l 21.51222, 43.92683 tag/tag-parking)
+  (l 21.51860, 43.91416 tag/tag-parking)
 
-(l 21.52777, 43.94067 tag/tag-parking)
-(l 21.52545, 43.93650 tag/tag-parking)
+  (l 21.52777, 43.94067 tag/tag-parking)
+  (l 21.52545, 43.93650 tag/tag-parking)
 
-(l 21.52887, 43.93899 tag/tag-church "!Manastir Namasija")
+  (l 21.52887, 43.93899 tag/tag-church "!Manastir Namasija")
 
-;; track
-;; https://www.wikiloc.com/wikiloc/view.do?pic=hiking-trails&slug=stazama-petruskih-monaha&id=14796850&rd=en
-(let [track (gpx/read-track-gpx (fs/input-stream
-                                 (path/child
-                                  env/*global-my-dataset-path*
-                                  "wikiloc.com"
-                                  "stazama-petruskih-monaha.gpx")))]
-  (with-open [os (fs/output-stream ["tmp" "test.geojson"])]
-    (json/write-to-stream   
-     (geojson/geojson
-      [
-       (geojson/location-seq-seq->multi-line-string (:track-seq track))])
-     os)))
-
-(first (:track-seq a))
+  ;; track
+  ;; https://www.wikiloc.com/wikiloc/view.do?pic=hiking-trails&slug=stazama-petruskih-monaha&id=14796850&rd=en
+  (let [track (gpx/read-track-gpx (fs/input-stream
+                                   (path/child
+                                    env/*global-my-dataset-path*
+                                    "wikiloc.com"
+                                    "stazama-petruskih-monaha.gpx")))]
+    (with-open [os (fs/output-stream ["tmp" "test.geojson"])]
+      (json/write-to-stream   
+       (geojson/geojson
+        [
+         (geojson/location-seq-seq->multi-line-string (:track-seq track))])
+       os))))
 
 
-(def center (wikidata/id->location :Q3574465))
+;; baberijus
+(do
+  (def center {:longitude 20.56126 :latitude 44.57139})
+  
+  (let [location-seq (concat
+                      (with-open [is (fs/input-stream
+                                      (path/child
+                                       env/*global-my-dataset-path*
+                                       "mtbproject.com"
+                                       "baberijus.gpx"))]
+                        (doall
+                         (mapcat
+                          identity
+                          (:track-seq (gpx/read-track-gpx is)))))
+                      (with-open [is (fs/input-stream
+                                      (path/child
+                                       env/*global-my-dataset-path*
+                                       "mtbproject.com"
+                                       "salamandra-trail.gpx"))]
+                        (doall
+                         (mapcat
+                          identity
+                          (:track-seq (gpx/read-track-gpx is))))))]
+    (web/register-dotstore
+     :track
+     (dot/location-seq->dotstore location-seq))
+    (web/register-map
+     "track-transparent"
+     {
+      :configuration {
+                      :longitude (:longitude (first location-seq))
+                      :latitude (:latitude (first location-seq))
+                      :zoom 7}
+      :vector-tile-fn (web/tile-vector-dotstore-fn
+                       [(fn [_ _ _ _] [])])
+      :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                       (web/create-transparent-raster-tile-fn)
+                       :track
+                       [(constantly [draw/color-blue 2])])})))
+
+
 
 (web/register-map
  "current"
@@ -172,7 +211,7 @@
   :configuration {
                   :longitude (:longitude center) 
                   :latitude (:latitude center)
-                  :zoom 10}
+                  :zoom 12}
   :vector-tile-fn (web/tile-vector-dotstore-fn
                    [(fn [_ _ _ _]
                       (vals (deref dataset)))])})
