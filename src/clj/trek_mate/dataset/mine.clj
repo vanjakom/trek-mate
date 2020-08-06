@@ -261,6 +261,9 @@
 ;; svajcarska
 (l 8.31311 46.61400 "!Gelmerbahn")
 
+;; italy
+(n 1100885447) ;; "!Cascate del Mulino"
+
 ;; turska plaze
 ;; https://www.youtube.com/watch?v=B7zwRqA-zT0
 (w 110726698) ;; "!Kabak Beach" 
