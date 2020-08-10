@@ -755,7 +755,7 @@
      "&page=0"))))
 
 ;; util functions to work with extracted dataset
-(defn merge-datasets [dataset-seq]
+(defn merge-datasets [& dataset-seq]
   (reduce
    (fn [final dataset]
      (assoc

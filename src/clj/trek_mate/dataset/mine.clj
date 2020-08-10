@@ -150,14 +150,16 @@
 ;; eats recommend
 (n 5715111221) ;; veliko gradiste, kasina kod ajduka
 (n 7669082032) ;; donji milanovac, kapetan
+(n 7799388557) ;; "!Splav"
 
 ;; dones
+#_(r 11227980) ;; "!Baberijus"
 
 ;; todos
 (q 3444519
    "@todo" "ruta sava zavrsiti" "biciklisticka staza" "vikend"
    (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
-(r 11227980)
+
 
 (l 20.46045, 44.16894 tag/tag-hike "!Ostrovica hike")
 
@@ -179,12 +181,23 @@
 (l 20.55705, 43.65073 "!kajak spust Ibar" tag/tag-kayak)
 (q 959733)
 
+;; kosmaj
+(r 11483827 "nije mapirana staza do kraja, ide preko potoka, istocno ima neki vodopad")
+(r 11483846) ;; "!Parcanski vis"
+
+;; ovcar i kablar mapiranje planinarskih staza
+(l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
+(l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")
+
 ;; ozren, devica, rtanj
 (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
 (l 21.89352, 43.77618 tag/tag-hike "!planinarenje, Rtanj")
 
 ;; homolje
 (l 21.52500, 44.27491 tag/tag-hike "!Via Ferata Gornjak" (tag/url-tag "website" "https://www.gornjak.org.rs/via-ferata-gornjak/"))
+
+;; kucaj
+(l 21.64787, 43.89749 tag/tag-hike "!Mali Javorak i Javoracki vrh, imamo pripremljenu stazu" "Grza")
 
 ;; divcibare
 (r 11161806)

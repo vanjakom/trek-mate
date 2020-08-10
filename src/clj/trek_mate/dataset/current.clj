@@ -3,6 +3,7 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [clojure.xml :as xml]
    
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -26,6 +27,8 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]
+   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
@@ -164,7 +167,7 @@
 
 
 ;; baberijus
-(do
+#_(do
   (def center {:longitude 20.56126 :latitude 44.57139})
   
   (let [location-seq (concat
@@ -201,9 +204,146 @@
       :raster-tile-fn (web/tile-overlay-dotstore-render-fn
                        (web/create-transparent-raster-tile-fn)
                        :track
-                       [(constantly [draw/color-blue 2])])})))
+                       [(constantly [draw/color-blue 2])])}))
+
+  (l 20.55817, 44.57396 "start")
+  (l 20.51886, 44.56308 "levo")
+  (l 20.51877, 44.55984 "desno")
+  (l 20.50972, 44.54375 "pocetak salamandra")
+  (l 20.48937, 44.53901 "kraj salamandra")
+  (l 20.50487, 44.53200 "levo")
+  (l 20.46890, 44.52989 "pravo")
+  (l 20.46637, 44.53035 "pravo")
+  (l 20.46517, 44.53812 "desno")
+  (l 20.47594, 44.55170 "desno")
+  (l 20.49663, 44.56812 "desno")
+  (l 20.51238, 44.56568 "desno")
+
+  #_(storage/import-location-v2-seq-handler
+   (map #(t % "@baberijus") (vals (deref dataset)))))
+
+;; grza, custom trail
+;; #osc #osm #change #relation #temporary
+
+;; old approach, new down
+#_(let [name "grza-trail-b"]
+  (with-open [is (fs/input-stream (path/child
+                                   env/*global-my-dataset-path*
+                                   "extract" "serbia" (str name ".osc")))
+              os (fs/output-stream (path/child
+                                    env/*global-my-dataset-path*
+                                    "extract" "serbia" (str name ".gpx")))]
+    (let [osm-change (xml/parse is)
+          way-seq (map
+                   (comp
+                    as/as-long
+                    #(get-in % [:attrs :ref]))
+                   (filter
+                    #(= (get-in % [:attrs :type]) "way")
+                    (get-in osm-change [:content 0 :content 0 :content])))
+          relation (osmapi/relation-xml->relation
+                    (get-in osm-change [:content 0 :content 0]))
+          dataset (reduce
+                   (fn [dataset way-id]
+                     (osmapi/merge-datasets
+                      dataset
+                      (osmapi/way-full way-id)))
+                   {
+                    :relations
+                    {
+                     (:id relation)
+                     relation}}
+                   way-seq)] 
+      (gpx/write-track-gpx
+       os
+       []
+       (reduce
+        (fn [track way]
+          (let [nodes (map #(get-in dataset [:nodes %]) (:nodes way))
+                first-way (first nodes)
+                last-way (last nodes)
+                last-track (last track)
+                ]
+            (if (nil? last-track)
+              (into [] nodes)
+              (if (= last-track first-way)
+                (into [] (concat track (rest nodes)))
+                (if (= last-track last-way)
+                  (into [] (concat track (rest (reverse nodes))))
+                  (let [track (into [] (reverse track))
+                        last-track (last track)]
+                    (if (= last-track first-way)
+                      (into [] (concat track (rest nodes)))
+                      (into [] (concat track (rest (reverse nodes)))))))))))
+        []
+        (map
+         (comp
+          #(get-in dataset [:ways %])
+          :id)
+         (:members (get-in dataset [:relations (:id relation)]))))))))
 
 
+
+
+;; #gpx #relation #osm #extract #osc
+;; support for ways and nodes in osc file
+;; prepare everything, commit with iD
+;; prepare new relation, add new ways, download osc
+#_(let [name "grza-trail-c"
+      relation-id -1]
+  (with-open [is (fs/input-stream (path/child
+                                   env/*global-my-dataset-path*
+                                   "extract" "serbia" (str name ".osc")))
+              os (fs/output-stream (path/child
+                                    env/*global-my-dataset-path*
+                                    "extract" "serbia" (str name ".gpx")))]
+    (let [change-dataset (osmapi/full-xml->dataset
+                          (get-in
+                           (xml/parse is)
+                           [:content 0 :content]))
+          dataset (reduce
+                   (fn [dataset way-id]
+                     (println "retrieve way" way-id)
+                     (osmapi/merge-datasets
+                      dataset
+                      (osmapi/way-full way-id)))
+                   change-dataset
+                   (filter
+                    #(nil? (get-in change-dataset [:ways %]))
+                    (map
+                     :id
+                     (filter
+                      #(= (:type %) :way)
+                      (:members (get-in change-dataset [:relations relation-id]))))))]
+      (gpx/write-track-gpx
+       os
+       []
+       (reduce
+        (fn [track way]
+          (let [nodes (map #(get-in dataset [:nodes %]) (:nodes way))
+                first-way (first nodes)
+                last-way (last nodes)
+                last-track (last track)
+                ]
+            (if (nil? last-track)
+              (into [] nodes)
+              (if (= last-track first-way)
+                (into [] (concat track (rest nodes)))
+                (if (= last-track last-way)
+                  (into [] (concat track (rest (reverse nodes))))
+                  (let [track (into [] (reverse track))
+                        last-track (last track)]
+                    (if (= last-track first-way)
+                      (into [] (concat track (rest nodes)))
+                      (into [] (concat track (rest (reverse nodes)))))))))))
+        []
+        (map
+         (comp
+          #(get-in dataset [:ways %])
+          :id)
+         (:members (get-in dataset [:relations relation-id]))))))))
+
+(def center (overpass/wikidata-id->location :Q3711))
 
 (web/register-map
  "current"
