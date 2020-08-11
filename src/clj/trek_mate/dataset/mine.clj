@@ -188,6 +188,8 @@
 ;; ovcar i kablar mapiranje planinarskih staza
 (l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
 (l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")
+(l 20.19922, 43.92363 tag/tag-todo "staza milosa obrenoviva" "kao da zaobilazi")
+(l 20.20452, 43.91515 tag/tag-todo "staza milosa obrenoviva" "trasirao drugacije od tracka, vecina tragova ide putem")
 
 ;; ozren, devica, rtanj
 (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
