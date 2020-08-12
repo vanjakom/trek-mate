@@ -41,7 +41,7 @@
 (def osm-pbf-path (path/child
                    env/*global-dataset-path*
                    "geofabrik.de"
-                   "serbia-latest.osm.pbf"))
+                   "serbia-internal-latest.osm.pbf"))
 
 (def active-pipeline nil)
 
@@ -85,13 +85,17 @@
   [relation]
   (let [osm-id (:id relation)]
     [:tr
-     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+     [:td {:style "border: 1px solid black; padding: 5px;"}
       osm-id]
-     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+     [:td {:style "border: 1px solid black; padding: 5px;"}
       (get-in relation [:osm "route"])]
-     [:td {:style "border: 1px solid black; padding: 5px; width: 50px;"}
+     [:td {:style "border: 1px solid black; padding: 5px;"}
       (get-in relation [:osm "name"])]
-     [:td {:style "border: 1px solid black; padding: 5px; width: 80px; text-align: center;"}
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (get-in relation [:user])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (time/timestamp->date (get-in relation [:timestamp])) ]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
       (list
        [:a {
             :href (str "https://openstreetmap.org/relation/" osm-id)
@@ -103,7 +107,11 @@
        [:br]
        [:a {
             :href (str "http://localhost:7077/route/edit/" osm-id)
-            :target "_blank"} "edit"]          
+            :target "_blank"} "route edit"]          
+       [:br]
+       [:a {
+            :href (str "http://localhost:7077/view/osm/history/relation/" osm-id)
+            :target "_blank"} "history"]          
        [:br]
        osm-id)]]))
 
@@ -132,9 +140,10 @@
              [:table {:style "border-collapse:collapse;"}
               (map
                render-route
-               (sort-by
-                :id
-                relation-seq))]
+               (reverse
+                (sort-by
+                 :id
+                 relation-seq)))]
              [:br]]])})
   (compojure.core/GET
    "/projects/hikeandbike/test"

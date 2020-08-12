@@ -1146,7 +1146,9 @@
      :id (.getId entity)
      :longitude (.getLongitude entity)
      :latitude (.getLatitude entity)
-     :osm (read-pbf-tags (.getTags entity))}))
+     :osm (read-pbf-tags (.getTags entity))
+     :user (.getName (.getUser entity))
+     :timestamp (/ (.getTime (.getTimestamp entity)) 1000)}))
 
 (defn read-pbf-way
   [container]
@@ -1155,6 +1157,8 @@
      :type :way
      :id (.getId entity)
      :osm (read-pbf-tags (.getTags entity))
+     :user (.getName (.getUser entity))
+     :timestamp (/ (.getTime (.getTimestamp entity)) 1000)
      :nodes (map
              (fn [way-node]
                (.getNodeId way-node))
