@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.js"></script>
     
-    <script type= "text/javascript" src= "/lib/core.js"></script>
     <style>
       ::-webkit-scrollbar {
 	  display: none;
@@ -69,6 +68,132 @@
       <div id= "map" class= "map"></div>
     </div>
     <script type= "text/javascript">
+      // remains of lib/core.js
+      
+      if (!Array.prototype.last){
+	  Array.prototype.last = function(){
+              return this[this.length - 1]
+	  }
+      }
+
+      function urlPath () {
+	  return window.location.pathname.split ("/")
+      }
+
+      function setStatus (status) {
+	  document.getElementById ("status").innerHTML = status
+      }
+
+      function noOp () {}
+
+      function retrieve (url, callback, error) {
+	  var xhr = new XMLHttpRequest()
+	  xhr.open("GET", url, true);
+	  xhr.onreadystatechange = function () {
+	      if(xhr.readyState === 4 && xhr.status === 200) {
+		  callback (xhr.responseText)
+	      } else {
+		  error ()
+	      }
+	  };
+	  xhr.send();
+      }
+
+      function retrieveJson (url, callback, error) {
+	  retrieve (url, function (data) { callback (JSON.parse (data))}, error)
+      }
+
+      function retrieveConfiguration (map, callback) {
+	  retrieveJson ("/configuration/" + map, callback, noOp)
+      }
+
+      function retrieveLocations (map, callback) {
+	  retrieveJson ("/locations/" + map, callback, noOp)
+      }
+
+      function fetchPostJson (url, data, success, error) {
+	  fetch(
+	      url,
+	      {
+		  method: 'POST',
+		  headers: {
+		      'Accept': 'application/json',
+		      'Content-Type': 'application/json'},
+		  body: JSON.stringify(data)
+	      }).then (function (response) {
+		  response.json ().then (success).catch (error)
+	      }).catch (error)
+      }
+
+      function addLocationsToMap (map, locations) {
+	  locations.forEach (function (location) {
+	      var icon = L.icon ({
+		  iconUrl: "/pin/" + location.pin[0] + "/" + location.pin[1],
+		  iconSize: [25,25],
+		  iconAnchor: [12.5,12.5]})
+	      L
+		  .marker ([location.latitude, location.longitude], {icon: icon})
+		  .addTo (map)
+		  .on ("click", function (e) { setStatus (location.description)})
+	  })
+      }
+
+      var TrekMate = {
+	  tags: new Set ([]),
+	  dotstores: new Set ([]),
+	  realtime: null
+      }
+
+      function navigateTag (tag) {
+	  if (TrekMate.tags.has (tag)) {
+	      TrekMate.tags.delete (tag)
+	  } else {
+	      TrekMate.tags.add (tag)
+	  }
+
+	  TrekMate.realtime.update ()
+      }
+
+      function navigateDotStore (dotStore) {
+	  if (TrekMate.dotstores.has (dotStore)) {
+	      TrekMate.dotstores.delete (dotStore)
+	  } else {
+	      TrekMate.dotstores.add (dotStore)
+	  }
+
+	  TrekMate.realtime.update ()    
+      }
+
+      function renderTags (tags) {
+	  var html = ""
+	  for (const tag of tags.sort ()) {
+	      html += "<a href='javascript:navigateTag(\"" + tag + "\")'>"
+	      if (TrekMate.tags.has (tag)) {
+		  html += tag + " [REMOVE]"
+	      } else {
+		  html += tag + " [ADD]"
+	      }
+	      html += "</a><br>"
+	  }
+	  document.getElementById ("menu-tag").innerHTML = html
+      }
+
+      function renderDotStoreSeq (dotStoreSeq) {
+	  var html = ""
+	  for (const dotstore of dotStoreSeq.sort ()) {
+	      html += "<a href='javascript:navigateDotStore(\"" + dotstore + "\")'>"
+	      if (TrekMate.dotstores.has (dotstore)) {
+		  html += dotstore + " [REMOVE]"
+	      } else {
+		  html += dotstore + " [ADD]"
+	      }
+	      html += "</a><br>"
+	  }
+	  document.getElementById ("menu-dotstore").innerHTML = html
+      }
+      
+      // old start of code
+      
       var jsonGet = function (url, callback, error) {
 	  var xhr = new XMLHttpRequest()
 	  xhr.open("GET", url, true);
@@ -83,7 +208,7 @@
       }
 
       // stores currently active tiles and assigned markers ...
-//      var tileStore = new Map()
+      //      var tileStore = new Map()
       L.GridLayer.MarkerLoader = L.GridLayer.extend({
 	  initialize: function(url, options) {
 	      var markerStore = new Map()
@@ -93,7 +218,7 @@
 	      this.on("tileunload", function(tileEvent) {
 		  var key = tileEvent.coords.z + "/" + tileEvent.coords.x + "/" + tileEvent.coords.y
 		  var tile = markerStore.get(key)
-//		  tileStore.delete(key)
+		  //		  tileStore.delete(key)
 		  tile.remove()
 		  markerStore.delete(key)
 	      })
@@ -108,7 +233,7 @@
 		  var tileUrl = L.Util.template(this._url, L.extend(coords, this.options))
 		  fetch(tileUrl).then(function(response) {
 		      response.json().then(data => {
-//			  tileStore.set(key, data.features)
+			  //			  tileStore.set(key, data.features)
 			  var markers = data.features.map(function (location) {
 			      var id = location.properties.id
 			      var tags = location.properties.tags
@@ -149,7 +274,7 @@
 	      return L.DomUtil.create('div')
 	  },
       })
-            
+      
       L.TileBoundsLayer = L.GridLayer.extend({
 	  initialize: function(options) {
               L.GridLayer.prototype.initialize.call(this, options)
@@ -180,20 +305,45 @@
 
       
       // setup
-      
-      var mapId = window.location.pathname.split ("/").last()
       var map = L.map("map", {maxBoundsViscosity: 1.0})
       map.setMaxBounds ([[-90,-180],[90,180]])
 
-
-      var trekMateDot = new L.GridLayer.MarkerLoader(
-	  "/tile/vector/" + mapId + "/{z}/{x}/{y}",
-	  {
-	      maxZoom: 21,
-	      bounds: [[-90,-180], [90, 180]],
-	      noWrap: true
-	  })
-      trekMateDot.addTo(map)
+      var dataLayer = null
+      
+      var params = new URLSearchParams(window.location.search)
+      var mapType = params.get("type")
+      // legacy type
+      if (mapType == null) {
+	  var mapId = window.location.pathname.split ("/").last()
+	  dataLayer = new L.GridLayer.MarkerLoader(
+	      "/tile/vector/" + mapId + "/{z}/{x}/{y}",
+	      {
+		  maxZoom: 21,
+		  bounds: [[-90,-180], [90, 180]],
+		  noWrap: true
+	      })
+	  jsonGet(
+	      "/configuration/" + mapId,
+	      function (configuration) {
+		  map.setView (
+		      [configuration.latitude, configuration.longitude],
+		      configuration.zoom)
+	      },
+	      function () {})
+      } else if (mapType == "track") {
+	  var dataLayer = L.featureGroup()
+	  var dataset = params.get("dataset")
+	  var track = encodeURIComponent(params.get("track"))
+	  // todo make in sync
+	  jsonGet(
+	      "http://localhost:7077/projects/tracks/retrieve?dataset=" + dataset + "&track=" + track,
+	      function (data) {
+		  dataLayer.addLayer(L.geoJSON(data, {}))
+		  map.fitBounds(dataLayer.getBounds())
+	      },
+	      function () {})
+      }
+      dataLayer.addTo(map)
       
       // specific
       var markDoneFn = function(id) {
@@ -378,7 +528,7 @@
 	      policy: "eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vaGVhdG1hcC1leHRlcm5hbC0qLnN0cmF2YS5jb20vKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTU5MzY5NTQzMH0sIkRhdGVHcmVhdGVyVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNTkyNDcxNDMwfX19XX0_",
 	      signature: "R6a~NwbZ4-P4dVIyOuQvLpacJPRk0qzWBWl4O-WowGA7wuydNtaLJT2jK6ohz5A~nrXAPMtqtKULCRxO15V00rYicTCbs-~ikDCZEwj-Q1qOAK-7eYN4rd~TuDJTektz6x4l-KKQcwBX-GeOrzqqYT2hobbKB~S7aiNANqlYqfuFXYrLAnM2gOQj-nX-whm8SdgaK92dQBvBjCYcW8rDopTm1hvhaRLKBJ2m40z2S2eOTRZoWyEGqsoKpTY8E8KRXcmPBU5Z1w3OQalv44FJ2cuV3xzGUXZrug0POlif8OJ2JvBiH6q6VvjYOuehT5SpRcuVsiITK5qN~oSp-KmJAA__"
 	  })
-	  
+      
       
       var boundsTile = new L.TileBoundsLayer(
 	  {
@@ -501,9 +651,9 @@
 	      bounds: [[-90,-180], [90, 180]],
 	      noWrap: true
 	  })
-          
+      
       var overlayMaps = {
-	  "trek-mate dot": trekMateDot,
+	  "data": dataLayer,
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
 	  "tile bounds": boundsTile,
@@ -535,56 +685,36 @@
 		  ])
 		  map.fitBounds(poly.getBounds());
 	      }).addTo(map)
-            
-      jsonGet(
-	  "/configuration/" + mapId,
-	  function (configuration) {
-	      map.setView (
-		  [configuration.latitude, configuration.longitude],
-		  configuration.zoom)
-
-	      /*
-	      L.tileLayer(
-		  "/tile/raster/" + mapId + "/{z}/{x}/{y}",
-		  {
-		      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
-		      maxZoom: 18,
-		      bounds:[[-90,-180], [90,180]],
-		      noWrap: true
-		  }).addTo(map)
-	      */
-
-	      var mousedownInterval;
-	      
-	      map.on (
-		  "mousedown",
-		  function (e) {
-		      mousedownInterval = setInterval(
-			  function() {
-			      L
-				  .popup({
-				      closeOnClick: false})
-				  .setLatLng(e.latlng)
-				  .setContent(
-				      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
-					  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
-					  "<a href='https://preview.ideditor.com/release/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
-					  "<a href='http://localhost:8080/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
-					  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
-					  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
-					  "<a href='https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%20%20node%5Btourism%3Dinformation%5D%5Binformation%3Dguidepost%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";16' target='_blank'>overpass path</a></br>")
-				  .openOn(map)},
-			  500)})
-	      map.on(
-		  "mousemove",
-		  function (e) {
-		      clearInterval(mousedownInterval)})
-	      map.on(
-		  "mouseup",
-		  function (e) {
-		      clearInterval(mousedownInterval)})
-	  },
-	  function () {})
+      
+      var mousedownInterval;
+      
+      map.on (
+	  "mousedown",
+	  function (e) {
+	      mousedownInterval = setInterval(
+		  function() {
+		      L
+			  .popup({
+			      closeOnClick: false})
+			  .setLatLng(e.latlng)
+			  .setContent(
+			      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
+				  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
+				  "<a href='https://preview.ideditor.com/release/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+				  "<a href='http://localhost:8080/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
+				  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
+				  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
+				  "<a href='https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%20%20node%5Btourism%3Dinformation%5D%5Binformation%3Dguidepost%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";16' target='_blank'>overpass path</a></br>")
+			  .openOn(map)},
+		  500)})
+      map.on(
+	  "mousemove",
+	  function (e) {
+	      clearInterval(mousedownInterval)})
+      map.on(
+	  "mouseup",
+	  function (e) {
+	      clearInterval(mousedownInterval)})
     </script>
   </body>
 </html>

@@ -394,7 +394,6 @@
    "/projects/:id/*"
    _
    (fn [request]
-     (println request)
      (if-let [project (project-get (get-in request [:params :id]))]
        ((:routes project) request)
        {:status 404})))

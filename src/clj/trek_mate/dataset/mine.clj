@@ -3,6 +3,10 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [hiccup.core :as hiccup]
+   compojure.core
+   ring.middleware.params
+   ring.middleware.keyword-params
    
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -15,6 +19,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
    [clj-cloudkit.client :as ck-client]
@@ -26,6 +31,7 @@
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
    [trek-mate.util :as util]
@@ -291,6 +297,9 @@
 (w 92234966) ;; "!Butterfly Valley Beach"
 (w 140302065) ;; "!Kaputas Beach"
 
+;; greece grcka
+(l 27.14722, 35.66734 tag/tag-beach "odlicne plaze")
+
 ;; monuments
 ;; serbia
 (q 3066255) ;; cegar
@@ -330,7 +339,106 @@
                        todos-world
                        monuments))])})
 
+;; support for tracks
+;; register project
+(def garmin-track-path
+  (path/child
+   env/*global-my-dataset-path*
+   "garmin"
+   "gpx"))
 
+(osmeditor/project-report
+ "tracks"
+ "my tracks"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/tracks/index"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:html
+            [:body {:style "font-family:arial;"}
+             [:a {:href "/projects/tracks/garmin"} "garmin"]
+             [:br]]])})
+  (compojure.core/GET
+   "/projects/tracks/view"
+   _
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "map.html"])})
+  (compojure.core/GET
+   "/projects/tracks/retrieve"
+   _
+   (ring.middleware.params/wrap-params
+    (ring.middleware.keyword-params/wrap-keyword-params
+     (fn [request]
+       (let [dataset (get-in request [:params :dataset])
+             track (url-decode (get-in request [:params :track]))]
+         (cond
+           (= dataset "garmin")
+           (let [path (path/child garmin-track-path (str track ".gpx"))]
+             (if (fs/exists? path)
+               (with-open [is (fs/input-stream path)]
+                 (let [track-seq (:track-seq (gpx/read-track-gpx is))]
+                   {
+                    :status 200
+                    :body (json/write-to-string
+                           (geojson/geojson
+                            [(geojson/location-seq-seq->multi-line-string
+                             track-seq)]))}))
+               {:status 404}))
+           :else
+           {:status 404}))))))
+  (compojure.core/GET
+   "/projects/tracks/garmin"
+   _
+   {
+    :status 200
+    :body (let [tags-map (into
+                          {}
+                          (with-open [is (fs/input-stream
+                                          (path/child garmin-track-path "index.tsv"))]
+                            (doall
+                             (map
+                              (fn [line]
+                                (let [fields (.split line "\\|")]
+                                  [
+                                   (first fields)
+                                   (.split (second fields) " ")]))
+                              (io/input-stream->line-seq is)))))]
+            (println tags-map)
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 (fn [name]
+                   [:tr
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str
+                              "/projects/tracks/view?type=track&dataset=garmin&track="
+                              (url-encode name))
+                       :target "_blank"}
+                      name]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str "javascript:navigator.clipboard.writeText(\"" name "\")")}
+                      "copy"]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     (if-let [tags (get tags-map name)]
+                        (clojure.string/join " " tags)
+                        "#pending")]])
+                 (reverse
+                  (sort
+                   (map
+                    #(.replace % ".gpx" "")
+                    (filter
+                     #(.endsWith % ".gpx")
+                     (map
+                      last
+                      (fs/list garmin-track-path)))))))]]]))})))
 
 ;; filtering of all tracks
 ;; tracks are located under my-dataset, trek-mate.storage is used for backup from CK

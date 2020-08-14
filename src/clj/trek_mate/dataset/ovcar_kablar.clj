@@ -329,7 +329,7 @@
                      ;; 8D
                      11489136 ;; 9
                      11211353 ;; MO Staza Miloša Obrenovića
-                     ;; OKT
+                     11499127 ;; OKT
                      ])]
   (web/register-dotstore
    :slot-b
