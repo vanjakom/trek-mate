@@ -116,7 +116,7 @@
                   into
                   tags)]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn l [longitude latitude & tags]
   (let [location {:longitude longitude :latitude latitude :tags (into #{}  tags)}]
@@ -172,6 +172,19 @@
 ;; vojvodina
 (q 2629582)
 (l 19.42713, 45.90264 "!Pačir" "crveno jezero" tag/tag-beach)
+(l 19.78137, 45.22189 "!Mackov sprud, Rakovacki dunavac" tag/tag-beach)
+(n 6679787528) ;; "!Sosul"
+(l 19.11457, 45.77278 tag/tag-sleep "~" "GreenTown apartments" (tag/url-tag "http://greentownapartments.com" "website"))
+(n 4916988923 tag/tag-drink)
+(l 19.08928, 45.73306 tag/tag-eat "!Sedam dodova" (tag/url-tag "https://www.facebook.com/Sedam-dudova-1779781039003883/" "website"))
+(n 4575984892) ;; "!Slon"
+(l 19.11381, 45.77088
+   tag/tag-todo
+   "bajs"
+   (tag/url-tag "https://www.visitsombor.org/ponuda/id337/biciklizam/biciklisticka-staza-oko-venca/biciklisticka-staza-oko-venca.html" "website")
+   (tag/url-tag "https://www.visitsombor.org/ponuda/id339/biciklizam/biciklisticka-i-setna-staza-kraj-velikog-backog-kanala/biciklisticka-i-setna-staza-kraj-velikog-backog-kanala.html" "website")
+   (tag/url-tag "https://inspiracija.srbijastvara.rs/extfile/sr/279/Sombor,%20Gornje%20Podunavlje,%20Apatin-CIR%201.pdf" "srbija stvara"))
+
 
 ;; golubac
 (l 21.63431, 44.65217 "!Golubac tvrdjava i hike" tag/tag-hike)
@@ -190,6 +203,19 @@
 ;; kosmaj
 (r 11483827 "nije mapirana staza do kraja, ide preko potoka, istocno ima neki vodopad")
 (r 11483846) ;; "!Parcanski vis"
+
+;; rudnik
+(l 20.54873, 44.18115
+   tag/tag-sleep
+   "~"
+   "!Zdravkovac"
+   (tag/url-tag "https://zdravkovac.rs/" "website"))
+(q 3357450 tag/tag-hike) ;; "!Ostrvica"
+(l 20.21394, 44.01967
+   tag/tag-sleep
+   "~"
+   "!Rajski konaci"
+   (tag/url-tag "http://rajskikonaci.com" "website"))
 
 ;; ovcar i kablar mapiranje planinarskih staza
 (l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
@@ -223,7 +249,7 @@
 ;; arilje
 (l 19.91661, 43.64074 "bazeni pored reke" tag/tag-beach (tag/url-tag "website" "http://www.srbijaplus.net/visocka-banja-arilje.htm"))
 (l 20.04746, 43.74122 "!Urijak" tag/tag-beach)
-(l 20.07123, 43.75054  "!Žuta stena" tag/tag-beach "ima i kamp, ok za rooftop")
+(l 20.07123, 43.75054  "!Žuta stena" tag/tag-beach tag/tag-rooftoptent "ima i kamp, ok za rooftop")
 (l 20.05624, 43.74570 "!Bosa noga" tag/tag-beach)
 (l 20.08743, 43.74968 "!Uski vir" "ostrvo")
 
@@ -231,6 +257,7 @@
 
 (q 116343 tag/tag-sleep) ;; drvengrad
 
+(q 12757663) ;; "!Potpece Cave"
 (q 6589753) ;; stopica pecina
 
 (l 19.93326, 43.70182
@@ -260,18 +287,30 @@
 ;; ibar
 (l 20.71416, 43.69570 tag/tag-sleep "!Brvnara Jez" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/jez.sr.html"))
 
+(l 20.83978, 43.56220
+   tag/tag-todo
+   "!Goč"
+   (tag/url-tag "https://inspiracija.srbijastvara.rs/extfile/sr/271/Goč,%20Stolovi,%20Mitrovo%20Polje-CIR.pdf" "website")
+   (tag/url-tag "http://odmaralistegoc.rs/sr/proizvodi/rekreativne-staze-na-gocu" "pesacke staze"))
+(l 20.83742, 43.55913
+   tag/tag-sleep
+   "!Kedar selo"
+   (tag/url-tag "https://kedarselo.rs" "website"))
+
 ;; vojvodina
 (l 19.98038, 45.15546
    tag/tag-bike
    "obici Cortanovacku magiju, pesacka staza"
    (tag/url-tag "osm" "https://www.openstreetmap.org/relation/11314365"))
-
-
 (l 20.40346 45.26543
    tag/tag-hike
    "!Carska Bara"
    "postoji staza zdravlja, krece ispred hotela Sibila"
    (tag/url-tag "mapa" "http://www.zrenjanin.rs/sr-lat/posetite-i-upoznajte-zrenjanin/obilazak-okoline/carska-bara"))
+(l 21.13789, 44.93379
+   tag/tag-sleep
+   "!Kaštel Marijeta"
+   (tag/url-tag "http://kastelmarijeta.com" "website"))
 
 ;; bosnam sutjeska
 (q 1262800)
@@ -284,6 +323,13 @@
 
 ;; italy
 (n 1100885447) ;; "!Cascate del Mulino"
+
+;; greece
+;; rodos
+(r 537216 tag/tag-rooftoptent) ;; "!Agathi Beach"
+
+;; slovenia
+(q 6476501 tag/tag-beach) ;; "!Kreda"
 
 ;; turska plaze
 ;; https://www.youtube.com/watch?v=B7zwRqA-zT0

@@ -107,6 +107,7 @@
 (def tag-building "#building")
 (def tag-bakery "#bakery")
 (def tag-camp "#camp")
+(def tag-rooftoptent "#rooftoptent")
 (def tag-grocery "#grocery")
 (def tag-festival "#festival")
 (def tag-woods "#woods")
