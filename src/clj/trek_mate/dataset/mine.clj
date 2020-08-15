@@ -222,6 +222,8 @@
 (l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")
 (l 20.19922, 43.92363 tag/tag-todo "staza milosa obrenoviva" "kao da zaobilazi")
 (l 20.20452, 43.91515 tag/tag-todo "staza milosa obrenoviva" "trasirao drugacije od tracka, vecina tragova ide putem")
+(r 11506308 "kona vikend") ;; "!Ovčar"
+
 
 ;; ozren, devica, rtanj
 (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")

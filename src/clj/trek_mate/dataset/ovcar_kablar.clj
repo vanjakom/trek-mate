@@ -330,6 +330,8 @@
                      11489136 ;; 9
                      11211353 ;; MO Staza Miloša Obrenovića
                      11499127 ;; OKT
+
+                     11506308 ;; ovcar bike trail
                      ])]
   (web/register-dotstore
    :slot-b

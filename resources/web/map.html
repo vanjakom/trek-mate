@@ -67,132 +67,12 @@
     <div id= "content" class= "content">
       <div id= "map" class= "map"></div>
     </div>
-    <script type= "text/javascript">
-      // remains of lib/core.js
-      
+    <script type= "text/javascript">      
       if (!Array.prototype.last){
 	  Array.prototype.last = function(){
               return this[this.length - 1]
 	  }
       }
-
-      function urlPath () {
-	  return window.location.pathname.split ("/")
-      }
-
-      function setStatus (status) {
-	  document.getElementById ("status").innerHTML = status
-      }
-
-      function noOp () {}
-
-      function retrieve (url, callback, error) {
-	  var xhr = new XMLHttpRequest()
-	  xhr.open("GET", url, true);
-	  xhr.onreadystatechange = function () {
-	      if(xhr.readyState === 4 && xhr.status === 200) {
-		  callback (xhr.responseText)
-	      } else {
-		  error ()
-	      }
-	  };
-	  xhr.send();
-      }
-
-      function retrieveJson (url, callback, error) {
-	  retrieve (url, function (data) { callback (JSON.parse (data))}, error)
-      }
-
-      function retrieveConfiguration (map, callback) {
-	  retrieveJson ("/configuration/" + map, callback, noOp)
-      }
-
-      function retrieveLocations (map, callback) {
-	  retrieveJson ("/locations/" + map, callback, noOp)
-      }
-
-      function fetchPostJson (url, data, success, error) {
-	  fetch(
-	      url,
-	      {
-		  method: 'POST',
-		  headers: {
-		      'Accept': 'application/json',
-		      'Content-Type': 'application/json'},
-		  body: JSON.stringify(data)
-	      }).then (function (response) {
-		  response.json ().then (success).catch (error)
-	      }).catch (error)
-      }
-
-      function addLocationsToMap (map, locations) {
-	  locations.forEach (function (location) {
-	      var icon = L.icon ({
-		  iconUrl: "/pin/" + location.pin[0] + "/" + location.pin[1],
-		  iconSize: [25,25],
-		  iconAnchor: [12.5,12.5]})
-	      L
-		  .marker ([location.latitude, location.longitude], {icon: icon})
-		  .addTo (map)
-		  .on ("click", function (e) { setStatus (location.description)})
-	  })
-      }
-
-      var TrekMate = {
-	  tags: new Set ([]),
-	  dotstores: new Set ([]),
-	  realtime: null
-      }
-
-      function navigateTag (tag) {
-	  if (TrekMate.tags.has (tag)) {
-	      TrekMate.tags.delete (tag)
-	  } else {
-	      TrekMate.tags.add (tag)
-	  }
-
-	  TrekMate.realtime.update ()
-      }
-
-      function navigateDotStore (dotStore) {
-	  if (TrekMate.dotstores.has (dotStore)) {
-	      TrekMate.dotstores.delete (dotStore)
-	  } else {
-	      TrekMate.dotstores.add (dotStore)
-	  }
-
-	  TrekMate.realtime.update ()    
-      }
-
-      function renderTags (tags) {
-	  var html = ""
-	  for (const tag of tags.sort ()) {
-	      html += "<a href='javascript:navigateTag(\"" + tag + "\")'>"
-	      if (TrekMate.tags.has (tag)) {
-		  html += tag + " [REMOVE]"
-	      } else {
-		  html += tag + " [ADD]"
-	      }
-	      html += "</a><br>"
-	  }
-	  document.getElementById ("menu-tag").innerHTML = html
-      }
-
-      function renderDotStoreSeq (dotStoreSeq) {
-	  var html = ""
-	  for (const dotstore of dotStoreSeq.sort ()) {
-	      html += "<a href='javascript:navigateDotStore(\"" + dotstore + "\")'>"
-	      if (TrekMate.dotstores.has (dotstore)) {
-		  html += dotstore + " [REMOVE]"
-	      } else {
-		  html += dotstore + " [ADD]"
-	      }
-	      html += "</a><br>"
-	  }
-	  document.getElementById ("menu-dotstore").innerHTML = html
-      }
-      
-      // old start of code
       
       var jsonGet = function (url, callback, error) {
 	  var xhr = new XMLHttpRequest()
@@ -207,6 +87,77 @@
 	  xhr.send();
       }
 
+      var projectX = function(longitude) {
+	  return Math.floor((longitude / 360 + 0.5) * Math.pow(2, 24))
+      }
+      
+      var projectY = function(latitude) {
+	  const sin = Math.sin(latitude * Math.PI / 180);
+	  console.log(sin)
+	  const y2 = 0.5 - 0.25 * Math.log((1 + sin) / (1 - sin)) / Math.PI;
+	  const y3 = y2 < 0 ? 0 : y2 > 1 ? 1 : y2;
+	  return Math.floor(y3 * Math.pow(2, 24))
+      }
+
+      var projectedLocationToWord = function(x, y) {
+	  var quadKey = [];
+	  for (var i = 24; i > 0; i--) {
+	      var digit = '0';
+	      var mask = 1 << (i - 1);
+	      if ((x & mask) != 0) {
+		  digit++;
+	      }
+	      if ((y & mask) != 0) {
+		  digit++;
+		  digit++;
+	      }
+	      quadKey.push(digit);
+	  }
+
+	  // todo
+	  var key = ""
+	  while (quadKey.length >= 2) {
+	      var letter = "" + quadKey.shift()
+	      letter += quadKey.shift()
+	      if (letter == "00") {
+		  key += "A"
+	      } else if (letter == "01") {
+		  key += "B"
+	      } else if (letter == "10") {
+		  key += "C"
+	      } else if (letter == "11") {
+		  key += "D"
+	      } else if (letter == "02") {
+		  key += "E"
+	      } else if (letter == "03") {
+		  key += "F"
+	      } else if (letter == "12") {
+		  key += "G"
+	      } else if (letter == "13") {
+		  key += "H"
+	      } else if (letter == "20") {
+		  key += "I"
+	      } else if (letter == "21") {
+		  key += "J"
+	      } else if (letter == "30") {
+		  key += "K"
+	      } else if (letter == "31") {
+		  key += "L"
+	      } else if (letter == "22") {
+		  key += "M"
+	      } else if (letter == "23") {
+		  key += "N"
+	      } else if (letter == "32") {
+		  key += "O"
+	      } else if (letter == "33") {
+		  key += "P"
+	      } else {
+		  key += "X"
+	      }
+	  }
+	  return key
+      }
+      
       // stores currently active tiles and assigned markers ...
       //      var tileStore = new Map()
       L.GridLayer.MarkerLoader = L.GridLayer.extend({
@@ -253,7 +204,8 @@
 				      { maxWidth: "auto" })
 			      } else {				  
 				  marker.bindPopup(
-				      location.geometry.coordinates[0] + ", " + location.geometry.coordinates[1] + "</br>" + 
+				      location.geometry.coordinates[0] + ", " + location.geometry.coordinates[1] + "</br>" +
+					  projectedLocationToWord(projectX(location.geometry.coordinates[0]), projectY(location.geometry.coordinates[1])) + "</br>" +
 					  location.properties.description + "</br>" +
 					  "<a href='javascript:markDoneFn(\"" + id + "\")'>mark done</a>",
 				      {
@@ -297,6 +249,114 @@
 	      ctx.beginPath()
 	      ctx.rect(0, 0, 255, 255)
 	      ctx.fillText(key, 5, 20)
+	      ctx.stroke()
+	      
+	      return tile
+	  },
+      })
+
+
+      L.LocationBoundsLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+	      var quadKey = [];
+	      for (var i = coords.z; i > 0; i--) {
+		  var digit = '0';
+		  var mask = 1 << (i - 1);
+		  if ((coords.x & mask) != 0) {
+		      digit++;
+		  }
+		  if ((coords.y & mask) != 0) {
+		      digit++;
+		      digit++;
+		  }
+		  quadKey.push(digit);
+	      }
+
+	      var key = ""
+	      var quadKeyCopy = quadKey.join("")
+	      	      
+	      while (quadKey.length >= 2) {
+		  var letter = "" + quadKey.shift()
+		  letter += quadKey.shift()
+		  if (letter == "00") {
+		      key += "A"
+		  } else if (letter == "01") {
+		      key += "B"
+		  } else if (letter == "10") {
+		      key += "C"
+		  } else if (letter == "11") {
+		      key += "D"
+		  } else if (letter == "02") {
+		      key += "E"
+		  } else if (letter == "03") {
+		      key += "F"
+		  } else if (letter == "12") {
+		      key += "G"
+		  } else if (letter == "13") {
+		      key += "H"
+		  } else if (letter == "20") {
+		      key += "I"
+		  } else if (letter == "21") {
+		      key += "J"
+		  } else if (letter == "30") {
+		      key += "K"
+		  } else if (letter == "31") {
+		      key += "L"
+		  } else if (letter == "22") {
+		      key += "M"
+		  } else if (letter == "23") {
+		      key += "N"
+		  } else if (letter == "32") {
+		      key += "O"
+		  } else if (letter == "33") {
+		      key += "P"
+		  } else {
+		      key += "X"
+		  }
+	      }
+
+	      var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.strokeStyle = this._color
+	      ctx.fillStyle = this._color
+	      ctx.font = "15px Arial"
+	      ctx.lineWidth = 1
+	      ctx.beginPath()
+	      
+	      if (quadKey.length == 0) {
+		  //var key = key +  " (" + quadKeyCopy + ")"
+		  ctx.fillText(key, 5, 20)
+		  ctx.rect(0, 0, 255, 255)
+	      } else {
+		  if (quadKey[0] == 0) {
+		      ctx.fillText(key, 5, 20)
+		      ctx.moveTo(0, 255)
+		      ctx.lineTo(0, 0)
+		      ctx.lineTo(255, 0)
+		  } else if (quadKey[0] == 1) {
+		      ctx.moveTo(0, 0)
+		      ctx.lineTo(255, 0)
+		      ctx.lineTo(255, 255)
+		  } else if (quadKey[0] == 2) {
+		      ctx.moveTo(0, 0)
+		      ctx.lineTo(0, 255)
+		      ctx.lineTo(255, 255)
+		  } else {
+		      ctx.moveTo(255, 0)
+		      ctx.lineTo(255, 255)
+		      ctx.lineTo(0, 255)
+		  }
+	      }
+
 	      ctx.stroke()
 	      
 	      return tile
@@ -537,6 +597,13 @@
 	      noWrap: true,
 	      color: "rgba(0, 0, 0, 0.5"})
 
+      var boundsLocation = new L.LocationBoundsLayer(
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(0, 0, 0, 0.5"})
+
       
       var trackTile = L.tileLayer(
 	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
@@ -657,6 +724,7 @@
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
 	  "tile bounds": boundsTile,
+	  "location bounds": boundsLocation,
 	  "strava heatmap": stravaHeatmapTile,
 	  "strava auth heatmap": stravaAuthHeatmapTile,
 	  "cyclOSM lite": cyclOSMTile,
@@ -699,6 +767,7 @@
 			  .setLatLng(e.latlng)
 			  .setContent(
 			      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
+				  projectedLocationToWord(projectX(e.latlng.lng), projectY(e.latlng.lat)) + "</br>" +
 				  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
 				  "<a href='https://preview.ideditor.com/release/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
 				  "<a href='http://localhost:8080/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
