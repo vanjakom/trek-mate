@@ -114,7 +114,9 @@
                         (recur)))))
                   [:tags]
                   into
-                  tags)]
+                  (conj
+                   tags
+                   (str "Q" q)))]
     (dataset-add location)
     (dot/dot->name location)))
 

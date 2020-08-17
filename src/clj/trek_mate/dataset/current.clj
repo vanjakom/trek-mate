@@ -62,7 +62,7 @@
                    tags
                    (tag/url-tag n (str "http://openstreetmap.org/node/" n))))]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn w [w & tags]
   (let [location (update-in
@@ -80,7 +80,7 @@
                    tags
                    (tag/url-tag w (str "http://openstreetmap.org/way/" w))))]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn r [r & tags]
   (let [location (dot/enrich-tags
@@ -98,7 +98,7 @@
                     tags
                     (tag/url-tag r (str "http://openstreetmap.org/relation/" r)))))]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn q [q & tags]
   (let [location (update-in
@@ -114,7 +114,7 @@
                   into
                   tags)]
     (dataset-add location)
-    location))
+    (dot/dot->name location)))
 
 (defn l [longitude latitude & tags]
   (let [location {:longitude longitude :latitude latitude :tags (into #{}  tags)}]
@@ -128,6 +128,7 @@
    [:tags]
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
+
 
 ;; hike staza petruskih monaha
 #_(do
@@ -343,6 +344,17 @@
           :id)
          (:members (get-in dataset [:relations relation-id]))))))))
 
+;; zlatibor
+(def center (overpass/wikidata-id->location :Q2748924))
+
+(w 656964585) ;; "!Zlatibor Mona"
+(w 656899111) ;; "!Гранд хотел Торник"
+
+(q 12757663) ;; "!Potpece Cave"
+(q 6589753) ;; "!Stopića pećina"
+(q 1978817) ;; "!Sirogojno"
+
+
 (def center (overpass/wikidata-id->location :Q3711))
 
 (web/register-map
@@ -351,7 +363,7 @@
   :configuration {
                   :longitude (:longitude center) 
                   :latitude (:latitude center)
-                  :zoom 12}
+                  :zoom 14}
   :vector-tile-fn (web/tile-vector-dotstore-fn
                    [(fn [_ _ _ _]
                       (vals (deref dataset)))])})
