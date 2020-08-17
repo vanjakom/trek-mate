@@ -332,6 +332,7 @@
                      11499127 ;; OKT
 
                      11506308 ;; ovcar bike trail
+                     11509576 ;; kablar bike trail
                      ])]
   (web/register-dotstore
    :slot-b

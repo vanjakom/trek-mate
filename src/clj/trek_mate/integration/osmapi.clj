@@ -525,6 +525,7 @@
 (defn compare-element
   [old new]
   (if (nil? old)
+    ;; creation
     (concat
      [{
        :change :create
@@ -546,6 +547,7 @@
      (calculate-member-change
       (:user new) (:timestamp new) (:version new) (:changeset new)
       '() (:members new)))
+    ;; both exists
     (filter
      some?
      (concat
@@ -564,6 +566,7 @@
             :changeset (:changeset new)
             :old (select-keys old [:lon :lat])
             :new (select-keys new [:lon :lat])}])
+
         (= (:type new) "way")
         (when (not (= (:nodes old) (:nodes new)))
           [{
@@ -574,6 +577,7 @@
             :changeset (:changeset new)
             :old (:nodes old)
             :new (:nodes new)}])
+
         (= (:type new) "relation")
         (when (not (= (:members old) (:members new)))
           (calculate-member-change

@@ -136,7 +136,8 @@
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
-             [:div (str "mapirane rute (" (count relation-seq)  ")")]
+             [:div (str "planinarske i biciklisticke staze u Srbiji (" (count relation-seq)  ")")]
+             [:br]
              [:table {:style "border-collapse:collapse;"}
               (map
                render-route

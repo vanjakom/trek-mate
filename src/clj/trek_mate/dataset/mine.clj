@@ -222,8 +222,8 @@
 (l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")
 (l 20.19922, 43.92363 tag/tag-todo "staza milosa obrenoviva" "kao da zaobilazi")
 (l 20.20452, 43.91515 tag/tag-todo "staza milosa obrenoviva" "trasirao drugacije od tracka, vecina tragova ide putem")
-(r 11506308 "kona vikend") ;; "!Ovčar"
-
+(r 11506308 "kona vikend" "@rodjendan" tag/tag-todo) ;; "!Ovčar"
+(r 11509576 "kona vikend" "@rodjendan" tag/tag-todo) ;; "!Kablar"
 
 ;; ozren, devica, rtanj
 (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
@@ -239,6 +239,10 @@
 (r 11161806)
 (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
 (r 11144136)
+
+;; zlatibor
+(w 656964585) ;; "!Zlatibor Mona"
+(w 656899111) ;; "!Гранд хотел Торник"
 
 (q 1264703) ;; manastir manasija
 (q 2453168) ;; resavska pecina

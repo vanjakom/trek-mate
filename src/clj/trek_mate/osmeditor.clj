@@ -647,6 +647,15 @@
       :body
       (hiccup/html
        [:html
+        [:head [:title (str
+                        (cond
+                          (= type "way")
+                          "w"
+                          (= type "node")
+                          "n"
+                          (= type "relation")
+                          "r")
+                        id)]]
         [:body {:style "font-family:arial;"}
          (cond
            (= type "node")
@@ -673,10 +682,13 @@
                   (cond
                     (= (:change change) :create)
                     [:div "created"]
+
                     (= (:change change) :location)
                     [:div "moved"]
+
                     (= (:change change) :nodes)
                     [:div "changed nodes"]
+
                     (= (:change change) :member-add)
                     [:div {:style "color:green;"}
                      (cond
@@ -690,6 +702,7 @@
                      (:id change)
                      (when (some? (:role change))
                        (str " as " (:role change)))]
+
                     (= (:change change) :member-remove)
                     [:div {:style "color:red;"}
                      (cond
@@ -703,6 +716,7 @@
                      (:id change)
                      (when (some? (:role change))
                        (str " as " (:role change)))]
+
                     (= (:change change) :members)
                     (concat
                      (list
@@ -722,12 +736,16 @@
                          " "
                          (:role member)])
                       (:members change)))
+
                     (= (:change change) :tag-add)
                     [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
+
                     (= (:change change) :tag-remove)
                     [:div {:style "color:red;"} (name (:tag change)) " = " (:value change) ]
+
                     (= (:change change) :tag-change)
                     [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
+
                     :else
                     [:div "unknown"]))
                  (:version change)]))
