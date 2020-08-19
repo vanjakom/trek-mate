@@ -353,6 +353,7 @@
 
 ;; greece grcka
 (l 27.14722, 35.66734 tag/tag-beach "odlicne plaze")
+(q 203979 tag/tag-beach "bele plaze") ;; "!Milos"
 
 ;; monuments
 ;; serbia
