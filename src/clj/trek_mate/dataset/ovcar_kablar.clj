@@ -29,6 +29,8 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+(def dataset-path (path/child env/*global-my-dataset-path* "turizamcacak.org.rs"))
+
 (defn add-tag
   [location & tag-seq]
   (update-in
@@ -49,7 +51,7 @@
 (def kablar-wellness-centar (dot/enrich-tags
                              (osm/extract-tags
                               (overpass/node-id->location 6580428085))))
-(def overpass-location-seq
+#_(def overpass-location-seq
   (map
    osm/extract-tags
    (overpass/query-dot-seq
@@ -74,7 +76,8 @@
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [(fn [_ _ _ _]
                        (concat
-                        overpass-location-seq
+                        #_overpass-location-seq
+                        []
                         [
                          ovcar-banja
                          kablar-wellness-centar]))])})
@@ -244,42 +247,72 @@
 ;; 20200805
 ;; adding missing routes based on approval from TO Cacak
 
-#_(doseq [file (fs/list (path/child env/*global-my-dataset-path* "turizamcacak.org.rs"))]
+#_(doseq [file (fs/list dataset-path)]
   (println "analyzing "  (path/path->string file))
   (with-open [is (fs/input-stream file)]
     (let [track (gpx/read-track-gpx is)]
       (println "wpts:" (count (:wpt-seq track)) "tracks: " (count (:track-seq track))))))
 
-(def a
-  )
 
+(def relation-id-seq
+  [
 
+   11189634 ;; 1 Девојачка стена
+   11189523 ;; 2 Стаза Светог Саве
+   11211290 ;; 2A
+   11189476 ;; 3 Каблар
+   ;; 3A
+   ;; 3B
+   11189458 ;; 4 Грабова коса
+   11189670 ;; 4А
+   11189756 ;; 4B
+   11189613 ;; 5 Кота 889
+   11478100 ;; 5+ Кађеница
+   11214224 ;; 6 Дебела гора
+   ;; 6A
+   11214225 ;; 7 Овчар
+   11478294 ;; 7A Варијанта стазе 7
+   ;; 7B
+   11489032 ;; 8
+   11489086 ;; 8A
+   ;; 8B
+   ;; 8C
+   ;; 8D
+   11489136 ;; 9
+   11211353 ;; MO Staza Miloša Obrenovića
+   11499127 ;; OKT
 
-(let [location-seq (reduce
-                    (fn [location-seq track-path]
-                      (with-open [is (fs/input-stream track-path)]
-                        (let [track (gpx/read-track-gpx is)]
-                          (concat
-                           location-seq
-                           (apply concat (:track-seq track))))))
-                    []
-                    (fs/list
-                     (path/child
-                      env/*global-my-dataset-path* "turizamcacak.org.rs")))]
+   11506308 ;; ovcar bike trail
+   11509576 ;; kablar bike trail
+   ])
+
+;; prepare slot-a and slot-b overlays on map to show gpx vs mapped
+
+(do
+  ;; gpx tracks from tourist organization
+  (let [location-seq (reduce
+                     (fn [location-seq track-path]
+                       (with-open [is (fs/input-stream track-path)]
+                         (let [track (gpx/read-track-gpx is)]
+                           (concat
+                            location-seq
+                            (apply concat (:track-seq track))))))
+                     []
+                     (fs/list dataset-path))]
     
-  (web/register-dotstore
-   :slot-a
-   (dot/location-seq->dotstore location-seq))
+   (web/register-dotstore
+    :slot-a
+    (dot/location-seq->dotstore location-seq))
 
-  (web/register-map
-   "slot-a"
-   {
-    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
-                     (web/create-transparent-raster-tile-fn)
-                       :slot-a
-                       [(constantly [draw/color-blue 2])])}))
-
-(let [location-seq (reduce
+   (web/register-map
+    "slot-a"
+    {
+     :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                      (web/create-transparent-raster-tile-fn)
+                      :slot-a
+                      [(constantly [draw/color-blue 2])])}))
+  ;; data in osm, over osm api
+  (let [location-seq (reduce
                     (fn [location-seq relation-id]
                       (let [dataset (osmapi/relation-full relation-id)
                             current-seq (reduce
@@ -304,36 +337,7 @@
                          location-seq
                          current-seq)))
                     []
-                    [
-
-                     11189634 ;; 1 Девојачка стена
-                     11189523 ;; 2 Стаза Светог Саве
-                     11211290 ;; 2A
-                     11189476 ;; 3 Каблар
-                     ;; 3A
-                     ;; 3B
-                     11189458 ;; 4 Грабова коса
-                     11189670 ;; 4А
-                     11189756 ;; 4B
-                     11189613 ;; 5 Кота 889
-                     11478100 ;; 5+ Кађеница
-                     11214224 ;; 6 Дебела гора
-                     ;; 6A
-                     11214225 ;; 7 Овчар
-                     11478294 ;; 7A Варијанта стазе 7
-                     ;; 7B
-                     11489032 ;; 8
-                     11489086 ;; 8A
-                     ;; 8B
-                     ;; 8C
-                     ;; 8D
-                     11489136 ;; 9
-                     11211353 ;; MO Staza Miloša Obrenovića
-                     11499127 ;; OKT
-
-                     11506308 ;; ovcar bike trail
-                     11509576 ;; kablar bike trail
-                     ])]
+                    relation-id-seq)]
   (web/register-dotstore
    :slot-b
    (dot/location-seq->dotstore location-seq))
@@ -344,22 +348,31 @@
     :raster-tile-fn (web/tile-overlay-dotstore-render-fn
                      (web/create-transparent-raster-tile-fn)
                      :slot-b
-                     [(constantly [draw/color-red 2])])}))
+                     [(constantly [draw/color-red 2])])})))
 
-
-
-(println "analyzing "  (path/path->string file))
-(with-open [is (fs/input-stream file)]
-  (let [track (gpx/read-track-gpx is)]
-    (println "wpts:" (count (:wpt-seq track)) "tracks: " (count (:track-seq track)))))
-
-
-
-
-
-(clj-common.debug/run-debug-server)
-
-
+;; create table for osm wiki
+(let [relation-seq (map osmapi/relation relation-id-seq)]
+  (with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+   (binding [*out* (new java.io.OutputStreamWriter os)]
+     (do
+       (println "== Trenutno stanje ==")
+       (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
+       (println "{| border=1")
+       (println "! scope=\"col\" | tip")
+       (println "! scope=\"col\" | ref")
+       (println "! scope=\"col\" | naziv")
+       (println "! scope=\"col\" | osm")
+       (println "! scope=\"col\" | note")
+       (doseq [relation relation-seq]
+         (println "|-")
+         (println "|" (get-in relation [:tags "route"]))
+         (println "|" (if-let [ref (get-in relation [:tags "ref"])] ref ""))
+         (println "|" (get-in relation [:tags "name:sr"]))
+         (println "|" (str "{{relation|" (:id relation) "}}"))
+         (println "|" (if-let [note (get-in relation  [:tags "note"])]
+                        note
+                        "")))
+       (println "|}")))))
 
 
 
