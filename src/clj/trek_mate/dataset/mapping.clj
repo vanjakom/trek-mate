@@ -77,7 +77,7 @@
 
 ;; set last location requests for mapping
 ;; creates tile overlay also of pending locations
-(let [location-seq (map
+#_(let [location-seq (map
                     (fn [location]
                       (update-in
                        location
@@ -122,7 +122,7 @@
 
 
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1596975968
+#_(let [track-id 1597914968
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
