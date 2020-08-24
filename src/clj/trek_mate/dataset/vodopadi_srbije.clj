@@ -143,7 +143,7 @@
                          (fn [line]
                            (let [fields (.split line "\\|")]
                              (if (> (count fields) 3)
-                               (let [ref (as/as-long (get fields 0))
+                               (let [ref (get fields 0)
                                      name (get fields 1)
                                      latitude (convert-fn (get fields 2))
                                      longitude (convert-fn (get fields 3))
@@ -158,11 +158,14 @@
                                            some?
                                            [
                                             (tag/name-tag name)
+                                            ref
                                             tag/tag-waterfall
                                             (str "N " (get fields 2) " E " (get fields 3))
                                             note]))}))
                                (println "invalid line: "(clojure.string/join "," fields)))))
-                         (io/input-stream->line-seq is)))))]
+                         (filter
+                          #(not (.startsWith % ";;"))
+                          (io/input-stream->line-seq is))))))]
   (swap!
    dataset
    (constantly

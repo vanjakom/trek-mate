@@ -455,14 +455,17 @@
                           (with-open [is (fs/input-stream
                                           (path/child garmin-track-path "index.tsv"))]
                             (doall
-                             (map
-                              (fn [line]
-                                (let [fields (.split line "\\|")]
-                                  [
-                                   (first fields)
-                                   (.split (second fields) " ")]))
-                              (io/input-stream->line-seq is)))))]
-            (println tags-map)
+                             (filter
+                              some?
+                              (map
+                               (fn [line]
+                                 (when (not (.startsWith line ";;"))
+                                   (let [fields (.split line "\\|")]
+                                     (when (== (count fields) 2)
+                                       [
+                                        (first fields)
+                                        (.split (second fields) " ")]))))
+                               (io/input-stream->line-seq is))))))]
             (hiccup/html
              [:html
               [:body {:style "font-family:arial;"}

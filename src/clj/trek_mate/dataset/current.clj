@@ -347,15 +347,29 @@
 ;; zlatibor
 (def center (overpass/wikidata-id->location :Q2748924))
 
-(w 656964585) ;; "!Zlatibor Mona"
-(w 656899111) ;; "!Гранд хотел Торник"
+#_(w 656964585) ;; "!Zlatibor Mona"
+#_(w 656899111) ;; "!Гранд хотел Торник"
+
+(q 2748924) ;; "!Zlatibor"
 
 (q 12757663) ;; "!Potpece Cave"
 (q 6589753) ;; "!Stopića pećina"
-(q 1978817) ;; "!Sirogojno"
+(q 1978817);; "!Sirogojno"
+(q 1208162) ;; "!Zlakusa"
+
+(n 3170668680) ;; "!Skakavac"
+(n 1721712259) ;; "!Vodopad Gostilje"
+(n 1736449861) ;; "!Tornik"
+(n 5057611721) ;; "!Ethno Bungallows Boškova Voda"
+
+(w 656969668) ;; "!Palisad"
+(l 19.84079, 43.85513 tag/tag-eat "!Kod Suljage")
 
 
-(def center (overpass/wikidata-id->location :Q3711))
+#_(storage/import-location-v2-seq-handler
+ (map #(t % "@zlatibor2020") (vals (deref dataset))))
+
+#_(def center (overpass/wikidata-id->location :Q3711))
 
 (web/register-map
  "current"
