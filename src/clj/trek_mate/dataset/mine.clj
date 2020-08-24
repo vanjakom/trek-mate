@@ -401,6 +401,13 @@
    env/*global-my-dataset-path*
    "garmin"
    "gpx"))
+(def trek-mate-track-path
+  (path/child
+   env/*global-my-dataset-path*
+   "trek-mate"
+   "cloudkit"
+   "track"
+   env/*trek-mate-user*))
 
 (osmeditor/project-report
  "tracks"
@@ -415,6 +422,8 @@
            [:html
             [:body {:style "font-family:arial;"}
              [:a {:href "/projects/tracks/garmin"} "garmin"]
+             [:br]
+             [:a {:href "/projects/tracks/trek-mate"} "trek-mate"]
              [:br]]])})
   (compojure.core/GET
    "/projects/tracks/view"
@@ -443,6 +452,19 @@
                             [(geojson/location-seq-seq->multi-line-string
                              track-seq)]))}))
                {:status 404}))
+           (= dataset "trek-mate")
+           (let [path (path/child trek-mate-track-path (str track ".json"))]
+             (if (fs/exists? path)
+               (with-open [is (fs/input-stream path)]
+                 (let [location-seq (:locations (json/read-keyworded is))]
+                   {
+                    :status 200
+                    :body (json/write-to-string
+                           (geojson/geojson
+                            [(geojson/location-seq->line-string
+                             location-seq)]))}))
+               {:status 404}))
+           
            :else
            {:status 404}))))))
   (compojure.core/GET
@@ -496,7 +518,75 @@
                      #(.endsWith % ".gpx")
                      (map
                       last
-                      (fs/list garmin-track-path)))))))]]]))})))
+                      (fs/list garmin-track-path)))))))]]]))})
+  (compojure.core/GET
+   "/projects/tracks/trek-mate"
+   _
+   {
+    :status 200
+    :body (let [track-name-seq (reverse
+                                (sort
+                                 (map
+                                  #(.replace % ".json" "")
+                                  (filter
+                                   #(.endsWith % ".json")
+                                   (map
+                                    last
+                                    (fs/list trek-mate-track-path))))))
+                ;; tags map is a bit problematic, tags are stored inside track
+                ;; cache tags map and update if needed
+                tags-map (let [tags-cache-path (path/child
+                                                 trek-mate-track-path
+                                                 "tags-cache")
+                               [refresh tags-map] (reduce
+                                                   (fn [[refresh tags-map] track-name]
+                                                     (if (contains? tags-map (keyword track-name))
+                                                       [refresh tags-map]
+                                                       (with-open [is (fs/input-stream
+                                                                       (path/child
+                                                                        trek-mate-track-path
+                                                                        (str track-name ".json")))]
+                                                         [
+                                                          true
+                                                          (assoc
+                                                           tags-map
+                                                           track-name
+                                                           (:tags (json/read-keyworded is)))])))
+                                                   [
+                                                    false
+                                                    (if (fs/exists? tags-cache-path)
+                                                     (with-open [is (fs/input-stream tags-cache-path)]
+                                                       (json/read-keyworded is))
+                                                     {})]
+                                                   track-name-seq)]
+                           (if refresh
+                             (with-open [is (fs/output-stream tags-cache-path)]
+                               (json/write-to-stream tags-map is)
+                               tags-map)
+                             tags-map))]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 (fn [name]
+                   [:tr
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str
+                              "/projects/tracks/view?type=track&dataset=trek-mate&track="
+                              (url-encode name))
+                       :target "_blank"}
+                      name]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str "javascript:navigator.clipboard.writeText(\"" name "\")")}
+                      "copy"]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     (if-let [tags (get tags-map (keyword name))]
+                       (clojure.string/join " " tags)
+                       "#pending")]])
+                 track-name-seq)]]]))})))
 
 ;; filtering of all tracks
 ;; tracks are located under my-dataset, trek-mate.storage is used for backup from CK
