@@ -46,7 +46,7 @@
 
 ;; set track as overlay and extract gpx for osm upload
 ;; use GeoJSON creation bellow for iD mapping
-#_(let [track-id 1593339240
+#_(let [track-id 1598028459
       location-seq
       (with-open [is (fs/input-stream
                       (path/child
@@ -122,7 +122,7 @@
 
 
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1597914968
+#_(let [track-id 1598168188
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
