@@ -28,6 +28,8 @@
 
 ;;; urban integration
 (def sleep-pin "sleep_pin")
+(def camp-pin "camp_pin")
+(def rooftoptent-pin "rooftoptent_pin")
 (def eat-pin "eat_pin")
 (def drink-pin "drink_pin")
 (def gas-pin "gas_pin")
@@ -56,6 +58,7 @@
 (def footpath-pin "footpath_pin")
 (def crossroad-pin "crossroad_pin")
 (def road-pin "road_pin")
+(def cave-pin "cave_pin")
 
 ;;; high level
 (def city-pin "city_pin")
@@ -111,6 +114,8 @@
 (defn urban-trigger [tags]
   (or
    (if (contains? tags tag/tag-hotel) sleep-pin)
+   (if (contains? tags tag/tag-rooftoptent) rooftoptent-pin)
+   (if (contains? tags tag/tag-camp) camp-pin)
    (if (contains? tags tag/tag-sleep) sleep-pin)
    (if (contains? tags tag/tag-eat) eat-pin)
    (if (contains? tags tag/tag-drink) drink-pin)
@@ -150,7 +155,8 @@
    (if (contains? tags tag/tag-offroad) offroad-pin)
    (if (contains? tags tag/tag-footpath) footpath-pin)
    (if (contains? tags tag/tag-crossroad) crossroad-pin)
-   (if (contains? tags tag/tag-road) road-pin)))
+   (if (contains? tags tag/tag-road) road-pin)
+   (if (contains? tags tag/tag-cave) cave-pin)))
 
 (defn activity-trigger [tags]
   (or

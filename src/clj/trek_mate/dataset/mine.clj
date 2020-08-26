@@ -237,6 +237,15 @@
 ;; kucaj
 (l 21.64787, 43.89749 tag/tag-hike "!Mali Javorak i Javoracki vrh, imamo pripremljenu stazu" "Grza")
 
+(q 12754445) ;; "!Lazareva pećina"
+(n 7129487944) ;; "!Kovej"
+(q 904128) ;; "!Gamzigrad"
+(n 389946763) ;; "!Borsko jezero"
+(l 22.10921, 44.07581 tag/tag-drink "!Jama" "kafe na dubini od 400m")
+(q 56305112) ;; "!Staro groblje u Rajcu"
+(n 7828509312) ;; "!Rajačke pimnice"
+
+
 ;; divcibare
 (r 11161806)
 (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
