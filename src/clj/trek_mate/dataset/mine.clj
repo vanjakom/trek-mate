@@ -159,6 +159,7 @@
 (n 5715111221) ;; veliko gradiste, kasina kod ajduka
 (n 7669082032) ;; donji milanovac, kapetan
 (n 7799388557) ;; "!Splav"
+(n 7842768294) ;; "!Pečenjara kod Brane"
 
 ;; dones
 #_(r 11227980) ;; "!Baberijus"

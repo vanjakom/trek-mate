@@ -574,7 +574,20 @@
      "brand" "Lidl"
      "brand:wikidata" "Q151954"
      "brand:wikipedia" "sr:Лидл"
-     "website" "https://www.lidl.rs/"}}   
+     "website" "https://www.lidl.rs/"}}
+   "IDEA"
+   {
+    :match-fn
+    (fn [element]
+      (and
+       (= (get-in element [:osm "shop"]) "supermarket")
+       (nil? (get-in element [:osm "brand"]))))
+    :tags
+    {
+     "brand" "IDEA"
+     "brand:wikidata" "Q23461622"
+     "brand:wikipedia" "sr:IDEA"
+     "website" "https://www.idea.rs/"}}
 
    ;; eat & drink chains
    "McDonald's"
@@ -911,6 +924,14 @@
      "shop" "supermarket"
      "name" "Maxi"
      "name:sr-Latn" "Maxi"})
+   "IDEA"
+   (merge
+    (get-in brand-mapping ["IDEA" :tags])
+    {
+     "shop" "supermarket"
+     "name" "IDEA"
+     "name:sr-Latn" "IDEA"
+     "name:sr" "ИДЕА"})
 
    ;; eat & drink chains
    "McDonald's"
