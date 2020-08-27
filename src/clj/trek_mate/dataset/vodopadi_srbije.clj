@@ -142,12 +142,13 @@
                         (map
                          (fn [line]
                            (let [fields (.split line "\\|")]
-                             (if (> (count fields) 3)
+                             (if (> (count fields) 4)
                                (let [ref (get fields 0)
-                                     name (get fields 1)
-                                     latitude (convert-fn (get fields 2))
-                                     longitude (convert-fn (get fields 3))
-                                     note (when (> (count fields) 4 ) (get fields 4))]
+                                     link (when (not (empty? (get fields 1))) (get fields 1))
+                                     name (get fields 2)
+                                     latitude (convert-fn (get fields 3))
+                                     longitude (convert-fn (get fields 4))
+                                     note (when (> (count fields) 5 ) (get fields 5))]
                                  (dot/enrich-tags
                                   {
                                    :longitude longitude
@@ -160,7 +161,8 @@
                                             (tag/name-tag name)
                                             ref
                                             tag/tag-waterfall
-                                            (str "N " (get fields 2) " E " (get fields 3))
+                                            (str "N " (get fields 3) " E " (get fields 4))
+                                            link
                                             note]))}))
                                (println "invalid line: "(clojure.string/join "," fields)))))
                          (filter
@@ -177,6 +179,12 @@
          (util/create-location-id (:longitude location) (:latitude location))
          location])
       waterfall-seq)))))
+
+#_(run!
+ println
+ (map
+  #(tag/name-tag->title (first (filter tag/name-tag? (:tags %))))
+  (vals (deref dataset))))
 
 (def beograd (wikidata/id->location :Q3711))
 

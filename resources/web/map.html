@@ -283,6 +283,7 @@
       // setup
       var map = L.map("map", {maxBoundsViscosity: 1.0})
       map.setMaxBounds ([[-90,-180],[90,180]])
+      L.control.scale({imperial: false}).addTo(map)
 
       var dataLayer = null
       

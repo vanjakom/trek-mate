@@ -302,6 +302,13 @@
 
 (q 341936) ;; djavolja varos
 
+;; stara planina
+(q 61124588) ;; "!Arbinje"
+(q 20435670) ;; "!Tupavica"
+(q 25464417) ;; "!Kaluđerski skokovi"
+(q 16081364) ;; "!Koprenski vodopad"
+(n 4359302840) ;; "!Tri kladenca"
+
 ;; ibar
 (l 20.71416, 43.69570 tag/tag-sleep "!Brvnara Jez" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/jez.sr.html"))
 
