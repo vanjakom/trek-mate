@@ -25,6 +25,7 @@
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
    [clj-cloudkit.sort :as ck-sort]
+   [clj-scraper.scrapers.org.wikidata :as wikidata-api]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
@@ -44,6 +45,13 @@
                    env/*global-dataset-path*
                    "geofabrik.de"
                    "serbia-latest.osm.pbf"))
+
+(def dataset-path (path/child
+                   env/*global-my-dataset-path*
+                   "wikipedia-integration"))
+(def wikidata-cache-path (path/child
+                          dataset-path
+                          "wikidata-cache"))
 
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
@@ -120,6 +128,25 @@
 ;; 	 read way-in = 1220674
 ;; 	 read way-out = 1220674
 
+(defn retrieve-wikidata [wikidata]
+  (binding [clj-scraper.scrapers.retrieve/*configuration*
+            {
+             ;; 6 months
+             :keep-for (* 6 30 24 60 60)
+             :cache-fn (clj-common.cache/create-local-fs-cache
+                        {
+                         :cache-path wikidata-cache-path
+                         :key-fn (fn [url]
+                                   (first
+                                    (.split
+                                     (last
+                                      (.split url "/"))
+                                     "\\.")))
+                         :value-serialize-fn clj-scraper.scrapers.retrieve/fs-serialize
+                         :value-deserialize-fn clj-scraper.scrapers.retrieve/fs-deserialize})}]
+    (wikidata-api/entity wikidata)))
+
+
 (defn prepare-dataset []
   (deref dataset))
 
@@ -130,9 +157,10 @@
 
 (defn wikidata->url [wikidata]
   (when wikidata
-    (str
-     "https://wikidata.org/wiki/"
-     wikidata)))
+    (when (.startsWith wikidata "Q")
+      (str
+       "https://wikidata.org/wiki/"
+       wikidata))))
 
 (defn wikipedia->url [wikipedia]
   (when wikipedia
@@ -145,6 +173,14 @@
          ".wikipedia.org/wiki/"
         title)))))
 
+(defn wikipedia-url->language-title [wikipedia-url]
+  [
+   (.substring
+    (second (.split wikipedia-url "//"))
+    0
+    2)
+   (last (.split wikipedia-url "/"))])
+
 (defn filter-wikipedia-no-wikidata [dataset]
   (filter
     (fn [entity]
@@ -153,7 +189,6 @@
        (nil? (get-in entity [:osm "wikidata"]))))
     dataset))
 
-
 (defn filter-wikidata-no-wikipedia [dataset]
   (filter
     (fn [entity]
@@ -161,6 +196,57 @@
        (get-in entity [:osm "wikidata"])
        (nil? (get-in entity [:osm "wikipedia"]))))
     dataset))
+
+(defn filter-invalid-wikidata [dataset]
+  (filter
+   (fn [entity]
+     (and
+      (get-in entity [:osm "wikidata"])
+      (nil? (wikidata->url (get-in entity [:osm "wikidata"])))))
+   dataset))
+
+(defn filter-invalid-wikipedia [dataset]
+  (filter
+   (fn [entity]
+     (and
+      (get-in entity [:osm "wikipedia"])
+      (nil? (wikipedia->url (get-in entity [:osm "wikipedia"])))))
+   dataset))
+
+(defn filter-not-sr-wikipedia [dataset]
+  (filter
+   (fn [entity]
+     (when-let [url (wikipedia->url (get-in entity [:osm "wikipedia"]))]
+       (not (.startsWith url "https://sr.wikipedia.org"))))
+  dataset))
+
+(osmeditor/task-report
+ "wiki-integrate-no-wikipedia"
+ "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
+ (doall
+  (filter
+   some?
+   (map
+    (fn [candidate]
+      (let [wikidata (get-in candidate [:osm "wikidata"])
+            entry (retrieve-wikidata wikidata)]
+        (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
+          (assoc
+           candidate
+           :change-seq
+           [{
+             :change :tag-add
+             :tag "wikipedia"
+             :value (clojure.string/join
+                     ":"
+                     (wikipedia-url->language-title (url-decode wikipedia-url)))}]))))
+    (take
+     200
+     (filter-wikidata-no-wikipedia
+      (prepare-dataset)))))))
+
+
+
 
 (def css-td {:style "border: 1px solid black; padding: 5px;"})
 
@@ -173,19 +259,49 @@
         [:td css-td
          "entities with either wikidata or wikipedia tag"]
         [:td css-td
-         entities-count]]
+         entities-count]
+        [:td css-td]]
+       
        [:tr
         [:td css-td
          "has wikipedia but not wikidata"]
         [:td css-td
-         (count (filter-wikipedia-no-wikidata dataset))]]
+         (count (filter-wikipedia-no-wikidata dataset))]
+        [:td css-td
+         [:a {:href "/projects/wiki-integrate/wikipedia-no-wikidata"} "view"]]]
+       
        [:tr
         [:td css-td
          "has wikidata but not wikipedia"]
         [:td css-td
-         (count (filter-wikidata-no-wikipedia dataset))]]])
-    [:div "no dataset"]))
+         (count (filter-wikidata-no-wikipedia dataset))]
+        [:td css-td
+         [:a {:href "/projects/wiki-integrate/wikidata-no-wikipedia"} "view"]]]
 
+       [:tr
+        [:td css-td
+         "invalid wikidata"]
+        [:td css-td
+         (count (filter-invalid-wikidata dataset))]
+        [:td css-td
+         [:a {:href "/projects/wiki-integrate/invalid-wikidata"} "view"]]]
+
+       [:tr
+        [:td css-td
+         "invalid wikipedia"]
+        [:td css-td
+         (count (filter-invalid-wikipedia dataset))]
+        [:td css-td
+         [:a {:href "/projects/wiki-integrate/invalid-wikipedia"} "view"]]]
+
+       [:tr
+        [:td css-td
+         "not serbian wikipedia"]
+        [:td css-td
+         (count (filter-not-sr-wikipedia dataset))]
+        [:td css-td
+         [:a {:href "/projects/wiki-integrate/not-serbian-wikipedia"} "view"]]]])
+    [:div "no dataset"]))
 
 (defn render-problematic [entities]
   [:table {:style "border-collapse:collapse;"}
@@ -211,6 +327,7 @@
           (when-let [wikidata-url (wikidata->url
                                    (get-in entity [:osm "wikidata"]))]
             [:a {:href wikidata-url :target "_blank"} "wikidata"])
+          [:br]
           (when-let [wikipedia-url (wikipedia->url
                                     (get-in entity [:osm "wikipedia"]))]
             [:a {:href wikipedia-url :target "_blank"} "wikipedia"])])]
@@ -239,13 +356,7 @@
            [:html
             [:body {:style "font-family:arial;"}
              (render-stats (prepare-dataset))
-             [:br]
-             [:a {:href "/projects/wiki-integrate/wikipedia-no-wikidata"} "wikipedia no wikidata"]
-             [:br]
-             [:a {:href "/projects/wiki-integrate/wikidata-no-wikipedia"} "wikidata no wikipedia"]
-             [:br]
-             
-             ]])})
+             [:br]]])})
   (compojure.core/GET
    "/projects/wiki-integrate/wikipedia-no-wikidata"
    _
@@ -273,4 +384,46 @@
              (take
               100
               (filter-wikidata-no-wikipedia
+               (prepare-dataset))))])})
+  (compojure.core/GET
+   "/projects/wiki-integrate/invalid-wikidata"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:body {:style "font-family:arial;"}
+            (render-problematic
+             (take
+              100
+              (filter-invalid-wikidata
+               (prepare-dataset))))])})
+  (compojure.core/GET
+   "/projects/wiki-integrate/invalid-wikipedia"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:body {:style "font-family:arial;"}
+            (render-problematic
+             (take
+              100
+              (filter-invalid-wikipedia
+               (prepare-dataset))))])})
+  (compojure.core/GET
+   "/projects/wiki-integrate/not-serbian-wikipedia"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:body {:style "font-family:arial;"}
+            (render-problematic
+             (take
+              100
+              (filter-not-sr-wikipedia
                (prepare-dataset))))])})))

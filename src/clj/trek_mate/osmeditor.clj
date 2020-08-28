@@ -362,6 +362,7 @@
     :status 200
     :body (hiccup/html
            [:body  {:style "font-family:arial;"}
+            [:div "list of available tasks:"]
             [:table {:style "border-collapse:collapse;"}
              (map
              (fn [task]
@@ -372,7 +373,10 @@
                  (count (:candidate-seq task))]
                 [:td {:style "border: 1px solid black; padding: 5px;"}
                  (count (filter #(not (= (:done %) true)) (:candidate-seq task)))]])
-             (tasks-list))]])})
+             (filter
+              (fn [task]
+                (> (count (filter #(not (= (:done %) true)) (:candidate-seq task))) 0))
+              (tasks-list)))]])})
 
   (compojure.core/GET
    "/projects"
@@ -428,7 +432,7 @@
                         (fn [[key value]]
                           [:div (str (name key) " = " value)])
                         (:osm candidate))]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
+                      [:td {:style "border: 1px solid black; padding: 5px; word-break: break-all;"}
                        (map
                         (fn [change]
                           (cond

@@ -6,6 +6,7 @@
    [trek-mate.dot :as dot]
    [trek-mate.tag :as tag]))
 
+;; deprecated, use entry directly
 ;;; to be able to perform tag extraction on multiple formats wiki data
 ;;; entries are coming ( entry json, sparql extract, data dump ) intermediate
 ;;; structure will be used
@@ -211,6 +212,9 @@
     (filter
      dot/tag->trek-mate-tag?
      (disj (:tags dot) "#wikidata")))))
+
+(defn entity->wikipedia-sr [entity]
+  (get-in entity [:sitelinks :srwiki :url]))
 
 #_(def a (scraper/entity "Q485176"))
 #_(def b (entity->intermediate a))
