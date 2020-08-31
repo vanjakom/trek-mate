@@ -232,6 +232,9 @@
 ;; ozren, devica, rtanj
 (l 21.93558, 43.58984 tag/tag-hike "!planinarenje, Devica")
 (l 21.89352, 43.77618 tag/tag-hike "!planinarenje, Rtanj")
+(l 21.94706, 43.79818 tag/tag-sleep "~" "vilino" (tag/url-tag "website" "http://vilino.rs"))
+(n 6336525316) ;; "!Сесалачка пећина"
+(q 2154518) ;; "!Ripaljka"
 
 ;; homolje
 (l 21.52500, 44.27491 tag/tag-hike "!Via Ferata Gornjak" (tag/url-tag "website" "https://www.gornjak.org.rs/via-ferata-gornjak/"))
@@ -302,6 +305,16 @@
 
 ;; tara
 (q 1266612 "bike, hike vacation")
+(r 10902910
+   (tag/url-tag
+    "np tara"
+    "https://www.nptara.rs/za-posetioce/turizam-i-rekreacija/biciklisticke-rute.html")) ;; "!Висока Тара"
+(r 10902880
+   (tag/url-tag
+    "np tara"
+    "https://www.nptara.rs/za-posetioce/turizam-i-rekreacija/biciklisticke-rute.html")) ;; "!Царска Тара"
+
+(l 19.42486, 43.91966 tag/tag-todo "planinarske staze" (tag/url-tag "klub tara" "http://www.planinarskiklubtara.org/planinarske-staze/"))
 
 (q 341936) ;; djavolja varos
 
@@ -318,12 +331,14 @@
 (l 20.83978, 43.56220
    tag/tag-todo
    "!Goč"
-   (tag/url-tag "https://inspiracija.srbijastvara.rs/extfile/sr/271/Goč,%20Stolovi,%20Mitrovo%20Polje-CIR.pdf" "website")
-   (tag/url-tag "http://odmaralistegoc.rs/sr/proizvodi/rekreativne-staze-na-gocu" "pesacke staze"))
+   (tag/url-tag  "website" "https://inspiracija.srbijastvara.rs/extfile/sr/271/Goč,%20Stolovi,%20Mitrovo%20Polje-CIR.pdf")
+   (tag/url-tag  "pesacke staze" "http://odmaralistegoc.rs/sr/proizvodi/rekreativne-staze-na-gocu"))
 (l 20.83742, 43.55913
    tag/tag-sleep
    "!Kedar selo"
    (tag/url-tag "https://kedarselo.rs" "website"))
+
+(q 3395571) ;; "!Tvrđava Koznik"
 
 ;; vojvodina
 (l 19.98038, 45.15546
