@@ -20,6 +20,7 @@
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]
 
@@ -260,15 +261,13 @@
            nil))
          (:members relation)))})))
 
-(prepare-route-data 10948917)
+#_(prepare-route-data 10948917)
 #_(osmapi/relation-full 10948917)
 
 (defn prepare-explore-data [id left top right bottom]
   (println id left top right bottom)
   #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
     dataset))
-
-
 
 (def tasks (atom {}))
 
@@ -336,6 +335,7 @@
          {
           :status 200
           :body (cond
+                  ;; todo support relation
                   (= type :node)
                   (osmapi/node-apply-change-seq id comment change-seq)
                   (= type :way)
@@ -469,16 +469,35 @@
                          :target "_blank"}
                         "history"]]
                       [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href (str
-                                "https://openstreetmap.org/"
-                                (name (:type candidate))
-                                "/"
-                                (:id candidate))
-                         :target "_blank"}
-                        "osm"]]
+                       (filter
+                        some?
+                        [
+                         [:a
+                         {
+                          :href (str
+                                 "https://openstreetmap.org/"
+                                 (name (:type candidate))
+                                 "/"
+                                 (:id candidate))
+                          :target "_blank"}
+                          "osm"]
+                         [:br]
+                         (when-let [wikidata (get-in candidate [:osm "wikidata"])]
+                           (list
+                            [:a
+                             {
+                              :href (wikidata/wikidata->url wikidata)
+                              :target "_blank"}
+                             "wikidata"]
+                            [:br]))
+                         (when-let [wikipedia (get-in candidate [:osm "wikipedia"])]
+                           (list
+                            [:a
+                             {
+                              :href (wikidata/wikipedia->url wikipedia)
+                              :target "_blank"}
+                             "wikipedia"]
+                            [:br]))])]
                       [:td {:style "border: 1px solid black; padding: 5px;"}
                        [
                         :a
@@ -524,36 +543,39 @@
   (compojure.core/GET
    "/apply/:task-id/:type/:id"
    [task-id type id]
-   (if-let [{description :description candidates :candidate-seq} (task-get task-id)]
-     (let [type (keyword type)
-          id (as/as-long id)
-          [candidate rest] (reduce
-                            (fn [[match rest] candidate]
-                              (if (and
-                                   (= (:type candidate type))
-                                   (= (:id candidate) id))
-                                [candidate rest]
-                                [match (conj rest candidate)]))
-                            [nil []]
-                            candidates)
-          changeset (cond
-                      (= type :node)
-                      (osmapi/node-apply-change-seq
-                       id
-                       description
-                       (:change-seq candidate))
-                      (= type :way)
-                      (osmapi/way-apply-change-seq
-                       id
-                       description
-                       (:change-seq candidate))
-                      :else
-                      nil)]
-       (task-report task-id description (conj rest (assoc candidate :done true)))
-       (ring.util.response/redirect
-        (str
-         "/view/osm/history/" (name (:type candidate)) "/" (:id candidate))))
-     {:status 404}))
+   (try
+     (if-let [{description :description candidates :candidate-seq} (task-get task-id)]
+       (let [type (keyword type)
+             id (as/as-long id)
+             [candidate rest] (reduce
+                               (fn [[match rest] candidate]
+                                 (if (and
+                                      (= (:type candidate type))
+                                      (= (:id candidate) id))
+                                   [candidate rest]
+                                   [match (conj rest candidate)]))
+                               [nil []]
+                               candidates)
+             changeset (cond
+                         ;; todo support relation
+                         (= type :node)
+                         (osmapi/node-apply-change-seq
+                          id
+                          description
+                          (:change-seq candidate))
+                         (= type :way)
+                         (osmapi/way-apply-change-seq
+                          id
+                          description
+                          (:change-seq candidate))
+                         :else
+                         nil)]
+         (task-report task-id description (conj rest (assoc candidate :done true)))
+         (ring.util.response/redirect
+          (str
+           "/view/osm/history/" (name (:type candidate)) "/" (:id candidate))))
+       {:status 404})
+     (catch Exception e (.printStackTrace e) {:status 500})))
 
   ;; how to map
   ;; todo integrate other mappings, for now just brands

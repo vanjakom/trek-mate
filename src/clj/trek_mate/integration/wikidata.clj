@@ -213,8 +213,39 @@
      dot/tag->trek-mate-tag?
      (disj (:tags dot) "#wikidata")))))
 
+(defn entity->wikidata-id [entity]
+  (get-in entity [:id]))
+
 (defn entity->wikipedia-sr [entity]
   (get-in entity [:sitelinks :srwiki :url]))
+
+
+(defn wikidata->url [wikidata]
+  (when wikidata
+    (when (.startsWith wikidata "Q")
+      (str
+       "https://wikidata.org/wiki/"
+       wikidata))))
+
+(defn wikipedia->url [wikipedia]
+  (when wikipedia
+    (when (= (.charAt wikipedia 2) \:)
+      (let [language (.substring wikipedia 0 2)
+            title (.substring wikipedia 3)]
+        (str
+         "https://"
+         language
+         ".wikipedia.org/wiki/"
+        title)))))
+
+(defn wikipedia-url->language-title [wikipedia-url]
+  [
+   (.substring
+    (second (.split wikipedia-url "//"))
+    0
+    2)
+   (last (.split wikipedia-url "/"))])
+
 
 #_(def a (scraper/entity "Q485176"))
 #_(def b (entity->intermediate a))

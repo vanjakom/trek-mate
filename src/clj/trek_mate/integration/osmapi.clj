@@ -3,7 +3,7 @@
   (:use
    clj-common.clojure)
   (:require
-   [clojure.xml :as xml]
+   [clojure.data.xml :as xml]
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.localfs :as fs]
@@ -11,6 +11,7 @@
    [clj-common.io :as io]
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
+   [clj-common.logging :as logging]
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
@@ -41,6 +42,30 @@
           :comment comment))
         (io/write-new-line os)))))
 
+(def active-changeset-map (atom {}))
+
+(defn close-changeset [comment]
+  ;; todo call close
+  (swap!
+   active-changeset-map
+   dissoc
+   comment))
+
+(defn close-all-changesets []
+  (swap!
+   active-changeset-map
+   (constantly {})))
+#_(close-all-changesets)
+
+(deref active-changeset-map)
+
+;; set / get
+(defn active-changeset 
+  ([comment]
+   (get (deref active-changeset-map) comment))
+  ([comment changeset]
+   (swap! active-changeset-map assoc comment changeset)))
+
 ;; conversion utils
 
 (defn node-xml->node
@@ -62,18 +87,17 @@
 
 (defn node->node-xml
   [node]
-  {
-   :tag :node
-   :attrs {
-           :id (str (:id node))
-           :version (str (:version node))
-           :lon (:longitude node)
-           :lat (:latitude node)}
-   :content
+  (xml/element
+   :node
+   {
+    :id (str (:id node))
+    :version (str (:version node))
+    :lon (:longitude node)
+    :lat (:latitude node)}
    (map
     (fn [[key value]]
-      {:tag :tag :attrs {:k key :v value}})
-    (:tags node))})
+      (xml/element :tag {:k key :v value}))
+    (:tags node))))
 
 (defn way-xml->way
   [way]
@@ -98,21 +122,22 @@
 
 (defn way->way-xml
   [way]
-  {
-   :tag :way
-   :attrs {
-           :id (str (:id way))
-           :version (str (:version way))}
-   :content
+  (xml/element
+   :way
+   {
+    :id (str (:id way))
+    :version (str (:version way))}
    (concat
     (map
      (fn [id]
-       {:tag :nd :attrs {:ref (str id)}})
+       (xml/element
+        :nd
+        {:ref (str id)}))
      (:nodes way))
     (map
      (fn [[key value]]
-       {:tag :tag :attrs {:k key :v value}})
-     (:tags way)))})
+       (xml/element :tag {:k key :v value}))
+     (:tags way)))))
 
 (defn relation-xml->relation
   [relation]
@@ -142,26 +167,25 @@
 
 (defn relation->relation-xml
   [relation]
-  {
-   :tag :relation
-   :attrs {
-           :id (str (:id relation))
-           :version (str (:version relation))}
-   :content
+  (xml/element
+   :relation
+   {
+    :id (str (:id relation))
+    :version (str (:version relation))}
    (concat
     (map
      (fn [member]
-       {
-        :tag :member
-        :attrs {
-                :ref (str (:id member))
-                :role (or (:role member) "")
-                :type (name (:type member))}})
+       (xml/element
+        :member
+        {
+         :ref (str (:id member))
+         :role (or (:role member) "")
+         :type (name (:type member))}))
      (:members relation))
     (map
      (fn [[key value]]
-       {:tag :tag :attrs {:k key :v value}})
-     (:tags relation)))})
+       (xml/element :tag {:k key :v value}))
+     (:tags relation)))))
 
 ;; except node, way and relation objects full methods ( for way and
 ;; relation ) return dataset object, map of nodes, ways and relations
@@ -172,17 +196,17 @@
   (reduce
    (fn [dataset element]
      (cond
-        (= (:tag element) :node)
-        (let [node (node-xml->node element)]
-          (update-in dataset [:nodes (:id node)] (constantly node)))
-        (= (:tag element) :way)
-        (let [way (way-xml->way element)]
-          (update-in dataset [:ways (:id way)] (constantly way)))
-        (= (:tag element) :relation)
-        (let [relation (relation-xml->relation element)]
-          (update-in dataset [:relations (:id relation)] (constantly relation)))
-        :else
-        dataset))
+       (= (:tag element) :node)
+       (let [node (node-xml->node element)]
+         (update-in dataset [:nodes (:id node)] (constantly node)))
+       (= (:tag element) :way)
+       (let [way (way-xml->way element)]
+         (update-in dataset [:ways (:id way)] (constantly way)))
+       (= (:tag element) :relation)
+       (let [relation (relation-xml->relation element)]
+         (update-in dataset [:relations (:id relation)] (constantly relation)))
+       :else
+       dataset))
    {}
    elements))
 
@@ -206,17 +230,16 @@
       (http/put-as-stream
        (str *server* "/api/0.6/changeset/create")
        (io/string->input-stream
-        (clojure.core/with-out-str
-          (xml/emit-element
-           {
-            :tag :osm
-            :content
-            [
-             {:tag :changeset
-              :content
-              [
-               {:tag :tag
-                :attrs {:k "comment" :v comment}}]}]}))))))))
+        (xml/emit-str
+         (xml/element
+          :osm
+          {}
+          (xml/element
+           :changeset
+           {}
+           (xml/element
+            :tag
+            {:k "comment" :v comment}))))))))))
 
 (defn changeset-close
   "Performs /api/0.6/changeset/#id/close"
@@ -228,12 +251,10 @@
      (http/put-as-stream
       (str *server* "/api/0.6/changeset/" changeset "/close")
       (io/string->input-stream
-       (clojure.core/with-out-str
-         (xml/emit-element
-          {
-           :tag :osm
-           :content
-           []})))))))
+       (xml/emit-str
+        (xml/element
+         :osm
+         {})))))))
 
 (defn node
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -262,22 +283,26 @@
   Note: changeset should be open changeset
   Note: node should be in same format as returned by node fn"
   [changeset node]
-  (let [id (:id node)]
-    (io/input-stream->string
-     (http/with-basic-auth *user* *password*
-       (http/put-as-stream
-        (str *server* "/api/0.6/node/" id)
-        (io/string->input-stream
-         (clojure.core/with-out-str
-           (xml/emit-element
-            {
-             :tag :osm
-             :content
-             [
-              (update-in
-               (node->node-xml node)
-               [:attrs :changeset]
-               (constantly changeset))]}))))))))
+  (let [id (:id node)
+        content (xml/emit-str
+                 (xml/element
+                  :osm
+                  {}
+                  (update-in
+                   (node->node-xml node)
+                   [:attrs :changeset]
+                   (constantly changeset))))]
+    (if-let [is (http/with-basic-auth *user* *password*
+                   (http/put-as-stream
+                    (str *server* "/api/0.6/node/" id)
+                    (io/string->input-stream content)))]
+      (io/input-stream->string is)
+      (do
+        (logging/report
+         {
+          :fn trek-mate.integration.osmapi/node-update
+          :content content})
+        nil))))
 
 (defn node-apply-change-seq
   "Applies given change seq to node, support for osmeditor.
@@ -305,11 +330,15 @@
                  change-seq)]
     (when (not (= original updated))
       (do
-        (let [changeset (changeset-create comment)]
+        (let [changeset (or
+                         (active-changeset comment)
+                         (changeset-create comment))]
+          (println "changeset" changeset)
           (node-update changeset updated)
           ;; there is change of reporting change that was already been made
           (*changelog-report* :node id comment change-seq)
-          (changeset-close changeset)
+          (active-changeset comment changeset)
+          #_(changeset-close changeset)
           changeset)))))
 
 (defn node-history
@@ -323,8 +352,8 @@
   "Performs /api/0.6/[node|way|relation]/#id"
   [id]
   (let [way (xml/parse
-              (http/get-as-stream
-               (str *server* "/api/0.6/way/" id)))]
+             (http/get-as-stream
+              (str *server* "/api/0.6/way/" id)))]
     (way-xml->way (first (:content way)))))
 
 (defn ways
@@ -332,19 +361,19 @@
   Returns dataset object"
   [way-id-seq]
   (let [ways (xml/parse
-               (http/get-as-stream
-                (str
-                 *server*
-                 "/api/0.6/ways?ways="
-                 (clojure.string/join "," way-id-seq))))]
+              (http/get-as-stream
+               (str
+                *server*
+                "/api/0.6/ways?ways="
+                (clojure.string/join "," way-id-seq))))]
     (full-xml->dataset (:content ways))))
 
 (defn way-full
   "Performs /api/0.6/[node|way|relation]/#id/full"
   [id]
   (let [way (xml/parse
-              (http/get-as-stream
-               (str *server* "/api/0.6/way/" id "/full")))]
+             (http/get-as-stream
+              (str *server* "/api/0.6/way/" id "/full")))]
     (full-xml->dataset (:content way))))
 
 #_(def a (way-full 373368159))
@@ -354,22 +383,28 @@
   Note: changeset should be open changeset
   Note: way should be in same format as returned by way fn"
   [changeset way]
-  (let [id (:id way)]
-    (io/input-stream->string
-     (http/with-basic-auth *user* *password*
-       (http/put-as-stream
-        (str *server* "/api/0.6/way/" id)
-        (io/string->input-stream
-         (clojure.core/with-out-str
-           (xml/emit-element
-            {
-             :tag :osm
-             :content
-             [
-              (update-in
-               (way->way-xml way)
-               [:attrs :changeset]
-               (constantly changeset))]}))))))))
+  (let [id (:id way)
+        content (xml/emit-str
+                 (xml/element
+                  :osm
+                  {}
+                  (update-in
+                   (way->way-xml way)
+                   [:attrs :changeset]
+                   (constantly changeset))))]
+    (if-let [is (http/with-basic-auth *user* *password*
+                  (http/put-as-stream
+                   (str *server* "/api/0.6/way/" id)
+                   (io/string->input-stream content)))]
+      (io/input-stream->string is)
+      (do
+        (logging/report
+         {
+          :fn trek-mate.integration.osmapi/way-update
+          :content content})
+        nil))))
+
+#_(clojure.data.xml/emit-str (clojure.data.xml/element :osm {:k "<"} "test"))
 
 (defn way-apply-change-seq
   "Applies given change seq to way, support for osmeditor.
@@ -399,12 +434,15 @@
     (when (not (= original updated))
       (do
         (println "commiting")
-        (let [changeset (changeset-create comment)]
+        (let [changeset (or
+                         (active-changeset comment)
+                         (changeset-create comment))]
           (println "changeset" changeset)
           (way-update changeset updated)
           ;; there is change of reporting change that was already been made
           (*changelog-report* :way id comment change-seq)
-          (changeset-close changeset)
+          (active-changeset comment changeset)
+          #_(changeset-close changeset)
           changeset)))))
 
 (defn way-history
@@ -419,8 +457,8 @@
   "Performs /api/0.6/[node|way|relation]/#id"
   [id]
   (let [relation (xml/parse
-              (http/get-as-stream
-               (str *server* "/api/0.6/relation/" id)))]
+                  (http/get-as-stream
+                   (str *server* "/api/0.6/relation/" id)))]
     (relation-xml->relation (first (:content relation)))))
 
 #_(def a (:content
@@ -435,8 +473,8 @@
   "Performs /api/0.6/[node|way|relation]/#id/full"
   [id]
   (let [relation (xml/parse
-              (http/get-as-stream
-               (str *server* "/api/0.6/relation/" id "/full")))]
+                  (http/get-as-stream
+                   (str *server* "/api/0.6/relation/" id "/full")))]
     ;; todo parse, returns raw response
     (full-xml->dataset (:content relation))))
 
@@ -444,8 +482,8 @@
   "Performs /api/0.6/[node|way|relation]/#id/#version"
   [id version]
   (let [relation (xml/parse
-              (http/get-as-stream
-               (str *server* "/api/0.6/relation/" id "/" version)))]
+                  (http/get-as-stream
+                   (str *server* "/api/0.6/relation/" id "/" version)))]
     (relation-xml->relation (first (:content relation)))))
 
 #_(def a (relation-version 11164146 2))
@@ -491,36 +529,36 @@
         :changeset changeset
         :members new}]
       (concat
-      (map
-       (fn [member]
-         {
-          :change :member-remove
-          :user user
-          :timestamp timestamp
-          :version version
-          :changeset changeset
-          :type (:type member)
-          :id (:ref member)
-          :role (when (not (empty? (:role member)))(:role member))})
-       (filter #(not (contains? new-set (:id %))) old))
-      (map
-       (fn [member]
-         {
-          :change :member-add
-          :user user
-          :timestamp timestamp
-          :version version
-          :changeset changeset
-          :type (:type member)
-          :id (:ref member)
-          :role (when (not (empty? (:role member)))(:role member))})
-       (filter #(not (contains? old-set (:id %))) new))))))
+       (map
+        (fn [member]
+          {
+           :change :member-remove
+           :user user
+           :timestamp timestamp
+           :version version
+           :changeset changeset
+           :type (:type member)
+           :id (:ref member)
+           :role (when (not (empty? (:role member)))(:role member))})
+        (filter #(not (contains? new-set (:id %))) old))
+       (map
+        (fn [member]
+          {
+           :change :member-add
+           :user user
+           :timestamp timestamp
+           :version version
+           :changeset changeset
+           :type (:type member)
+           :id (:ref member)
+           :role (when (not (empty? (:role member)))(:role member))})
+        (filter #(not (contains? old-set (:id %))) new))))))
 
 #_(let [relation-history (relation-history 11043543)]
-  (calculate-member-change
-   1 1 1 1
-   (get-in relation-history [:elements 0 :members])
-   (get-in relation-history [:elements 1 :members])))
+    (calculate-member-change
+     1 1 1 1
+     (get-in relation-history [:elements 0 :members])
+     (get-in relation-history [:elements 1 :members])))
 
 (defn compare-element
   [old new]
@@ -584,12 +622,12 @@
            (:user new) (:timestamp new) (:version new) (:changeset new)
            (:members old) (:members new))
           #_[{
-            :change :members
-            :user (:user new)
-            :timestamp (:timestamp new)
-            :version (:version new)
-            :changeset (:changeset new)
-            :members (:members new)}]))
+              :change :members
+              :user (:user new)
+              :timestamp (:timestamp new)
+              :version (:version new)
+              :changeset (:changeset new)
+              :members (:members new)}]))
       ;; test new tags
       (map
        (fn [[tag value]]
@@ -738,10 +776,10 @@
   "Performs /api/0.6/map"
   [left bottom right top]
   (let [bbox (xml/parse
-                  (http/get-as-stream
-                   (str
-                    *server*
-                    "/api/0.6/map?bbox=" left "," bottom "," right "," top)))]
+              (http/get-as-stream
+               (str
+                *server*
+                "/api/0.6/map?bbox=" left "," bottom "," right "," top)))]
     ;; todo parse, returns raw response
     (full-xml->dataset (:content bbox))))
 

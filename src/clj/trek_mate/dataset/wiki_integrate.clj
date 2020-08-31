@@ -15,6 +15,7 @@
    [clj-common.io :as io]
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
+   [clj-common.hash :as hash]
    [clj-common.http :as http]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
@@ -52,6 +53,9 @@
 (def wikidata-cache-path (path/child
                           dataset-path
                           "wikidata-cache"))
+(def wikipedia-cache-path (path/child
+                          dataset-path
+                          "wikipedia-cache"))
 
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
@@ -146,6 +150,18 @@
                          :value-deserialize-fn clj-scraper.scrapers.retrieve/fs-deserialize})}]
     (wikidata-api/entity wikidata)))
 
+(defn retrieve-wikipedia [language title]
+  (binding [clj-scraper.scrapers.retrieve/*configuration*
+            {
+             ;; 6 months
+             :keep-for (* 6 30 24 60 60)
+             :cache-fn (clj-common.cache/create-local-fs-cache
+                        {
+                         :cache-path wikipedia-cache-path
+                         :key-fn hash/string->md5
+                         :value-serialize-fn clj-scraper.scrapers.retrieve/fs-serialize
+                         :value-deserialize-fn clj-scraper.scrapers.retrieve/fs-deserialize})}]
+    (wikidata-api/wikipedia-title language title)))
 
 (defn prepare-dataset []
   (deref dataset))
@@ -154,32 +170,6 @@
   (or
    (get-in entity [:osm "name"])
    "unknown"))
-
-(defn wikidata->url [wikidata]
-  (when wikidata
-    (when (.startsWith wikidata "Q")
-      (str
-       "https://wikidata.org/wiki/"
-       wikidata))))
-
-(defn wikipedia->url [wikipedia]
-  (when wikipedia
-    (when (= (.charAt wikipedia 2) \:)
-      (let [language (.substring wikipedia 0 2)
-            title (.substring wikipedia 3)]
-        (str
-         "https://"
-         language
-         ".wikipedia.org/wiki/"
-        title)))))
-
-(defn wikipedia-url->language-title [wikipedia-url]
-  [
-   (.substring
-    (second (.split wikipedia-url "//"))
-    0
-    2)
-   (last (.split wikipedia-url "/"))])
 
 (defn filter-wikipedia-no-wikidata [dataset]
   (filter
@@ -202,7 +192,7 @@
    (fn [entity]
      (and
       (get-in entity [:osm "wikidata"])
-      (nil? (wikidata->url (get-in entity [:osm "wikidata"])))))
+      (nil? (wikidata/wikidata->url (get-in entity [:osm "wikidata"])))))
    dataset))
 
 (defn filter-invalid-wikipedia [dataset]
@@ -210,42 +200,92 @@
    (fn [entity]
      (and
       (get-in entity [:osm "wikipedia"])
-      (nil? (wikipedia->url (get-in entity [:osm "wikipedia"])))))
+      (nil? (wikidata/wikipedia->url (get-in entity [:osm "wikipedia"])))))
    dataset))
 
 (defn filter-not-sr-wikipedia [dataset]
   (filter
    (fn [entity]
-     (when-let [url (wikipedia->url (get-in entity [:osm "wikipedia"]))]
+     (when-let [url (wikidata/wikipedia->url (get-in entity [:osm "wikipedia"]))]
        (not (.startsWith url "https://sr.wikipedia.org"))))
   dataset))
 
-(osmeditor/task-report
- "wiki-integrate-no-wikipedia"
- "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
- (doall
-  (filter
-   some?
-   (map
-    (fn [candidate]
-      (let [wikidata (get-in candidate [:osm "wikidata"])
-            entry (retrieve-wikidata wikidata)]
-        (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
-          (assoc
-           candidate
-           :change-seq
-           [{
-             :change :tag-add
-             :tag "wikipedia"
-             :value (clojure.string/join
-                     ":"
-                     (wikipedia-url->language-title (url-decode wikipedia-url)))}]))))
-    (take
-     200
-     (filter-wikidata-no-wikipedia
-      (prepare-dataset)))))))
+;; prepare tasks
+(do
+  (osmeditor/task-report
+   "wiki-integrate-no-wikipedia"
+   "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
+   (doall
+    (filter
+     some?
+     (map
+      (fn [candidate]
+        (let [wikidata (get-in candidate [:osm "wikidata"])
+              entry (retrieve-wikidata wikidata)]
+          (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
+            (assoc
+             candidate
+             :change-seq
+             [{
+               :change :tag-add
+               :tag "wikipedia"
+               :value (clojure.string/join
+                       ":"
+                       (wikidata/wikipedia-url->language-title
+                        (url-decode wikipedia-url)))}]))))
+      (take
+       100
+       (filter-wikidata-no-wikipedia
+        (prepare-dataset)))))))
 
-
+  (osmeditor/task-report
+   "wiki-integrate-no-wikidata"
+   "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
+   (doall
+    (filter
+     some?
+     (map
+      (fn [candidate]
+        (let [[language title] (.split (get-in candidate [:osm "wikipedia"]) ":")
+              entry (retrieve-wikipedia language title)]
+          (when-let [wikidata (wikidata/entity->wikidata-id entry)]
+            (assoc
+             candidate
+             :change-seq
+             [{
+               :change :tag-add
+               :tag "wikidata"
+               :value wikidata}]))))
+      (take
+       100
+       (filter-wikipedia-no-wikidata
+        (prepare-dataset)))))))
+  (osmeditor/task-report
+   "wiki-integrate-not-sr-wikipedia"
+   "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
+   (doall
+    (filter
+     some?
+     (map
+      (fn [candidate]
+        (let [wikidata (get-in candidate [:osm "wikidata"])
+              entry (retrieve-wikidata wikidata)]
+          (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
+            (assoc
+             candidate
+             :change-seq
+             [{
+               :change :tag-change
+               :tag "wikipedia"
+               :old-value (get-in candidate [:osm "wikipedia"])
+               :new-value (clojure.string/join
+                       ":"
+                       (wikidata/wikipedia-url->language-title
+                        (url-decode wikipedia-url)))}]))))
+      (take
+       10
+       (filter-not-sr-wikipedia
+        (prepare-dataset))))))))
 
 
 (def css-td {:style "border: 1px solid black; padding: 5px;"})
@@ -324,11 +364,11 @@
         (filter
          some?
          [
-          (when-let [wikidata-url (wikidata->url
+          (when-let [wikidata-url (wikidata/wikidata->url
                                    (get-in entity [:osm "wikidata"]))]
             [:a {:href wikidata-url :target "_blank"} "wikidata"])
           [:br]
-          (when-let [wikipedia-url (wikipedia->url
+          (when-let [wikipedia-url (wikidata/wikipedia->url
                                     (get-in entity [:osm "wikipedia"]))]
             [:a {:href wikipedia-url :target "_blank"} "wikipedia"])])]
        [:td css-td

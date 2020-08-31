@@ -187,7 +187,8 @@
    (tag/url-tag "https://www.visitsombor.org/ponuda/id337/biciklizam/biciklisticka-staza-oko-venca/biciklisticka-staza-oko-venca.html" "website")
    (tag/url-tag "https://www.visitsombor.org/ponuda/id339/biciklizam/biciklisticka-i-setna-staza-kraj-velikog-backog-kanala/biciklisticka-i-setna-staza-kraj-velikog-backog-kanala.html" "website")
    (tag/url-tag "https://inspiracija.srbijastvara.rs/extfile/sr/279/Sombor,%20Gornje%20Podunavlje,%20Apatin-CIR%201.pdf" "srbija stvara"))
-
+(q 25459285) ;;"!Dvorac \"Rohonci\""
+(q 12754271) ;; "!Krupajsko vrelo"
 
 ;; golubac
 (l 21.63431, 44.65217 "!Golubac tvrdjava i hike" tag/tag-hike)
@@ -253,6 +254,7 @@
 (r 11144136)
 
 ;; zlatibor
+(q 83166) ;; "!Stari grad Užice"
 (w 656964585) ;; "!Zlatibor Mona"
 (w 656899111) ;; "!Гранд хотел Торник"
 
@@ -296,6 +298,7 @@
    "Staza Petruških monaha"
    (tag/url-tag "blog 1" "http://serbianoutdoor.com/dogadjaj/stazom-petruskih-monaha-mala-sveta-gora-u-klisuri-crnice/")
    (tag/url-tag "blog 2" "https://www.perpetuummobile.blog/2020/06/stazama-petruskih-monaha.html"))
+(q 7804557) ;; "!Timacum Minus"
 
 ;; tara
 (q 1266612 "bike, hike vacation")
