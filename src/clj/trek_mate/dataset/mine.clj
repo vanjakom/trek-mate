@@ -204,6 +204,8 @@
 (l 20.55705, 43.65073 "!kajak spust Ibar" tag/tag-kayak)
 (q 959733)
 
+(q 61130705) ;; "!Pivara Vajfert"
+
 ;; kosmaj
 (r 11483827 "nije mapirana staza do kraja, ide preko potoka, istocno ima neki vodopad")
 (r 11483846) ;; "!Parcanski vis"

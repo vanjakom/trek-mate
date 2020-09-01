@@ -55,9 +55,9 @@
   (swap!
    active-changeset-map
    (constantly {})))
-#_(close-all-changesets)
 
-(deref active-changeset-map)
+#_(close-all-changesets)
+#_(deref active-changeset-map)
 
 ;; set / get
 (defn active-changeset 

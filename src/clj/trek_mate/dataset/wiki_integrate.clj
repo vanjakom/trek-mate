@@ -268,22 +268,22 @@
      some?
      (map
       (fn [candidate]
-        (let [wikidata (get-in candidate [:osm "wikidata"])
-              entry (retrieve-wikidata wikidata)]
-          (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
-            (assoc
-             candidate
-             :change-seq
-             [{
-               :change :tag-change
-               :tag "wikipedia"
-               :old-value (get-in candidate [:osm "wikipedia"])
-               :new-value (clojure.string/join
-                       ":"
-                       (wikidata/wikipedia-url->language-title
-                        (url-decode wikipedia-url)))}]))))
+        (if-let [wikidata (get-in candidate [:osm "wikidata"])]
+          (let [entry (retrieve-wikidata wikidata)]
+            (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
+              (assoc
+               candidate
+               :change-seq
+               [{
+                 :change :tag-change
+                 :tag "wikipedia"
+                 :old-value (get-in candidate [:osm "wikipedia"])
+                 :new-value (clojure.string/join
+                             ":"
+                             (wikidata/wikipedia-url->language-title
+                              (url-decode wikipedia-url)))}])))))
       (take
-       10
+       100
        (filter-not-sr-wikipedia
         (prepare-dataset))))))))
 
