@@ -205,6 +205,7 @@
 (q 959733)
 
 (q 61130705) ;; "!Pivara Vajfert"
+(q 12751617) ;; "!Država-Ergela Ljubičevo"
 
 ;; kosmaj
 (r 11483827 "nije mapirana staza do kraja, ide preko potoka, istocno ima neki vodopad")
