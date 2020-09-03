@@ -307,7 +307,7 @@
 (q 7804557) ;; "!Timacum Minus"
 
 ;; tara
-(q 1266612 "bike, hike vacation")
+(q 1266612 "bike, hike vacation") ;; "!Nacionalni park Tara"
 (r 10902910
    (tag/url-tag
     "np tara"
