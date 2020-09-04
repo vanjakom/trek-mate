@@ -17,6 +17,7 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-common.time :as time]
+   [clj-common.view :as view]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
@@ -38,24 +39,77 @@
 ;; to be used for analysis and improve of serbian pedestrian
 ;; and bike network, both urban and remote
 
-(def osm-pbf-path (path/child
-                   env/*global-dataset-path*
-                   "geofabrik.de"
-                   "serbia-internal-latest.osm.pbf"))
+(def osm-extract-path (path/child
+                       env/*global-dataset-path*
+                       "serbia-extract"))
 
 (def active-pipeline nil)
 
+(defn way-filter-go
+  "Waits for set of ways to filter, reads ways from in and filters to out.
+  Useful for extraction of ways for given relation"
+  [context way-set-in in out]
+  (async/go
+    (context/set-state context "init")
+    (let [way-set (async/<! way-set-in)]
+      (async/close! way-set-in)
+      (context/set-state context "step")
+      (loop [input (async/<! in)]
+        (when input
+          (context/counter context "in")
+          (if (contains? way-set (:id input))
+            (when (pipeline/out-or-close-and-exhaust-in out input in)
+              (context/counter context "out")
+              (recur (async/<! in)))
+            (recur (async/<! in)))))
+      (async/close! out)
+      (context/set-state context "completion"))))
+
+(defn way-set-create-go
+  "Reads relations from in, creates way set and passes relation to out.
+  Once in closed emits aggregated ways to way-set-out"
+  [context in out way-set-out]
+  (async/go
+    (context/set-state context "init")
+    (loop [way-set #{}
+           input (async/<! in)]
+      (if input
+        (do
+          (context/set-state context "step")
+          (context/counter context "in")
+          ;; todo propagate close
+          (async/>! out input)
+          (context/counter context "out")
+          (recur
+           (apply conj way-set (map :id (filter #(= (:type %) :way) (:members input))))
+           (async/<! in)))
+        (do
+          (async/>! way-set-out way-set)
+          (async/close! way-set-out)
+          (async/close! out)
+          (context/set-state context "completion"))))))
+
 (def relation-seq nil)
+(def way-seq nil)
+
+;; read hiking and biking relations in serbia, extract ways
+
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (osm/read-osm-pbf-go
-   (context/wrap-scope context "read")
-   osm-pbf-path
-   nil
-   nil
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-relation")
+   resource-controller
+   (path/child osm-extract-path "relation.edn")
    (channel-provider :relation-in))
 
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-way")
+   resource-controller
+   (path/child osm-extract-path "way.edn")
+   (channel-provider :way-in))
+  
   (pipeline/transducer-stream-go
    (context/wrap-scope context "filter-relation")
    (channel-provider :relation-in)
@@ -66,19 +120,67 @@
        (or
         (= (get-in relation [:osm "route"]) "hiking")
         (= (get-in relation [:osm "route"]) "bicycle")))))
-   (channel-provider :capture-relation-in))
+   (channel-provider :way-set-relation-in))
+
+  (way-set-create-go
+   (context/wrap-scope context "way-set-create")
+   (channel-provider :way-set-relation-in)
+   (channel-provider :capture-relation-in)
+   (channel-provider :way-set-in))
+
+  (way-filter-go
+   (context/wrap-scope context "way-filter")
+   (channel-provider :way-set-in)
+   (channel-provider :way-in)
+   (channel-provider :capture-way-in))
+  
   (pipeline/capture-var-seq-atomic-go
    (context/wrap-scope context "capture-relation")
    (channel-provider :capture-relation-in)
    (var relation-seq))
+
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture-way")
+   (channel-provider :capture-way-in)
+   (var way-seq))
+  
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-;; read node-in = 13170402
-;; read way-in = 1184608
-;; read relation-in = 19005
-;; filter-relation out = 176
+(def way-map (view/seq->map :id way-seq))
 
-(first relation-seq)
+(defn check-connected?
+  [way-map relation]
+  (loop [end-set nil
+         ways (map :id (filter #(= (:type %) :way) (:members relation)))]
+    (let [way-id (first ways)
+          ways (rest ways)]
+      (if way-id
+        (if-let [way (get way-map way-id)]
+          (let [first-node (first (:nodes way))
+                last-node (last (:nodes way))]
+            (cond
+              (nil? end-set)
+              (recur #{first-node last-node} ways)
+
+              (contains? end-set first-node)
+              (recur #{last-node} ways)
+
+              (contains? end-set last-node)
+              (recur #{first-node} ways)
+
+              :else
+              (do
+                (println "unknown state" end-set first-node last-node)
+                false)))
+          (do
+            (println "way lookup failed:" way-id)
+            false))
+        true))))
+
+
+;; todo
+;; report is connected
+;; does relation contains nodes ( guidepost and map )
 
 (defn render-route
   "prepares hiccup html for route"
@@ -99,21 +201,38 @@
       (list
        [:a {
             :href (str "https://openstreetmap.org/relation/" osm-id)
-            :target "_blank"} "osm"]
+            :target "_blank"}
+        "osm"]
        [:br]
        [:a {
             :href (str "http://localhost:7077/view/relation/" osm-id)
-            :target "_blank"} "order"]
+            :target "_blank"}
+        "order"]
        [:br]
        [:a {
             :href (str "http://localhost:7077/route/edit/" osm-id)
-            :target "_blank"} "route edit"]          
+            :target "_blank"}
+        "route edit"]          
        [:br]
        [:a {
             :href (str "http://localhost:7077/view/osm/history/relation/" osm-id)
-            :target "_blank"} "history"]          
+            :target "_blank"}
+        "history"]          
        [:br]
-       osm-id)]]))
+       [:a {
+            :href (str "https://osmhv.openstreetmap.de/blame.jsp?id=" osm-id)
+            :target "_blank"}
+        "osm hv"]
+       [:br]
+       osm-id)]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (if (check-connected? way-map relation)
+        "connected"
+        "broken")]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (or
+       (get-in relation [:osm "note"])
+       "")]]))
 
 (osmeditor/project-report
  "hikeandbike"

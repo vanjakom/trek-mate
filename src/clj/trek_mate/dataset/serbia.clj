@@ -90,6 +90,20 @@
                    osm-pbf-root-path
                    "serbia-latest.osm.pbf"))
 
+(def osm-extract-path (path/child
+                       env/*global-dataset-path*
+                       "serbia-extract"))
+(def osm-node-path (path/child
+                    osm-extract-path
+                    "node.edn"))
+(def osm-way-path (path/child
+                    osm-extract-path
+                    "way.edn"))
+(def osm-relation-path (path/child
+                    osm-extract-path
+                    "relation.edn"))
+
+
 ;; download latest serbia geofabrik export
 ;; #serbia-latest
 #_(let [date (time/date)
@@ -103,6 +117,42 @@
     (when (fs/exists? osm-pbf-path)
       (fs/delete osm-pbf-path))
     (fs/link download-path osm-pbf-path)))
+
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+;; split to node way relation
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   osm-pbf-path
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-node")
+   resource-controller
+   osm-node-path
+   (channel-provider :node-in))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-way")
+   resource-controller
+   osm-way-path
+   (channel-provider :way-in))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-relation")
+   resource-controller
+   osm-relation-path
+   (channel-provider :relation-in))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
 
 ;; flatten relations and ways to nodes
 ;; osmconvert \
