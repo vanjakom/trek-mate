@@ -371,7 +371,7 @@
      (map #(t % "@zlatibor2020") (vals (deref dataset)))))
 
 ;; despotovac
-(do
+#_(do
   (def center (overpass/wikidata-id->location :Q1006545))
 
 (q 1006545) ;; "!Despotovac"
@@ -386,6 +386,21 @@
 (storage/import-location-v2-seq-handler
  (map #(t % "@lisina2020") (vals (deref dataset)))))
 
+;; @summer2020, herceg novi
+(do
+  (def center (overpass/wikidata-id->location :Q193103))
+
+  (w 296992116)
+  (w 296992118)
+
+  (n 4308443241) ;; "!Иван До"
+  (w 514260301) ;; "!Млински Поток"
+
+  (l 19.11605, 43.10833 tag/tag-eat "!Etno Selo Sljeme" ;; petar preporuka hrana
+     )
+
+  (storage/import-location-v2-seq-handler
+   (map #(t % "@summer2020") (vals (deref dataset)))))
 
 
 #_(def center (overpass/wikidata-id->location :Q3711))
@@ -396,7 +411,7 @@
   :configuration {
                   :longitude (:longitude center) 
                   :latitude (:latitude center)
-                  :zoom 12}
+                  :zoom 10}
   :vector-tile-fn (web/tile-vector-dotstore-fn
                    [(fn [_ _ _ _]
                       (vals (deref dataset)))])})

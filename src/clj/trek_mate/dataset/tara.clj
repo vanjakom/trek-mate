@@ -55,6 +55,9 @@
    11579755 ;; 3B
    11579760 ;; 3C
    11579782 ;; 3D
+
+   11625862 ;; 4
+   11626051 ;; 5
 ])
 
 ;; prepare slot-a and slot-b overlays on map to show gpx vs mapped
