@@ -362,6 +362,9 @@
 (q 1262800)
 (q 539439)
 
+;; crna gora
+(l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
+
 ;; todo world
 
 ;; svajcarska

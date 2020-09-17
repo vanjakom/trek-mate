@@ -148,6 +148,7 @@
 
 (def way-map (view/seq->map :id way-seq))
 
+
 (defn check-connected?
   [way-map relation]
   (loop [end-set nil
@@ -260,10 +261,7 @@
              [:table {:style "border-collapse:collapse;"}
               (map
                render-route
-               (reverse
-                (sort-by
-                 :id
-                 relation-seq)))]
+               (reverse (sort-by :timestamp relation-seq)))]
              [:br]]])})
   (compojure.core/GET
    "/projects/hikeandbike/test"

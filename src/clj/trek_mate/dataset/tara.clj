@@ -29,6 +29,14 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+
+
+
+
+
+
+
+
 (def dataset-path (path/child env/*global-my-dataset-path* "planinarskiklubtara.org"))
 
 (def np-tara (osm/extract-tags (overpass/wikidata-id->location :Q1266612)))
@@ -58,6 +66,11 @@
 
    11625862 ;; 4
    11626051 ;; 5
+   11630008 ;; 6
+   11630025 ;; 7
+   11635202 ;; 8
+   11635224 ;; 9
+   
 ])
 
 ;; prepare slot-a and slot-b overlays on map to show gpx vs mapped

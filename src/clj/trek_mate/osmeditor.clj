@@ -726,8 +726,13 @@
                        "rel")
                      " "
                      (:id change)
+                     " "
                      (when (some? (:role change))
-                       (str " as " (:role change)))]
+                       (str " as " (:role change) " "))
+                     [:a {
+                          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+                          :target "_blank"}
+                      "osm"]]
 
                     (= (:change change) :member-remove)
                     [:div {:style "color:red;"}
@@ -740,8 +745,13 @@
                        "rel")
                      " "
                      (:id change)
+                     " "
                      (when (some? (:role change))
-                       (str " as " (:role change)))]
+                       (str " as " (:role change) " "))
+                     [:a {
+                          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+                          :target "_blank"}
+                      "osm"]]
 
                     (= (:change change) :members)
                     (concat
@@ -760,7 +770,12 @@
                          " "
                          (:ref member)
                          " "
-                         (:role member)])
+                         (when (some? (:role member))
+                           (str " as " (:role member) " "))
+                         [:a {
+                              :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+                              :target "_blank"}
+                      "osm"]])
                       (:members change)))
 
                     (= (:change change) :tag-add)
