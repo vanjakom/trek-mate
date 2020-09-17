@@ -252,7 +252,7 @@
 (l 22.10921, 44.07581 tag/tag-drink "!Jama" "kafe na dubini od 400m")
 (q 56305112) ;; "!Staro groblje u Rajcu"
 (n 7828509312) ;; "!Rajačke pimnice"
-
+(n 5794124469) ;; "!Valja prerast"
 
 ;; divcibare
 (r 11161806)
