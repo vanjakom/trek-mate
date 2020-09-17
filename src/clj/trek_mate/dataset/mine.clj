@@ -321,6 +321,9 @@
 
 (q 341936) ;; djavolja varos
 
+;; suva planina
+(q 2451288) ;; "!Trem"
+
 ;; stara planina
 (q 61124588) ;; "!Arbinje"
 (q 20435670) ;; "!Tupavica"

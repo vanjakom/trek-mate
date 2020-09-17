@@ -509,56 +509,117 @@
   members which are present in both versions and calculate changes between those
   pairs. Concept in paper notes 20200608."
   
-  [user timestamp version changeset old new]
-  (let [old (map #(assoc % :id (str (str (first (:type %))) (:ref %))) old)
-        new (map #(assoc % :id (str (str (first (:type %))) (:ref %))) new)
-        old-set (into #{} (map :id old))
-        new-set (into #{} (map :id new))]
-    (if
-        (and
-         (= old-set new-set)
-         (not (= old new)))
-      ;; note does not support adding circular members, reports as changed order
-      ;; temporary to support change in order
-      [
-       {
-        :change :members
-        :user user
-        :timestamp timestamp
-        :version version
-        :changeset changeset
-        :members new}]
-      (concat
-       (map
-        (fn [member]
-          {
-           :change :member-remove
-           :user user
-           :timestamp timestamp
-           :version version
-           :changeset changeset
-           :type (:type member)
-           :id (:ref member)
-           :role (when (not (empty? (:role member)))(:role member))})
-        (filter #(not (contains? new-set (:id %))) old))
-       (map
-        (fn [member]
-          {
-           :change :member-add
-           :user user
-           :timestamp timestamp
-           :version version
-           :changeset changeset
-           :type (:type member)
-           :id (:ref member)
-           :role (when (not (empty? (:role member)))(:role member))})
-        (filter #(not (contains? old-set (:id %))) new))))))
+  [user timestamp version changeset old-seq new-seq]
+  (let [split-on-fn (fn [id coll]
+                      (reduce
+                       (fn [[before hit after] elem]
+                         (if (nil? hit)
+                           (if (= (:id elem) id)
+                             [before elem after]
+                             [(conj before elem) hit  after])
+                           [before hit (conj after elem)]))
+                       [[] nil []]
+                       coll))
+        old-seq (map #(assoc % :id (str (str (first (:type %))) (:ref %))) old-seq)
+        new-seq (map #(assoc % :id (str (str (first (:type %))) (:ref %))) new-seq)]
+    (if (not (= old-seq new-seq))
+      (loop [old-seq old-seq
+             new-seq new-seq
+             change-seq []]
+        (if-let [old (first old-seq)]
+          (let [[before new after] (split-on-fn old new-seq)]
+            )
+
+          (concat
+           change-seq
+           (map
+            (fn [new]
+              {
+               :change :member-add
+               :user user
+               :timestamp timestamp
+               :version version
+               :changeset changeset
+               :type (:type member)
+               :id (:ref member)
+               :role (when (not (empty? (:role member)))(:role member))})
+            new-seq))))
+
+
+      (first
+       (reduce
+        (fn [[change-seq new-seq] old]
+          (loop [change-seq change-seq
+                 new-seq new-seq]
+            (if-let [new (first new-seq)]
+              (if (= new old)
+                
+                )
+              [change-seq nil])))
+        [[] new-seq]
+        old-seq)
+       
+       )
+      [])
+    
+    #_(if
+          (and
+           (= old-set new-set)
+           (not (= old new)))
+        ;; note does not support adding circular members, reports as changed order
+        ;; temporary to support change in order
+        [
+         {
+          :change :members
+          :user user
+          :timestamp timestamp
+          :version version
+          :changeset changeset
+          :members new}]
+        (concat
+         (map
+          (fn [member]
+            {
+             :change :member-remove
+             :user user
+             :timestamp timestamp
+             :version version
+             :changeset changeset
+             :type (:type member)
+             :id (:ref member)
+             :role (when (not (empty? (:role member)))(:role member))})
+          (filter #(not (contains? new-set (:id %))) old))
+         (map
+          (fn [member]
+            {
+             :change :member-add
+             :user user
+             :timestamp timestamp
+             :version version
+             :changeset changeset
+             :type (:type member)
+             :id (:ref member)
+             :role (when (not (empty? (:role member)))(:role member))})
+          (filter #(not (contains? old-set (:id %))) new))))))
 
 #_(let [relation-history (relation-history 11043543)]
     (calculate-member-change
      1 1 1 1
      (get-in relation-history [:elements 0 :members])
      (get-in relation-history [:elements 1 :members])))
+
+#_(defn split-on [id coll]
+  (reduce
+   (fn [[before hit after] elem]
+     (if (nil? hit)
+       (if (= (:id elem) id)
+         [before elem after]
+         [(conj before elem) hit  after])
+       [before hit (conj after elem)]))
+   [[] nil []]
+   coll))
+
+#_(split-on 7 [{:id 1} {:id 7} {:id 5} {:id 7}])
 
 (defn compare-element
   [old new]
