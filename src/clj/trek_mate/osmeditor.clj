@@ -753,6 +753,26 @@
                           :target "_blank"}
                       "osm"]]
 
+                    (= (:change change) :member-order)
+                    [:div {:style "color:blue;"}
+                     (cond
+                       (= (:type change) "way")
+                       "wy"
+                       (= (:type change) "node")
+                       "nd"
+                       (= (:type change) "relation")
+                       "rel")
+                     " "
+                     (:id change)
+                     " "
+                     (when (some? (:role change))
+                       (str " as " (:role change) " "))
+                     [:a {
+                          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+                          :target "_blank"}
+                      "osm"]]
+
+                    ;; deprecated
                     (= (:change change) :members)
                     (concat
                      (list

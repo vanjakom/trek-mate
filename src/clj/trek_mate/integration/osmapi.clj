@@ -527,13 +527,65 @@
              new-seq new-seq
              change-seq []]
         (if-let [old (first old-seq)]
-          (let [[before new after] (split-on-fn old new-seq)]
-            )
-
+          (let [[before-seq new after-seq] (split-on-fn (:id old) new-seq)]
+            (if (some? new)
+              (let [[step-change-seq rest-old-seq]
+                    (reduce
+                     (fn [[step-change-seq rest-old-seq] before]
+                       (let [[before-seq same after-seq] (split-on-fn (:id before) rest-old-seq)]
+                         (if (some? same)
+                           [
+                            (conj
+                             step-change-seq
+                             {
+                              :change :member-order
+                              :user user
+                              :timestamp timestamp
+                              :version version
+                              :changeset changeset
+                              :type (:type before)
+                              :id (:ref before)
+                              :role (if (not (empty? (:role before))) (:role before) nil)})
+                            (concat before-seq after-seq)]
+                           [
+                            (conj
+                             step-change-seq
+                             {
+                              :change :member-add
+                              :user user
+                              :timestamp timestamp
+                              :version version
+                              :changeset changeset
+                              :type (:type before)
+                              :id (:ref before)
+                              :role (if (not (empty? (:role before))) (:role before) nil)})
+                            rest-old-seq])))
+                     [[] (rest old-seq)]
+                     before-seq)]
+                (recur
+                 rest-old-seq
+                 after-seq
+                 (concat
+                  change-seq
+                  step-change-seq)))
+              (recur
+               (rest old-seq)
+               new-seq
+               (conj
+                change-seq
+                {
+                 :change :member-remove
+                 :user user
+                 :timestamp timestamp
+                 :version version
+                 :changeset changeset
+                 :type (:type old)
+                 :id (:ref old)
+                 :role (if (not (empty? (:role old))) (:role old) nil)}))))
           (concat
            change-seq
            (map
-            (fn [new]
+            (fn [member]
               {
                :change :member-add
                :user user
@@ -542,65 +594,19 @@
                :changeset changeset
                :type (:type member)
                :id (:ref member)
-               :role (when (not (empty? (:role member)))(:role member))})
+               :role (if (not (empty? (:role member))) (:role member) nil)})
             new-seq))))
+      [])))
 
+#_(calculate-member-change
+ 1 1 1 1
+ [{:id 1 :type "way" :ref 1} {:id 3 :type "way" :ref 3} {:id 5 :type "way" :ref 5}]
+ [{:id 1 :type "way" :ref 1} {:id 4 :type "way" :ref 4} {:id 3 :type "way" :ref 3} {:id 5 :type "way" :ref 5}])
 
-      (first
-       (reduce
-        (fn [[change-seq new-seq] old]
-          (loop [change-seq change-seq
-                 new-seq new-seq]
-            (if-let [new (first new-seq)]
-              (if (= new old)
-                
-                )
-              [change-seq nil])))
-        [[] new-seq]
-        old-seq)
-       
-       )
-      [])
-    
-    #_(if
-          (and
-           (= old-set new-set)
-           (not (= old new)))
-        ;; note does not support adding circular members, reports as changed order
-        ;; temporary to support change in order
-        [
-         {
-          :change :members
-          :user user
-          :timestamp timestamp
-          :version version
-          :changeset changeset
-          :members new}]
-        (concat
-         (map
-          (fn [member]
-            {
-             :change :member-remove
-             :user user
-             :timestamp timestamp
-             :version version
-             :changeset changeset
-             :type (:type member)
-             :id (:ref member)
-             :role (when (not (empty? (:role member)))(:role member))})
-          (filter #(not (contains? new-set (:id %))) old))
-         (map
-          (fn [member]
-            {
-             :change :member-add
-             :user user
-             :timestamp timestamp
-             :version version
-             :changeset changeset
-             :type (:type member)
-             :id (:ref member)
-             :role (when (not (empty? (:role member)))(:role member))})
-          (filter #(not (contains? old-set (:id %))) new))))))
+#_(calculate-member-change
+ 1 1 1 1
+ [{:id 1 :type "way" :ref 1} {:id 2 :type "way" :ref 2}]
+ [{:id 2 :type "way" :ref 2} {:id 3 :type "way" :ref 3}])
 
 #_(let [relation-history (relation-history 11043543)]
     (calculate-member-change
