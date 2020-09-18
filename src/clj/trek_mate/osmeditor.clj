@@ -685,11 +685,32 @@
         [:body {:style "font-family:arial;"}
          (cond
            (= type "node")
-           [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id] [:br]]
+           [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id]
+            " "
+            [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+            " "
+            [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+            [:br]]
            (= type "way")
-           [:div "way: " [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id] [:br]]
+           [:div
+            "way: "
+            [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id]
+            " "
+            [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+            " "
+            [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+            [:br]]
            (= type "relation")
-           [:div "relation: " [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id] [:br]])
+           [:div
+            "relation: "
+            [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
+            " "
+            [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+            " "
+            [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+            " "
+            [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
+            [:br]])
          (reverse (first
             (reduce
              (fn [[changes version] change]
