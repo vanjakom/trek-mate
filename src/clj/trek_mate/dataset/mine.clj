@@ -603,11 +603,11 @@
                                                        (json/read-keyworded is))
                                                      {})]
                                                    track-name-seq)]
-                           (if refresh
+                           (when refresh
                              (with-open [is (fs/output-stream tags-cache-path)]
                                (json/write-to-stream tags-map is)
-                               tags-map)
-                             tags-map))]
+                               tags-map))
+                           tags-map)]
             (hiccup/html
              [:html
               [:body {:style "font-family:arial;"}
