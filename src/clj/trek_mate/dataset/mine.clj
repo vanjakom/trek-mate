@@ -241,6 +241,7 @@
 
 ;; homolje
 (l 21.52500, 44.27491 tag/tag-hike "!Via Ferata Gornjak" (tag/url-tag "website" "https://www.gornjak.org.rs/via-ferata-gornjak/"))
+(l 21.55748, 44.16970 tag/tag-todo "!Gospodarev kamen")
 
 ;; kucaj
 (l 21.64787, 43.89749 tag/tag-hike "!Mali Javorak i Javoracki vrh, imamo pripremljenu stazu" "Grza")
@@ -330,6 +331,7 @@
 (q 25464417) ;; "!Kaluđerski skokovi"
 (q 16081364) ;; "!Koprenski vodopad"
 (n 4359302840) ;; "!Tri kladenca"
+(l 22.80984, 43.24679 "!Ponor" "krasko polje" (tag/url-tag "wikiloc" "https://www.wikiloc.com/hiking-trails/stara-planina-kruzna-tura-plan-dom-dojkinci-ponor-2305052#wp-2305056"))
 
 ;; ibar
 (l 20.71416, 43.69570 tag/tag-sleep "!Brvnara Jez" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/jez.sr.html"))
@@ -367,6 +369,7 @@
 
 ;; crna gora
 (l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
+(l 19.39173, 43.31656 tag/tag-todo "meanderi ćehotine")
 
 ;; todo world
 
