@@ -92,7 +92,12 @@
    11701457 ;; 24
    11719926 ;; 25
    11719951 ;; 26
-   
+   11723958 ;; 27
+   11723974 ;; 28
+   11728077 ;; 29
+   11728146 ;; 30
+   11731614 ;; Via Dinarica
+   11750282 ;; E7
 ])
 
 ;; prepare slot-a and slot-b overlays on map to show gpx vs mapped

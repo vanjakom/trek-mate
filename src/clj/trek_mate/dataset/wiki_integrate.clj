@@ -113,6 +113,24 @@
    (channel-provider :capture-in)
    dataset)
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
+;; 20201015 counters:
+	 ;; capture in = 7024
+	 ;; filter-node in = 14375310
+	 ;; filter-node out = 4517
+	 ;; filter-relation in = 21920
+	 ;; filter-relation out = 729
+	 ;; filter-way in = 1275507
+	 ;; filter-way out = 1778
+	 ;; funnel in = 7024
+	 ;; funnel in-close = 3
+	 ;; funnel out = 7024
+	 ;; read error-unknown-type = 1
+	 ;; read node-in = 14375310
+	 ;; read node-out = 14375310
+	 ;; read relation-in = 21920
+	 ;; read relation-out = 21920
+	 ;; read way-in = 1275507
+	 ;; read way-out = 1275507
 ;; 20200827 counters:
 ;; 	 capture in = 6903
 ;; 	 filter-node in = 13652391
@@ -257,9 +275,10 @@
                :tag "wikidata"
                :value wikidata}]))))
       (take
-       100
+       200
        (filter-wikipedia-no-wikidata
         (prepare-dataset)))))))
+  
   (osmeditor/task-report
    "wiki-integrate-not-sr-wikipedia"
    "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
@@ -286,7 +305,6 @@
        100
        (filter-not-sr-wikipedia
         (prepare-dataset))))))))
-
 
 (def css-td {:style "border: 1px solid black; padding: 5px;"})
 
@@ -342,6 +360,14 @@
         [:td css-td
          [:a {:href "/projects/wiki-integrate/not-serbian-wikipedia"} "view"]]]])
     [:div "no dataset"]))
+;; 20201015
+;; entities with either wikidata or wikipedia tag	7024	
+;; has wikipedia but not wikidata	186	solve
+;; has wikidata but not wikipedia	931	solve
+;; invalid wikidata	0	solve
+;; invalid wikipedia	0	solve
+;; not serbian wikipedia	641	solve
+
 
 (defn render-problematic [entities]
   [:table {:style "border-collapse:collapse;"}
