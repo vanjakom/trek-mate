@@ -224,6 +224,9 @@
    "!Rajski konaci"
    (tag/url-tag "http://rajskikonaci.com" "website"))
 
+;; nis
+(q 960839) ;; "!Medijana"
+
 ;; ovcar i kablar mapiranje planinarskih staza
 (l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
 (l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")

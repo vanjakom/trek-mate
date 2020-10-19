@@ -557,7 +557,6 @@
                                [nil []]
                                candidates)
              changeset (cond
-                         ;; todo support relation
                          (= type :node)
                          (osmapi/node-apply-change-seq
                           id
@@ -565,6 +564,11 @@
                           (:change-seq candidate))
                          (= type :way)
                          (osmapi/way-apply-change-seq
+                          id
+                          description
+                          (:change-seq candidate))
+                         (= type :relation)
+                         (osmapi/relation-apply-change-seq
                           id
                           description
                           (:change-seq candidate))

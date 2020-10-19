@@ -252,7 +252,7 @@
                        (wikidata/wikipedia-url->language-title
                         (url-decode wikipedia-url)))}]))))
       (take
-       100
+       200
        (filter-wikidata-no-wikipedia
         (prepare-dataset)))))))
 
@@ -275,7 +275,7 @@
                :tag "wikidata"
                :value wikidata}]))))
       (take
-       200
+       300
        (filter-wikipedia-no-wikidata
         (prepare-dataset)))))))
   
@@ -302,7 +302,7 @@
                              (wikidata/wikipedia-url->language-title
                               (url-decode wikipedia-url)))}])))))
       (take
-       100
+       200
        (filter-not-sr-wikipedia
         (prepare-dataset))))))))
 
@@ -434,7 +434,7 @@
            [:body {:style "font-family:arial;"}
             (render-problematic
              (take
-              100
+              200
               (filter-wikipedia-no-wikidata
                (prepare-dataset))))])})
   (compojure.core/GET
@@ -448,7 +448,7 @@
            [:body {:style "font-family:arial;"}
             (render-problematic
              (take
-              100
+              200
               (filter-wikidata-no-wikipedia
                (prepare-dataset))))])})
   (compojure.core/GET
@@ -462,7 +462,7 @@
            [:body {:style "font-family:arial;"}
             (render-problematic
              (take
-              100
+              200
               (filter-invalid-wikidata
                (prepare-dataset))))])})
   (compojure.core/GET
@@ -476,7 +476,7 @@
            [:body {:style "font-family:arial;"}
             (render-problematic
              (take
-              100
+              200
               (filter-invalid-wikipedia
                (prepare-dataset))))])})
   (compojure.core/GET
@@ -490,6 +490,6 @@
            [:body {:style "font-family:arial;"}
             (render-problematic
              (take
-              100
+              200
               (filter-not-sr-wikipedia
                (prepare-dataset))))])})))
