@@ -226,7 +226,15 @@
    (fn [entity]
      (when-let [url (wikidata/wikipedia->url (get-in entity [:osm "wikipedia"]))]
        (not (.startsWith url "https://sr.wikipedia.org"))))
-  dataset))
+   dataset))
+
+(defn filter-not-human-readable-wikipedia [dataset]
+  ;; todo add check for encoded
+  (filter
+   (fn [entity]
+     (when-let [wikipedia (get-in entity [:osm "wikipedia"])]
+       (.contains wikipedia "_")))
+   dataset))
 
 ;; prepare tasks
 (do
@@ -240,22 +248,48 @@
       (fn [candidate]
         (let [wikidata (get-in candidate [:osm "wikidata"])
               entry (retrieve-wikidata wikidata)]
-          (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
+          (when-let [wikipedia (wikidata/entity->wikipedia-sr entry)]
             (assoc
              candidate
              :change-seq
              [{
                :change :tag-add
                :tag "wikipedia"
-               :value (clojure.string/join
-                       ":"
-                       (wikidata/wikipedia-url->language-title
-                        (url-decode wikipedia-url)))}]))))
+               :value (str
+                       "sr:"
+                       wikipedia)}]))))
       (take
        200
        (filter-wikidata-no-wikipedia
         (prepare-dataset)))))))
 
+  (osmeditor/task-report
+   "wiki-integrate-not-human-readable-wikipedia"
+   "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
+   (doall
+    (filter
+     some?
+     (map
+      (fn [candidate]
+        (when-let [old-wikipedia (get-in candidate [:osm "wikipedia"])]
+          (when-let [wikidata (get-in candidate [:osm "wikidata"])]
+           (when-let [entry (retrieve-wikidata wikidata)]
+             (when-let [wikipedia (wikidata/entity->wikipedia-sr entry)]
+               (assoc
+                candidate
+                :change-seq
+                [{
+                  :change :tag-change
+                  :tag "wikipedia"
+                  :old-value old-wikipedia
+                  :new-value (str
+                              "sr:"
+                              wikipedia)}]))))))
+      (take
+       200
+       (filter-not-human-readable-wikipedia
+        (prepare-dataset)))))))
+  
   (osmeditor/task-report
    "wiki-integrate-no-wikidata"
    "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Vikipedija_integracija_u_Srbiji"
@@ -287,9 +321,9 @@
      some?
      (map
       (fn [candidate]
-        (if-let [wikidata (get-in candidate [:osm "wikidata"])]
-          (let [entry (retrieve-wikidata wikidata)]
-            (when-let [wikipedia-url (wikidata/entity->wikipedia-sr entry)]
+        (when-let [wikidata (get-in candidate [:osm "wikidata"])]
+          (when-let [entry (retrieve-wikidata wikidata)]
+            (when-let [wikipedia (wikidata/entity->wikipedia-sr entry)]
               (assoc
                candidate
                :change-seq
@@ -297,10 +331,9 @@
                  :change :tag-change
                  :tag "wikipedia"
                  :old-value (get-in candidate [:osm "wikipedia"])
-                 :new-value (clojure.string/join
-                             ":"
-                             (wikidata/wikipedia-url->language-title
-                              (url-decode wikipedia-url)))}])))))
+                 :new-value (str
+                             "sr:"
+                             wikipedia)}])))))
       (take
        200
        (filter-not-sr-wikipedia
@@ -358,8 +391,24 @@
         [:td css-td
          (count (filter-not-sr-wikipedia dataset))]
         [:td css-td
-         [:a {:href "/projects/wiki-integrate/not-serbian-wikipedia"} "view"]]]])
+         [:a {:href "/projects/wiki-integrate/not-serbian-wikipedia"} "view"]]]
+
+       [:tr
+        [:td css-td
+         "not human readable wikipedia"]
+        [:td css-td
+         (count (filter-not-human-readable-wikipedia dataset))]
+        [:td css-td
+         [:a {:href "/projects/wiki-integrate/not-human-readable-wikipedia"} "view"]]]])
     [:div "no dataset"]))
+;; 20201025
+;; entities with either wikidata or wikipedia tag	7036	
+;; has wikipedia but not wikidata	42	view
+;; has wikidata but not wikipedia	678	view
+;; invalid wikidata	0	view
+;; invalid wikipedia	0	view
+;; not serbian wikipedia	599	view
+;; not human readable wikipedia	551	view
 ;; 20201015
 ;; entities with either wikidata or wikipedia tag	7024	
 ;; has wikipedia but not wikidata	186	solve
@@ -492,4 +541,18 @@
              (take
               200
               (filter-not-sr-wikipedia
+               (prepare-dataset))))])})
+  (compojure.core/GET
+   "/projects/wiki-integrate/not-human-readable-wikipedia"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:body {:style "font-family:arial;"}
+            (render-problematic
+             (take
+              200
+              (filter-not-human-readable-wikipedia
                (prepare-dataset))))])})))
