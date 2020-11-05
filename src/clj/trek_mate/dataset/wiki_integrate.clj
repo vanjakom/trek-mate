@@ -448,12 +448,27 @@
             [:a {:href wikipedia-url :target "_blank"} "wikipedia"])])]
        [:td css-td
         [:a {:href (str
+                    "/view/osm/history/"
+                    (name (:type entity))
+                    "/"
+                    (:id entity))
+             :target "_blank"}
+         "history"]]
+       [:td css-td
+        [:a {:href (str
                     "https://openstreetmap.org/"
                     (clojure.core/name (:type entity))
                     "/"
                     (:id entity))
              :target "_blank"}
-         "osm"]]])
+         "osm"]]
+       [:td css-td
+        [:a {:href (str
+                    "http://level0.osmz.ru/?url=https%3A%2F%2Fwww.openstreetmap.org"
+                    "%2F" (name (:type entity)) "%2F"
+                    (:id entity))
+             :target "_blank"}
+         "level0"]]])
     entities)])
 
 (osmeditor/project-report

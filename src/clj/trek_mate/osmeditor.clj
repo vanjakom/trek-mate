@@ -427,19 +427,19 @@
                        (name (:type candidate))]
                       [:td {:style "border: 1px solid black; padding: 5px;"}
                        (:id candidate)]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
+                      [:td {:style "border: 1px solid black; padding: 5px; min-width: 100px; word-break: break-all;"}
                        (map
                         (fn [[key value]]
                           [:div (str (name key) " = " value)])
                         (:osm candidate))]
-                      [:td {:style "border: 1px solid black; padding: 5px; word-break: break-all;"}
+                      [:td {:style "border: 1px solid black; padding: 5px; min-width: 100px; word-break: break-all;"}
                        (map
                         (fn [change]
                           (cond
                             (= (:change change) :tag-add)
                             [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
                             (= (:change change) :tag-remove)
-                            [:div {:style "color:red;"} (name (:tag change)) " = " (:value change) ]
+                            [:div {:style "color:red;"} (name (:tag change)) " = " (:value change)]
                             (= (:change change) :tag-change)
                             [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
                             :else
