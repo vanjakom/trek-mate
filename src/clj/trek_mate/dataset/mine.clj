@@ -19,6 +19,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-common.time :as time]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
@@ -140,6 +141,10 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
+
+;; beograd okolina
+(l 20.35557, 44.87828 "izvidnica, ima kamp, sljunkara dole")
+
 ;; use @around for not accurate locations
 
 ;; sleeps
@@ -223,6 +228,8 @@
    "~"
    "!Rajski konaci"
    (tag/url-tag "http://rajskikonaci.com" "website"))
+
+(l 22.266727 43.05765 tag/tag-todo "!ostaci rimskog utvrdjenja") ;; marijana nasla
 
 ;; ovcar i kablar mapiranje planinarskih staza
 (l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
@@ -370,6 +377,8 @@
 ;; crna gora
 (l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
 (l 19.39173, 43.31656 tag/tag-todo "meanderi ćehotine")
+(l 18.83574, 42.28090 tag/tag-eat "~" "!Branka" "poslasticarnica iz 1968")
+
 
 ;; todo world
 
@@ -440,6 +449,8 @@
                        todos-bosna
                        todos-world
                        monuments))])})
+
+(web/create-server)
 
 ;; support for tracks
 ;; register project
@@ -625,6 +636,8 @@
                               (url-encode name))
                        :target "_blank"}
                       name]]
+                    [:td {:style "border: 1px solid black; padding: 5px; width: 250px; text-align: center;"}
+                     (time/timestamp->date (as/as-long name))]
                     [:td {:style "border: 1px solid black; padding: 5px;"}
                      [:a
                       {:href (str "javascript:navigator.clipboard.writeText(\"" name "\")")}
@@ -695,14 +708,14 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 #_(clj-common.pipeline/closed? (track-repository-pipeline :in))
 
-
+;; old
 #_(web/register-map
  "mine"
  {
   :configuration {
                   
-                  :longitude (:longitude belgrade)
-                  :latitude (:latitude belgrade)
+                  :longitude (:longitude beograd)
+                  :latitude (:latitude beograd)
                   :zoom 10}
   :raster-tile-fn (web/tile-border-overlay-fn
                    (web/tile-number-overlay-fn
@@ -712,6 +725,8 @@
                      (web/create-osm-external-raster-tile-fn)
                      [(constantly [draw/color-green 2])]
                      track-repository-path)))})
+
+(web/create-server)
 
 #_(web/register-map
  "mine-frankfurt"

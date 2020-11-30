@@ -28,6 +28,10 @@
 (def pocket-query-path (path/child
                         env/*global-my-dataset-path*
                         "geocaching.com" "pocket-query"))
+(def list-path (path/child
+                        env/*global-my-dataset-path*
+                        "geocaching.com" "list"))
+
 (def list-html-path (path/child
                      env/*global-dataset-path*
                      "geocaching.com" "web"))
@@ -186,7 +190,33 @@
    (var geocache-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(storage/import-location-v2-seq-handler
+
+;; 20201010, Divcibare
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "read")
+   (path/child list-path "20201010.gpx")
+   (channel-provider :map))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "map")
+   (channel-provider :map)
+   (map
+    (fn [geocache]
+      (if (and
+           (contains? (:tags geocache) "#last-found")
+           (contains? (:tags geocache) "#traditional-cache"))
+        (update-in geocache [:tags] conj "@geocache-sigurica")
+        geocache)))
+   (channel-provider :capture))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var geocache-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag % "#geocache-montenegro")
   (vals
@@ -210,7 +240,7 @@
     geocache-seq))))
 
 
-(web/register-map
+#_(web/register-map
  "geocaching"
  {
   :configuration {
@@ -220,7 +250,7 @@
    :vector-tile-fn (web/tile-vector-dotstore-fn
                   [(fn [_ _ _ _] geocache-seq)])})
 
-(web/register-map
+#_(web/register-map
  "geocaching-sigurica"
  {
   :configuration {
@@ -236,7 +266,7 @@
 
 #_(storage/import-location-v2-seq-handler
  (map
-  #(add-tag % "#geocache-serbia")
+  #(add-tag % "@geocache-20201010")
   (vals
    (reduce
     (fn [location-map location]
