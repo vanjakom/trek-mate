@@ -323,7 +323,7 @@
                        (update-in node [:tags] assoc tag value ))
                      (= :tag-remove (:change change))
                      (let [{tag :tag} change]
-                       (update-in node [:tags dissoc tag]))
+                       (update-in node [:tags] dissoc tag))
                      :else
                      node))
                  original
@@ -409,24 +409,23 @@
 (defn way-apply-change-seq
   "Applies given change seq to way, support for osmeditor.
   Retrives way from api, applies changes, creates changeset,
-  updated way, closes changeset."
+  updates way, closes changeset."
   [id comment change-seq]
-  (println "way change-set " id)
   (let [original (way id)
         updated (reduce
                  (fn [way change]
                    (cond
                      (= :tag-add (:change change))
                      (let [{tag :tag value :value} change]
-                       (if (not (contains? (:tags node)tag))
+                       (if (not (contains? (:tags way) tag))
                          (update-in way [:tags] assoc tag value)
-                         node))
+                         way))
                      (= :tag-change (:change change))
                      (let [{tag :tag value :new-value} change]
                        (update-in way [:tags] assoc tag value ))
                      (= :tag-remove (:change change))
                      (let [{tag :tag} change]
-                       (update-in way [:tags dissoc tag]))
+                       (update-in way [:tags] dissoc tag))
                      :else
                      way))
                  original
@@ -439,7 +438,7 @@
                          (changeset-create comment))]
           (println "changeset" changeset)
           (way-update changeset updated)
-          ;; there is change of reporting change that was already been made
+          ;; there is chance of reporting change that was already been made
           (*changelog-report* :way id comment change-seq)
           (active-changeset comment changeset)
           #_(changeset-close changeset)
@@ -486,7 +485,76 @@
                    (str *server* "/api/0.6/relation/" id "/" version)))]
     (relation-xml->relation (first (:content relation)))))
 
+(defn relation-update
+  "Performs /api/0.6/[node|way|relation]/#id
+  Note: changeset should be open changeset
+  Note: relation should be in same format as returned by way fn"
+  [changeset relation]
+  (let [id (:id relation)
+        content (xml/emit-str
+                 (xml/element
+                  :osm
+                  {}
+                  (update-in
+                   (relation->relation-xml relation)
+                   [:attrs :changeset]
+                   (constantly changeset))))]
+    (if-let [is (http/with-basic-auth *user* *password*
+                  (http/put-as-stream
+                   (str *server* "/api/0.6/relation/" id)
+                   (io/string->input-stream content)))]
+      (io/input-stream->string is)
+      (do
+        (logging/report
+         {
+          :fn trek-mate.integration.osmapi/relation-update
+          :content content})
+        nil))))
+
 #_(def a (relation-version 11164146 2))
+
+(defn relation-apply-change-seq
+  "Applies given change seq to relation, support for osmeditor.
+  Retrives relation from api, applies changes, creates changeset,
+  updates relation, closes changeset."
+  [id comment change-seq]
+  (let [original (relation id)
+        updated (reduce
+                 (fn [relation change]
+                   (cond
+                     (= :tag-add (:change change))
+                     (let [{tag :tag value :value} change]
+                       (if (not (contains? (:tags relation) tag))
+                         (update-in relation [:tags] assoc tag value)
+                         relation))
+                     (= :tag-change (:change change))
+                     (let [{tag :tag value :new-value} change]
+                       (update-in relation [:tags] assoc tag value ))
+                     (= :tag-remove (:change change))
+                     (let [{tag :tag} change]
+                       (update-in relation [:tags] dissoc tag))
+                     :else
+                     relation))
+                 original
+                 change-seq)]
+    (when (not (= original updated))
+      (do
+        (println "commiting")
+        (let [changeset (or
+                         (active-changeset comment)
+                         (changeset-create comment))]
+          (println "changeset" changeset)
+          (relation-update changeset updated)
+          ;; there is chance of reporting change that was already been made
+          (*changelog-report* :relation id comment change-seq)
+          (active-changeset comment changeset)
+          #_(changeset-close changeset)
+          changeset)))))
+
+;; todo check previos
+;; todo create relation-update ...
+;; todo test
+;; todo add support for relation in osmeditor:559
 
 (defn relation-history
   "Performs

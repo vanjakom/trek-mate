@@ -231,6 +231,10 @@
 
 (l 22.266727 43.05765 tag/tag-todo "!ostaci rimskog utvrdjenja") ;; marijana nasla
 
+;; nis
+(q 960839) ;; "!Medijana"
+
+
 ;; ovcar i kablar mapiranje planinarskih staza
 (l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
 (l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")

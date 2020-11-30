@@ -217,8 +217,7 @@
   (get-in entity [:id]))
 
 (defn entity->wikipedia-sr [entity]
-  (get-in entity [:sitelinks :srwiki :url]))
-
+  (get-in entity [:sitelinks :srwiki :title]))
 
 (defn wikidata->url [wikidata]
   (when wikidata

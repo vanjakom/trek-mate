@@ -93,7 +93,7 @@
 (def way-seq nil)
 
 ;; read hiking and biking relations in serbia, extract ways
-
+;; depends on way, relation splitted file
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)
@@ -224,6 +224,13 @@
             :href (str "https://osmhv.openstreetmap.de/blame.jsp?id=" osm-id)
             :target "_blank"}
         "osm hv"]
+       [:br]
+       [:a {
+            :href (str
+                   "http://level0.osmz.ru/?url=https%3A%2F%2Fwww.openstreetmap.org%2Frelation%2F"
+                   osm-id)
+            :target "_blank"}
+        "level0"]
        [:br]
        osm-id)]
      [:td {:style "border: 1px solid black; padding: 5px;"}
