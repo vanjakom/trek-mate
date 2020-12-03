@@ -1,4 +1,4 @@
-(ns trek-mate.dataset.tara
+(ns trek-mate.dataset.djerdap
   (:use
    clj-common.clojure)
   (:require
@@ -29,17 +29,17 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(def dataset-path (path/child env/*global-my-dataset-path* "planinarskiklubtara.org"))
+(def dataset-path (path/child env/*global-my-dataset-path* "npdjerdap.rs"))
 
-(def np-tara (osm/extract-tags (overpass/wikidata-id->location :Q1266612)))
+(def np-djerdap (osm/extract-tags (overpass/wikidata-id->location :Q1258055)))
 
 (web/register-map
- "tara"
+ "djerdap"
  {
   :configuration {
-                  :longitude (:longitude np-tara) 
-                  :latitude (:latitude np-tara)
-                  :zoom 12}
+                  :longitude (:longitude np-djerdap) 
+                  :latitude (:latitude np-djerdap)
+                  :zoom 10}
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [
                      (fn [_ _ _ _]
@@ -48,75 +48,21 @@
 
 (def relation-id-seq
   [
-   11573882 ;; 1
-   11576719 ;; 2
-   11576828 ;; 3
-   11579746 ;; 3A
-   11579755 ;; 3B
-   11579760 ;; 3C
-   11579782 ;; 3D
-
-   11625862 ;; 4
-   11626051 ;; 5
-   11630008 ;; 6
-   11630025 ;; 7
-   11635202 ;; 8
-   11635224 ;; 9
-   11639509 ;; 9a
-   11639736 ;; 10
-   11643826 ;; 11
-   11643849 ;; 12
-   11650505 ;; 12a
-   11650519 ;; 12b
-   11655322 ;; 13
-   11655373 ;; 14
-   11658918 ;; 15
-   11658963 ;; 16
-   11662305 ;; 16a
-   11662329 ;; 17
-   11671443 ;; 18
-   11671473 ;; 18a
-   11681900 ;; 19
-   11682171 ;; 20
-   11685545 ;; 21
-   11685571 ;; 22
-   11701433 ;; 23
-   11701457 ;; 24
-   11719926 ;; 25
-   11719951 ;; 26
-   11723958 ;; 27
-   11723974 ;; 28
-   11728077 ;; 29
-   11728146 ;; 30
-   11731614 ;; Via Dinarica
-   11750282 ;; E7
+   11902248 ;; Sokolovac
+   11906544 ;; Kanjon Boljetinske reke
+   11252310 ;; Kovilovo
+   11910455 ;; Greben
+   11914722 ;; Zlatno jezero
+   11919353 ;; Gradišnica
+   11922472 ;; Ploče
+   6257599 ;; Veliki Štrbac
+   7593828 ;; Mali Štrbac
+   
 ])
 
 ;; prepare slot-a and slot-b overlays on map to show gpx vs mapped
 
 (do
-  ;; gpx tracks from tourist organization
-  (let [location-seq (reduce
-                     (fn [location-seq track-path]
-                       (with-open [is (fs/input-stream track-path)]
-                         (let [track (gpx/read-track-gpx is)]
-                           (concat
-                            location-seq
-                            (apply concat (:track-seq track))))))
-                     []
-                     (fs/list dataset-path))]
-    
-   (web/register-dotstore
-    :slot-a
-    (dot/location-seq->dotstore location-seq))
-
-   (web/register-map
-    "slot-a"
-    {
-     :raster-tile-fn (web/tile-overlay-dotstore-render-fn
-                      (web/create-transparent-raster-tile-fn)
-                      :slot-a
-                      [(constantly [draw/color-blue 2])])}))
   ;; data in osm, over osm api
   (let [location-seq (reduce
                     (fn [location-seq relation-id]
@@ -145,16 +91,17 @@
                     []
                     relation-id-seq)]
   (web/register-dotstore
-   :slot-b
+   :slot-a
    (dot/location-seq->dotstore location-seq))
 
   (web/register-map
-   "slot-b"
+   "slot-a"
    {
     :raster-tile-fn (web/tile-overlay-dotstore-render-fn
                      (web/create-transparent-raster-tile-fn)
-                     :slot-b
+                     :slot-a
                      [(constantly [draw/color-red 2])])})))
+
 
 ;; create table for osm wiki
 (let [relation-seq (map osmapi/relation relation-id-seq)]
@@ -164,7 +111,6 @@
        (println "== Trenutno stanje ==")
        (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
        (println "{| border=1")
-       (println "! scope=\"col\" | ref")
        (println "! scope=\"col\" | naziv")
        (println "! scope=\"col\" | osm")
        (println "! scope=\"col\" | waymarked")
@@ -172,7 +118,6 @@
        (println "! scope=\"col\" | note")
        (doseq [relation relation-seq]
          (println "|-")
-         (println "|" (if-let [ref (get-in relation [:tags "ref"])] ref ""))
          (println "|" (get-in relation [:tags "name:sr"]))
          (println "|" (str "{{relation|" (:id relation) "}}"))
          (println "|" (str "[https://hiking.waymarkedtrails.org/#route?id=" (:id relation)  " waymarked]"))
@@ -183,3 +128,5 @@
        (println "|}")))))
 
 
+
+(web/create-server)

@@ -172,6 +172,17 @@
 
 (l 20.46045, 44.16894 tag/tag-hike "!Ostrovica hike")
 
+;; divcibare
+;; todo
+(l 19.99080 44.13025 tag/tag-todo tag/tag-hike "obelezena staza vodi negde, prosao bajsom pred")
+(l 19.99713 44.09571 tag/tag-todo tag/tag-hike "obelezena staza vodopad")
+(l 19.99746 44.09563 tag/tag-todo tag/tag-hike "obelezena staza subjel")
+
+;; interesting places
+(n 6443059265) ;; "!Vrazji Vir"
+(n 7997045503) ;; "!Drvo ljubavi"
+
+
 ;; vojvodina
 (q 2629582)
 (l 19.42713, 45.90264 "!Pačir" "crveno jezero" tag/tag-beach)
@@ -327,6 +338,12 @@
 
 ;; suva planina
 (q 2451288) ;; "!Trem"
+
+;; obedska bara
+(q 1935294 tag/tag-todo "obici pesacke staze")
+
+(l 20.03958, 44.73710 tag/tag-todo "ostatak treka za stazu 1")
+(l 19.99147, 44.73091 tag/tag-todo "nedostaje trek za stazu 3")
 
 ;; stara planina
 (q 61124588) ;; "!Arbinje"

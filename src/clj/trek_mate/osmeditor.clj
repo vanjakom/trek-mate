@@ -276,16 +276,28 @@
   nil)
 
 (defn task-report
-  [task-id description candidate-seq]
-  (swap!
-   tasks
-   assoc
-   task-id
-   {
-    :id task-id
-    :description description
-    :candidate-seq candidate-seq})
-  nil)
+  ([task-id description candidate-seq]
+   (swap!
+    tasks
+    assoc
+    task-id
+    {
+     :id task-id
+     :description description
+     :candidate-seq candidate-seq})
+   nil) 
+  ([task-id description render-fn apply-fn candidate-seq]
+   (swap!
+    tasks
+    assoc
+    task-id
+    {
+     :id task-id
+     :description description
+     :candidate-seq candidate-seq
+     :render-fn render-fn
+     :apply-fn apply-fn})
+   nil))
 
 (defn task-get
   [task-id]
@@ -293,6 +305,156 @@
 
 (defn tasks-list []
   (vals (deref tasks)))
+
+
+(defn candidate-render-default
+  "Default candidate rendering fn, used if one not provided during task registration.
+  Assumes candidate is osm object."
+  [task-id description candidate]
+  (let [id (:id candidate)]
+    [:tr 
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (name (:type candidate))]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (:id candidate)]
+     [:td {:style "border: 1px solid black; padding: 5px; min-width: 100px; word-break: break-all;"}
+      (map
+       (fn [[key value]]
+         [:div (str (name key) " = " value)])
+       (:osm candidate))]
+     [:td {:style "border: 1px solid black; padding: 5px; min-width: 100px; word-break: break-all;"}
+      (map
+       (fn [change]
+         (cond
+           (= (:change change) :tag-add)
+           [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
+           (= (:change change) :tag-remove)
+           [:div {:style "color:red;"} (name (:tag change)) " = " (:value change)]
+           (= (:change change) :tag-change)
+           [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
+           :else
+           [:div "unknown"]))
+       (:change-seq candidate))
+      ]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+       :a
+       {
+        :href (str
+               "/view/"
+               (name (:type candidate))
+               "/"
+               (:id candidate))
+        :target "_blank"}
+       "view"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+       :a
+       {
+        :href (str
+               "/view/osm/history/"
+               (name (:type candidate))
+               "/"
+               (:id candidate))
+        :target "_blank"}
+       "history"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (filter
+       some?
+       [
+        [:a
+         {
+          :href (str
+                 "https://openstreetmap.org/"
+                 (name (:type candidate))
+                 "/"
+                 (:id candidate))
+          :target "_blank"}
+         "osm"]
+        [:br]
+        (when-let [wikidata (get-in candidate [:osm "wikidata"])]
+          (list
+           [:a
+            {
+             :href (wikidata/wikidata->url wikidata)
+             :target "_blank"}
+            "wikidata"]
+           [:br]))
+        (when-let [wikipedia (get-in candidate [:osm "wikipedia"])]
+          (list
+           [:a
+            {
+             :href (wikidata/wikipedia->url wikipedia)
+             :target "_blank"}
+            "wikipedia"]
+           [:br]))])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+       :a
+       {
+        :href (str "/proxy/mapillary/" (name (:type candidate)) "/" (:id candidate))
+        :target "_blank"}
+       "mapillary"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+       :a
+       {
+        :href
+        (str
+         "http://level0.osmz.ru/?url=https%3A%2F%2Fwww.openstreetmap.org"
+         "%2F" (name (:type candidate)) "%2F"
+         (:id candidate))
+        :target "_blank"}
+       "level0"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+       :a
+       {
+        :href (str "/proxy/id/" (name (:type candidate)) "/" (:id candidate))
+        :target "_blank"}
+       "iD"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+       :a
+       {
+        :href (str "javascript:applyChange(\"" task-id "\",\"" (:id candidate) "\")")}
+       "apply"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [:div
+       {
+        :id (str (name (:type candidate)) (:id candidate))}
+       (if (:done candidate) "done" "pending")]]]))
+
+(defn candidate-apply-tag-change
+  "Default apply-fn for candidate. Assumes candidate is osm object."
+  [task-id description candidate]
+  (let [id (:id candidate)
+        type (:type candidate)
+        description (:description candidate)]
+    (if-let [changeset (cond
+                         (= type :node)
+                         (osmapi/node-apply-change-seq
+                          id
+                          description
+                          (:change-seq candidate))
+                         (= type :way)
+                         (osmapi/way-apply-change-seq
+                          id
+                          description
+                          (:change-seq candidate))
+                         (= type :relation)
+                         (osmapi/relation-apply-change-seq
+                          id
+                          description
+                          (:change-seq candidate))
+                         :else
+                         nil)]
+      (ring.util.response/redirect
+       (str
+        "/view/osm/history/" (name (:type candidate)) "/" (:id candidate)))
+      {
+       :status 500
+       :body "error"})))
 
 ;; to be used for extension of editor with various projects, brands, hiking,
 ;; wikidata and other intergrations
@@ -405,181 +567,71 @@
   (compojure.core/GET
    "/candidates/:task-id"
    [task-id]
-   (if-let [{candidates :candidate-seq}(task-get task-id)]
-     {
-      :status 200
-      :headers {
-                "Content-Type" "text/html; charset=utf-8"}
-      :body (hiccup/html
-             [:html
-              [:body {:style "font-family:arial;"}
-               [:script
-                "var applyChange = function(taskId, type, id) {"
-                "window.open(\"/apply/\" + taskId + \"/\" + type + \"/\" + id, \"_blank\");" 
-                "document.getElementById(type + id).innerHTML = \"done\";"
-                "}"]
-               [:table {:style "border-collapse:collapse;"}
-                (map
-                 (fn [candidate]
-                   (let [id (str (name (:type candidate)) "-" (:id candidate))]
-                     [:tr 
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       (name (:type candidate))]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       (:id candidate)]
-                      [:td {:style "border: 1px solid black; padding: 5px; min-width: 100px; word-break: break-all;"}
-                       (map
-                        (fn [[key value]]
-                          [:div (str (name key) " = " value)])
-                        (:osm candidate))]
-                      [:td {:style "border: 1px solid black; padding: 5px; min-width: 100px; word-break: break-all;"}
-                       (map
-                        (fn [change]
-                          (cond
-                            (= (:change change) :tag-add)
-                            [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
-                            (= (:change change) :tag-remove)
-                            [:div {:style "color:red;"} (name (:tag change)) " = " (:value change)]
-                            (= (:change change) :tag-change)
-                            [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
-                            :else
-                            [:div "unknown"]))
-                        (:change-seq candidate))
-                       ]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href (str
-                                "/view/"
-                                (name (:type candidate))
-                                "/"
-                                (:id candidate))
-                         :target "_blank"}
-                        "view"]]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href (str
-                                "/view/osm/history/"
-                                (name (:type candidate))
-                                "/"
-                                (:id candidate))
-                         :target "_blank"}
-                        "history"]]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       (filter
-                        some?
-                        [
-                         [:a
-                         {
-                          :href (str
-                                 "https://openstreetmap.org/"
-                                 (name (:type candidate))
-                                 "/"
-                                 (:id candidate))
-                          :target "_blank"}
-                          "osm"]
-                         [:br]
-                         (when-let [wikidata (get-in candidate [:osm "wikidata"])]
-                           (list
-                            [:a
-                             {
-                              :href (wikidata/wikidata->url wikidata)
-                              :target "_blank"}
-                             "wikidata"]
-                            [:br]))
-                         (when-let [wikipedia (get-in candidate [:osm "wikipedia"])]
-                           (list
-                            [:a
-                             {
-                              :href (wikidata/wikipedia->url wikipedia)
-                              :target "_blank"}
-                             "wikipedia"]
-                            [:br]))])]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href (str "/proxy/mapillary/" (name (:type candidate)) "/" (:id candidate))
-                         :target "_blank"}
-                        "mapillary"]]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href
-                         (str
-                          "http://level0.osmz.ru/?url=https%3A%2F%2Fwww.openstreetmap.org"
-                          "%2F" (name (:type candidate)) "%2F"
-                          (:id candidate))
-                         :target "_blank"}
-                        "level0"]]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href (str "/proxy/id/" (name (:type candidate)) "/" (:id candidate))
-                         :target "_blank"}
-                        "iD"]]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [
-                        :a
-                        {
-                         :href (str "javascript:applyChange(\"" task-id "\",\"" (name (:type candidate)) "\",\"" (:id candidate) "\")")}
-                        "apply"]]
-                      [:td {:style "border: 1px solid black; padding: 5px;"}
-                       [:div
-                        {
-                         :id (str (name (:type candidate)) (:id candidate))}
-                        (if (:done candidate) "done" "pending")]]]))
-                 (sort-by
-                  :id
-                  candidates))]]])}
-     {
-      :status 404}))
+   (try
+     (if-let [task (task-get task-id)]
+       (let [candidates (:candidate-seq task)
+             render-fn (or
+                        (:render-fn task)
+                        candidate-render-default)]
+         {
+          :status 200
+          :headers {
+                    "Content-Type" "text/html; charset=utf-8"}
+          :body (hiccup/html
+                 [:html
+                  [:body {:style "font-family:arial;"}
+                   [:script
+                    "var applyChange = function(taskId, id) {"
+                    "window.open(\"/apply/\" + taskId + \"/\" + id, \"_blank\");" 
+                    "document.getElementById(id).innerHTML = \"done\";"
+                    "}"]
+                   [:table {:style "border-collapse:collapse;"}
+                    (map
+                     #(render-fn task-id (:description task) %)
+                     (sort-by
+                       :id
+                       candidates))]]])})
+       {
+        :status 404})
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500 :body "exception"})))
 
   (compojure.core/GET
-   "/apply/:task-id/:type/:id"
-   [task-id type id]
+   "/apply/:task-id/:id"
+   [task-id id]
    (try
-     (if-let [{description :description candidates :candidate-seq} (task-get task-id)]
-       (let [type (keyword type)
-             id (as/as-long id)
+     (if-let [task (task-get task-id)]
+       (let [description (:description task)
+             apply-fn (or
+                       (:apply-fn task)
+                       candidate-apply-tag-change)
+             candidates (:candidate-seq task)
              [candidate rest] (reduce
                                (fn [[match rest] candidate]
-                                 (if (and
-                                      (= (:type candidate type))
-                                      (= (:id candidate) id))
+                                 (if (= (str (:id candidate)) id)
                                    [candidate rest]
                                    [match (conj rest candidate)]))
                                [nil []]
-                               candidates)
-             changeset (cond
-                         (= type :node)
-                         (osmapi/node-apply-change-seq
-                          id
-                          description
-                          (:change-seq candidate))
-                         (= type :way)
-                         (osmapi/way-apply-change-seq
-                          id
-                          description
-                          (:change-seq candidate))
-                         (= type :relation)
-                         (osmapi/relation-apply-change-seq
-                          id
-                          description
-                          (:change-seq candidate))
-                         :else
-                         nil)]
-         (task-report task-id description (conj rest (assoc candidate :done true)))
-         (ring.util.response/redirect
-          (str
-           "/view/osm/history/" (name (:type candidate)) "/" (:id candidate))))
+                               candidates)]
+         (if-let [response (apply-fn task-id description candidate)]
+           (do
+             (task-report
+              task-id
+              description
+              (:render-fn task)
+              (:apply-fn task)
+              (conj rest (assoc candidate :done true)))
+             response)
+           {
+            :status 500
+            :body "unable to perform change"}))
        {:status 404})
-     (catch Exception e (.printStackTrace e) {:status 500})))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500
+        :body "exception"})))
 
   ;; how to map
   ;; todo integrate other mappings, for now just brands

@@ -148,9 +148,33 @@
 
 (def way-map (view/seq->map :id way-seq))
 
+;; set of relation ids to be ignored, either temporary or permanently
+(def ignore-set
+  #{
+    ;; E roads
+    6023218 ;; E3 romania
+    1175728 ;; E8, not going through Serbia
+    9933591 ;; E8 romania
+    
+    ;; other country
+    7849129
+    5690978
+    5652185
+    6967694
+    6932456
+    5690432
+    5687259
+    5674515
+    5674487
+    10034969
+    9949619
+    10035113
+    5690999
+    })
 
 (defn check-connected?
   [way-map relation]
+  (println "relation: " (:id relation))
   (loop [end-set nil
          ways (map :id (filter #(= (:type %) :way) (:members relation)))]
     (let [way-id (first ways)
@@ -171,10 +195,10 @@
 
               :else
               (do
-                (println "unknown state" end-set first-node last-node)
+                (println "\tunknown state" end-set first-node last-node)
                 false)))
           (do
-            (println "way lookup failed:" way-id)
+            (println "\tway lookup failed:" way-id)
             false))
         true))))
 
@@ -232,6 +256,11 @@
             :target "_blank"}
         "level0"]
        [:br]
+       [:a {
+            :href (str "http://localhost:8080/#id=" "r" osm-id)
+            :target "_blank"}
+        "iD"]
+       [:br]
        osm-id)]
      [:td {:style "border: 1px solid black; padding: 5px;"}
       (if (check-connected? way-map relation)
@@ -252,7 +281,9 @@
    {
     :status 200
     :body (hiccup/html
-           [:a {:href "/projects/hikeandbike/list"} "list of routes"])})
+           [:a {:href "/projects/hikeandbike/list"} "list of routes"]
+           [:br]
+           [:a {:href "/projects/hikeandbike/hiking-broken"} "list of broken hiking routes"])})
   (compojure.core/GET
    "/projects/hikeandbike/list"
    _
@@ -268,11 +299,34 @@
              [:table {:style "border-collapse:collapse;"}
               (map
                render-route
-               (reverse (sort-by :timestamp relation-seq)))]
+               (reverse
+                (sort-by
+                 :timestamp
+                 (filter
+                  #(not (contains? ignore-set (:id %)))
+                  relation-seq))))]
              [:br]]])})
   (compojure.core/GET
-   "/projects/hikeandbike/test"
+   "/projects/hikeandbike/hiking-broken"
    _
-   {
-    :status 200
-    :body (hiccup/html "hikeandbike test")})))
+   (let [relation-seq (filter
+                       #(and
+                         (= "hiking" (get-in % [:osm "route"]))
+                         (not (check-connected? way-map %)))
+                       (filter
+                        #(not (contains? ignore-set (:id %)))
+                        relation-seq))]
+     {
+      :status 200
+      :headers {
+                "Content-Type" "text/html; charset=utf-8"}
+      :body (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:div (str "polomljene planinarske staze u Srbiji (" (count relation-seq)  ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-route
+                 (reverse (sort-by :timestamp relation-seq)))]
+               [:br]]])}))))
