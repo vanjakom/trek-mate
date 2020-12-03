@@ -296,7 +296,35 @@
 #_(storage/import-location-v2-seq-handler
  (map #(add-tag % "@divcibare" "@divcibare-kruzna") (concat peaks waypoints)))
 
+;; divca trail run 30 km
 
+(let [location-seq (concat
+                    (with-open [is (fs/input-stream
+                                    (path/child
+                                     env/*global-my-dataset-path*
+                                     "divca-race"
+                                     "divca-mtb-maraton-30-km.gpx"))]
+                      (doall
+                       (mapcat
+                        identity
+                        (:track-seq (gpx/read-track-gpx is))))))]
+  (println (count location-seq))
+  (web/register-dotstore
+   :track
+   (dot/location-seq->dotstore location-seq))
+  (web/register-map
+   "divca-mtb"
+   {
+    :configuration {
+                    :longitude (:longitude (first location-seq))
+                    :latitude (:latitude (first location-seq))
+                    :zoom 7}
+    :vector-tile-fn (web/tile-vector-dotstore-fn
+                     [(fn [_ _ _ _] [])])
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                     :track
+                     [(constantly [draw/color-blue 2])])}))
 
 
 
