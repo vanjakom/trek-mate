@@ -187,6 +187,20 @@
        (xml/element :tag {:k key :v value}))
      (:tags relation)))))
 
+(defn create-relation
+  [id version tags members]
+  {
+   :id id
+   :version version
+   :tags tags
+   :members members})
+
+(defn create-relation-member [type id role]
+  {
+   :type type
+   :id id
+   :role role})
+
 ;; except node, way and relation objects full methods ( for way and
 ;; relation ) return dataset object, map of nodes, ways and relations
 ;; by id
@@ -259,6 +273,7 @@
 (defn node
   "Performs /api/0.6/[node|way|relation]/#id"
   [id]
+  (println "[osmapi] node" id)
   (let [node (xml/parse
               (http/get-as-stream
                (str *server* "/api/0.6/node/" id)))]
@@ -371,6 +386,7 @@
 (defn way-full
   "Performs /api/0.6/[node|way|relation]/#id/full"
   [id]
+  (println "[osmapi] way-full" id)
   (let [way (xml/parse
              (http/get-as-stream
               (str *server* "/api/0.6/way/" id "/full")))]
@@ -471,6 +487,7 @@
 (defn relation-full
   "Performs /api/0.6/[node|way|relation]/#id/full"
   [id]
+  (println "[osmapi] relation-full" id)
   (let [relation (xml/parse
                   (http/get-as-stream
                    (str *server* "/api/0.6/relation/" id "/full")))]

@@ -235,8 +235,101 @@
       "dataLayer.addTo(map)\n"
       "map.fitBounds(dataLayer.getBounds())\n"]])})
 
+;; to be used as layer on top of osm data, uses same structure as dataset
+;; provided by by osm, should have overpass, osmapi function to add data
+;; and functions to retrieve data
+;; contains my data
+(def dataset (atom {}))
+;; contains cached data from osm, to be able to perform fast queries of dataset
+(def cache (atom {}))
+
+;; todo cache cleanup periodic
+
+(defn cache-update [dataset]
+  (swap!
+   cache
+   (fn [cache]
+     (osmapi/merge-datasets cache dataset))))
+
+(defn dataset-node
+  "Returns node in same format as node-full.
+  First tries in dataset, after in cache and at the end on osm and adds to cache"
+  [id]
+  (let [dataset (deref dataset)]
+    {
+     :nodes {
+             id
+             (or
+              (get-in dataset [:nodes id])
+              (let [cache (deref cache)
+                    node (get-in cache [:nodes id])]
+                (if (some? node)
+                  node
+                  (let [node (osmapi/node id)]
+                    (cache-update {:nodes {id node}})
+                    node))))}} ))
+
+(defn dataset-way
+  "Returns way in same format as way-full.
+  First tries in dataset, after in cache and at the end on osm and adds to cache"
+  [id]
+  (let [dataset (deref dataset)
+        way (get-in dataset [:ways id])]
+    (if (some? way)
+      (apply
+       osmapi/merge-datasets
+       (conj
+        (map dataset-node (:nodes way)) 
+        {:ways {id way}}))
+      (let [cache (deref cache)
+            way (get-in cache [:ways id])]
+        (if (some? way)
+          (apply
+           osmapi/merge-datasets
+           (conj
+            (map dataset-node (:nodes way)) 
+            {:ways {id way}}))
+          (let [way (osmapi/way-full id)]
+           (cache-update way)
+           way))))))
+
+(defn dataset-relation
+  "Returns relation in same format as relation-full.
+  First tries in dataset, after in cache and at the end on osm and adds to cache"
+  [id]
+  (let [dataset (deref dataset)
+        relation (get-in dataset [:relations id])]
+    (if (some? relation)
+      (apply
+       osmapi/merge-datasets
+       (conj
+        (map
+         (fn [member]
+           (if (= (:type member) :way)
+             (dataset-way (:id member))
+             (dataset-node (:id member))))
+         (:members relation))
+        {:relations {id relation}}))
+      (let [relation (osmapi/relation-full id)]
+        (cache-update relation)
+        relation))))
+
+(defn dataset-insert-relation [relation]
+  (let [id (:id relation)]
+    (swap!
+     dataset
+     #(update-in
+       %
+       [:relations id]
+       (constantly relation)))))
+
+#_(swap! cache {})
+#_(get-in (deref cache) [:relations 11258223])
+
+
 (defn prepare-route-data [id]
-  (if-let [dataset (osmapi/relation-full id)]
+  (dataset-relation id)
+  #_(if-let [dataset (osmapi/relation-full id)]
     dataset
     #_(let [relation (get-in dataset [:relations id])]
       {
@@ -264,7 +357,7 @@
 #_(prepare-route-data 10948917)
 #_(osmapi/relation-full 10948917)
 
-(defn prepare-explore-data [id left top right bottom]
+#_(defn prepare-explore-data [id left top right bottom]
   (println id left top right bottom)
   #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
     dataset))
@@ -981,7 +1074,7 @@
                  "Content-Type" "application/json; charset=utf-8"}
        :body (json/write-to-string data)}))
 
-  (compojure.core/GET
+  #_(compojure.core/GET
     "/route/edit/:id/explore/:left/:top/:right/:bottom"
     [id left top right bottom]
     (let [id (as/as-long id)

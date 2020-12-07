@@ -11,6 +11,8 @@
    [clj-common.pipeline :as pipeline]
    [clj-common.view :as view]
    [trek-mate.env :as env]
+   [trek-mate.integration.osmapi :as osmapi]
+   [trek-mate.integration.overpass :as overpass]
    [trek-mate.osmeditor :as osmeditor]))
 
 (def dataset-path (path/child
@@ -18,8 +20,7 @@
                    "putevi"))
 
 (def putevi-srbije-datset-path (path/child
-                                #_env/*global-my-dataset-path*
-                                ["Users" "vanja" "my-dataset-local"]
+                                env/*global-my-dataset-path*
                                 "putevi-srbije.rs"))
 
 (def osm-extract-path (path/child
@@ -65,12 +66,119 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 
-;; reads data from government data
+;; #dataset
+;; prepare putevi-srbije-I-i-II-reda
+;; open in safari
+;; https://www.pravno-informacioni-sistem.rs/SlGlasnikPortal/viewdoc?uuid=5245d2c3-c4c5-41c9-b3b2-0201d41625a7&regactid=425966&doctype=reg
+;; copy only table into corresponding file
+#_(let [clear-text (fn [text]
+                   (let [text (.trim text)]
+                     (if (.endsWith text "*")
+                       (.trim (.substring text 0 (dec (count text))))
+                       text)))
+      extract-road (fn [type road-seq lines]
+                     (conj
+                      road-seq
+                      {
+                       :type
+                       type
+                       :ref
+                       (if (= type :IA)
+                         ;; fix cyrillic and latin 
+                         (str "A" (.substring (clear-text (second lines)) 1))
+                         (clear-text (second lines)))
+                       :description
+                       (clear-text (nth lines 2))}))]
+  (with-open [os (fs/output-stream (path/child
+                                    env/*global-my-dataset-path*
+                                    "dataset.rs"
+                                    "putevi-srbije-I-i-II-reda.json"))]
+    (json/write-to-stream
+     (view/seq->map
+      :ref
+      (concat
+       (with-open [is (fs/input-stream (path/child
+                                        env/*global-my-dataset-path*
+                                        "pravno-informacioni-sistem.rs"
+                                        "Ia.txt"))]
+         (reduce
+          (partial extract-road :IA)
+          []
+          (partition
+           3
+           3
+           (drop
+            5
+            (filter
+             (complement empty?)
+             (io/input-stream->line-seq is))))))
+       (with-open [is (fs/input-stream (path/child
+                                        env/*global-my-dataset-path*
+                                        "pravno-informacioni-sistem.rs"
+                                        "Ib.txt"))]
+         (reduce
+          (partial extract-road :IB)
+          []
+          (partition
+           3
+           3
+           (drop
+            5
+            (filter
+             (complement empty?)
+             (io/input-stream->line-seq is))))))
+       (with-open [is (fs/input-stream (path/child
+                                        env/*global-my-dataset-path*
+                                        "pravno-informacioni-sistem.rs"
+                                        "IIa.txt"))]
+         (reduce
+          (partial extract-road :IIA)
+          []
+          (partition
+           3
+           3
+           (drop
+            5
+            (filter
+             (complement empty?)
+             (io/input-stream->line-seq is))))))
+       (with-open [is (fs/input-stream (path/child
+                                        env/*global-my-dataset-path*
+                                        "pravno-informacioni-sistem.rs"
+                                        "IIb.txt"))]
+         (reduce
+          (partial extract-road :IIB)
+          []
+          (partition
+           3
+           3
+           (drop
+            5
+            (filter
+             (complement empty?)
+             (io/input-stream->line-seq is))))))))
+     os)))
 
 (def putevi-srbije-map
-  (with-open [is (fs/input-stream (path/child putevi-srbije-datset-path "putevi.tsv"))]
-    (view/seq->map :id (json/read-lines-keyworded is))))
+  (with-open [is (fs/input-stream
+                  (path/child
+                                    env/*global-my-dataset-path*
+                                    "dataset.rs"
+                                    "putevi-srbije-I-i-II-reda.json"))]
+    (reduce
+     (fn [road-map [ref road]]
+       (assoc
+        road-map
+        (name ref)
+        road))
+     {}
+     (json/read-keyworded is))))
+#_(count putevi-srbije-map) ;; 371
 
+;; old approach using "referentni sistem" from Putevi Srbije
+#_(def putevi-srbije-map
+  (with-open [is (fs/input-stream (path/child putevi-srbije-datset-path "putevi.tsv"))]
+    (view/seq->map :ref (json/read-lines-keyworded is))))
 #_(count putevi-srbije-map) ;; 367
 
 (def osm-ignore-set
@@ -102,6 +210,7 @@
 
 ;; todo, fix later
 ;; r1559458 - samo deo je mapiran
+;; 235 - pogresno je oznacen, nema relaciju, treba geometrija
 
 ;; notes
 ;; primer greske sa wikipedia redirekcijama
@@ -210,6 +319,8 @@
       #(not (contains? osm-ignore-set (:id %)))
       relation-seq))))))
 
+;; todo report ref not on public list ... maybe it's useful
+
 
 ;; todo check european network roads in serbia, is dataset open, relations are currently on ignore
 
@@ -241,7 +352,7 @@
         map
         [id]
         #(assoc
-          (or % {:id id})
+          (or % {:ref id})
           :osm
           road))))
    putevi-srbije-map
@@ -252,18 +363,18 @@
 (defn render-road [road]
   [:tr
    [:td {:style "border: 1px solid black; padding: 5px;"}
-    (:id road)]
+    (:ref road)]
    [:td {:style "border: 1px solid black; padding: 5px;"}
-    (:category road)]
+    (:type road)]
    [:td {:style "border: 1px solid black; padding: 5px;"}
     (if-let [id (get-in road [:osm :id])]
       (list
        id
-       " "
+       [:br]
        [:a
         {:href (str "http://openstreetmap.org/relation/" id) :target "_blank"}
         "osm"]
-       " "
+       [:br]
        [:a
         {:href (str "http://localhost:7077/view/osm/history/relation/" id) :target "_blank"}
         "history"])
@@ -273,10 +384,14 @@
      (get-in road [:osm :osm "network"])
      "")]
    [:td {:style "border: 1px solid black; padding: 5px;"}
-    (let [path (path/child putevi-srbije-datset-path "putevi" (str (:id road) ".geojson"))]
+    (or
+     (get road :description)
+     "")]   
+   [:td {:style "border: 1px solid black; padding: 5px;"}
+    (let [path (path/child putevi-srbije-datset-path "putevi" (str (:ref road) ".geojson"))]
       (if (fs/exists? path)
         [:a
-         {:href (str "/projects/putevi/geometry/" (:id road)) :target "_blank"}
+         {:href (str "/projects/putevi/geometry/" (:ref road)) :target "_blank"}
          "geometry"]
         ""))]])
 
@@ -295,7 +410,6 @@
      [:div {:id "map" :style "position: absolute;left: 0px;top: 0px;right: 0px;bottom: 0px;cursor: crosshair;"}]
      [:script {:type "text/javascript"}
       "var map = L.map('map', {maxBoundsViscosity: 1.0})\n"
-      "map.setView([44.81667, 20.46667], 10)\n"
       "L.tileLayer(\n"
       "\t'https://tile.openstreetmap.org/{z}/{x}/{y}.png',\n"
       "\t{\n"
@@ -314,6 +428,9 @@
       "\tmarker.bindPopup(point.properties.type + ' ' + point.properties.id)\n"
       "\treturn marker}\n"
       "var dataLayer = L.geoJSON(data, { pointToLayer: pointToLayerFn})\n"
+      "var layers = {\n"
+      "\t'data': dataLayer}\n"
+      "L.control.layers({},layers).addTo(map)\n"
       "dataLayer.addTo(map)\n"
       "map.fitBounds(dataLayer.getBounds())\n"]])})
 
@@ -336,16 +453,46 @@
     :status 200
     :headers {
               "Content-Type" "text/html; charset=utf-8"}
-    :body (hiccup/html
-           [:html
-            [:body {:style "font-family:arial;"}
-             [:div (str "putna mreza Srbije (" (count road-map)  ")")]
-             [:br]
-             [:table {:style "border-collapse:collapse;"}
-              (map
-               render-road
-               (sort-by :id (vals road-map)))]
-             [:br]]])})
+    :body (let [IA-seq (filter #(= (:type %) "IA") (vals road-map))
+                IB-seq (filter #(= (:type %) "IB") (vals road-map))
+                IIA-seq (filter #(= (:type %) "IIA") (vals road-map))
+                IIB-seq (filter #(= (:type %) "IIB") (vals road-map))]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:div (str "putna mreza Srbije (" (count road-map)  ")")]
+               [:br]
+               [:div (str "IA (" (count IA-seq) ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-road
+                 (sort-by :ref IA-seq))]
+               [:br]
+               [:br]
+               [:div (str "IB (" (count IB-seq) ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-road
+                 (sort-by :ref IB-seq))]
+               [:br]
+               [:br]
+               [:div (str "IIA (" (count IIA-seq) ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-road
+                 (sort-by :ref IIA-seq))]
+               [:br]
+               [:br]
+               [:div (str "IIB (" (count IIB-seq) ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-road
+                 (sort-by :ref IIB-seq))]
+               [:br]]]))}) 
   (compojure.core/GET
    "/projects/putevi/geometry/:id"
    [id]
@@ -357,4 +504,17 @@
        (render-road-geometry (json/read-keyworded (fs/input-stream path) ))
        {:status 404})))))
 
-
+;; prepare road for editing
+;; just change ref in overpass
+;; todo support switch to daily dump once ways are analyzed
+(osmeditor/dataset-insert-relation
+ (osmapi/create-relation
+  -1
+  1
+  {}
+  (map
+   #(osmapi/create-relation-member :way (:id %) "")
+   (vals
+    (:ways
+     (overpass/query->dataset
+      "[out:json];way[highway][ref=301](area:3601741311);out center;"))))))

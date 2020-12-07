@@ -217,3 +217,35 @@
        nil))
    (:elements (request query-string))))
 
+(defn query->dataset
+  "Performs query and returns dataset in same format as osmapi"
+  [query]
+  (println "[overpass]" query)
+  ;; todo stringify tags on arrival, possible issue with tags which cannot be keywords
+  ;; currently stringified in each type convert fn
+  (reduce
+   (fn [dataset element]
+     (cond
+       (= (:type element) "way")
+       (update-in
+        dataset
+        [:ways (:id element)]
+        (constantly element))
+       (= (:type element) "node")
+       (update-in
+        dataset
+        [:relations (:id element)]
+        (constantly element))
+       (= (:type element) "relation")
+       (update-in
+        dataset
+        [:ways (:id element)]
+        (constantly element))))
+   {}
+   (:elements
+    (json/read-keyworded
+     (http/get-as-stream
+      (str
+       *endpoint*
+       "/api/interpreter?data="
+       (java.net.URLEncoder/encode query)))))))

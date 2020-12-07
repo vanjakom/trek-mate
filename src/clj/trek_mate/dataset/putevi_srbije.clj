@@ -15,6 +15,10 @@
                    env/*global-my-dataset-path*
                    "putevi-srbije.rs"))
 
+
+;; based on
+;; https://www.putevi-srbije.rs/index.php/референтни-систем
+
 (defn list-tags [content]
   (doall (map :tag content)))
 
@@ -179,8 +183,8 @@
                    [:folder-seq 0 :folder-seq 3 :document-seq])))]
       (json/write-to-line-stream
        {
-        :category (:category road)
-        :id (:name road)}
+        :type (:category road)
+        :ref (:name road)}
        os))))
 
 (defn extract-road-geometry [parse-info]

@@ -53,9 +53,9 @@
    ;; Šumska koliba
    11971142 ;; Ribnjak
    11971189 ;; Kružna edukativna staza
-   ;; Čenjin
-   ;; Staza Majke Angeline
-   ;; Biciklistička staza
+   11976032 ;; Čenjin
+   11978744 ;; Staza Majke Angeline
+   11978745 ;; Biciklistička staza
    ])
 
 (do
