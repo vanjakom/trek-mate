@@ -362,6 +362,25 @@
   #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
     dataset))
 
+(defn try-order-route [relation]
+  #_(def a relation)
+  (let [nodes (filter #(= (:type %) "node") (:members relation))
+        ways (filter #(= (:type %) "way") (:members relation))]
+    
+
+
+    
+    (update-in
+    relation
+    [:members]
+    #(reverse %))))
+
+a
+
+(first (:members a))
+
+(try-order-route a)
+
 (def tasks (atom {}))
 
 (defn tasks-reset []
@@ -1089,6 +1108,20 @@
                  "Content-Type" "application/json; charset=utf-8"}
        :body (json/write-to-string data)}))
 
+  (compojure.core/POST
+   "/route/edit/:id/order"
+   request
+   (let [id (get-in request [:params :id])
+         ;; order of ways could be changed in visual editor
+         relation (json/read-keyworded (:body request))]
+     (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
+     (let [ordered (try-order-route relation)]
+       (println "ways after:" (clojure.string/join " " (map :id (:members ordered))))
+       {
+        :status 200
+        :body (json/write-to-string ordered)
+     })))
+  
   (compojure.core/POST
    "/route/edit/:id/update"
    request

@@ -363,10 +363,12 @@
 		  memberInfo = {
 		      id: member.id,
 		      type: member.type,
-		      indexes: []}
+		      indexes: [],
+		      roles: []}
 		  memberMap.set(id, memberInfo)
 	      }
 	      memberInfo.indexes.push(index)
+	      memberInfo.roles.push(member.role)
 	  })
 
 	  relationLayer.clearLayers()
@@ -377,10 +379,11 @@
 		  if (offset > 0) {
 		      text += "<span style='color:black'>, </span>"
 		  }
-		  if (index == selectedIndex) {
-		      text += "<span style='color:red'>" + index + "</span>" 
+		  var role = memberInfo.roles[offset] != null ? memberInfo.roles[offset].substring(0, 1) : ""
+		  if (index.index == selectedIndex) {
+		      text += "<span style='color:red'>" + index + role + "</span>" 
 		  } else {
-		      text += "<span style='color:blue'>" + index + "</span>" 
+		      text += "<span style='color:blue'>" + index + role + "</span>" 
 		  }
 	      })
 	      text += "</div>"
@@ -542,8 +545,19 @@
       }).addTo(map);
 
       var autoFn = function() {
-	  alert("not implemented")
+	  fetch(
+	      "/route/edit/" + routeId + "/order",
+	      {
+		  method: "POST",
+		  body: JSON.stringify(relation)})
+	      .then(response => response.json())
+	      .then(
+		  function(data) {
+		      relation = data
+		      refreshRelationFn()
+		      map.fitBounds(relationLayer.getBounds())})
       }
+      
       new L.Control.Button({
 	  "text": "auto",
 	  "onClick": autoFn

@@ -348,7 +348,9 @@
 (q 2451288) ;; "!Trem"
 
 ;; obedska bara
-(q 1935294 tag/tag-todo "obici pesacke staze")
+(q 1935294 tag/tag-todo "obici pesacke staze" "ucrtati puteve koji nedostaju, postoje notovi")
+
+(l 21.09798, 44.85429 tag/tag-todo "obici pesacke staze, marijana bajs...")
 
 (l 20.03958, 44.73710 tag/tag-todo "ostatak treka za stazu 1")
 (l 19.99147, 44.73091 tag/tag-todo "nedostaje trek za stazu 3")
@@ -806,6 +808,11 @@
 
 #_(pipeline/closed? (:track-in track-split-pipeline))
 
+
+;; #gopro
+;; to load photos from gopro and show on map use
+;; photo-map repo
+;; start server, run images import
 
 ;; us track
 ;; 10/175/408 
