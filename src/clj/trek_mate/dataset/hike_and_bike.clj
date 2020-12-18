@@ -281,33 +281,92 @@
    {
     :status 200
     :body (hiccup/html
-           [:a {:href "/projects/hikeandbike/list"} "list of routes"]
+           [:a {:href "/projects/hikeandbike/list/hiking"} "list of hiking routes"]
+           " "
+           [:a {:href "/projects/hikeandbike/list/hiking/broken"} "broken"]
            [:br]
-           [:a {:href "/projects/hikeandbike/hiking-broken"} "list of broken hiking routes"])})
+           [:a {:href "/projects/hikeandbike/list/bicycle"} "list of bicycle routes"]
+           [:br]
+           [:a {:href "/projects/hikeandbike/list/mtb"} "list of mtb routes"]
+           [:br]           
+           )})
   (compojure.core/GET
-   "/projects/hikeandbike/list"
+   "/projects/hikeandbike/list/hiking"
    _
    {
     :status 200
     :headers {
               "Content-Type" "text/html; charset=utf-8"}
-    :body (hiccup/html
-           [:html
-            [:body {:style "font-family:arial;"}
-             [:div (str "planinarske i biciklisticke staze u Srbiji (" (count relation-seq)  ")")]
-             [:br]
-             [:table {:style "border-collapse:collapse;"}
-              (map
-               render-route
-               (reverse
-                (sort-by
-                 :timestamp
-                 (filter
-                  #(not (contains? ignore-set (:id %)))
-                  relation-seq))))]
-             [:br]]])})
+    :body (let [relation-seq (filter
+                              #(not (contains? ignore-set (:id %)))
+                              (filter
+                               #(= "hiking" (get-in % [:osm "route"]))
+                               relation-seq))]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:div (str "planinarske staze u Srbiji (" (count relation-seq)  ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-route
+                 (reverse
+                  (sort-by
+                   :timestamp
+                   relation-seq)))]
+               [:br]]]))})
   (compojure.core/GET
-   "/projects/hikeandbike/hiking-broken"
+   "/projects/hikeandbike/list/bicycle"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (let [relation-seq (filter
+                              #(not (contains? ignore-set (:id %)))
+                              (filter
+                               #(= "bicycle" (get-in % [:osm "route"]))
+                               relation-seq))]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:div (str "biciklisticke staze u Srbiji (" (count relation-seq)  ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-route
+                 (reverse
+                  (sort-by
+                   :timestamp
+                   relation-seq)))]
+               [:br]]]))})
+  (compojure.core/GET
+   "/projects/hikeandbike/list/mtb"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (let [relation-seq (filter
+                              #(not (contains? ignore-set (:id %)))
+                              (filter
+                               #(= "mtb" (get-in % [:osm "route"]))
+                               relation-seq))]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:div (str "MTB staze u Srbiji (" (count relation-seq)  ")")]
+               [:br]
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 render-route
+                 (reverse
+                  (sort-by
+                   :timestamp
+                   relation-seq)))]
+               [:br]]]))})
+  (compojure.core/GET
+   "/projects/hikeandbike/list/hiking/broken"
    _
    (let [relation-seq (filter
                        #(and

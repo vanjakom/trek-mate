@@ -804,7 +804,7 @@
    crkva-svetog-luke
    tvrdjava-kupinik]))
 
-(let [golubac (q 845997)
+#_(let [golubac (q 845997)
       location-seq
       [
        (n 1852468788)

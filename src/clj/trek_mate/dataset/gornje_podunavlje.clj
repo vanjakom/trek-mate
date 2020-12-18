@@ -1,4 +1,4 @@
-(ns trek-mate.dataset.deliblatska-pescara
+(ns trek-mate.dataset.gornje_podunavlje
   (:use
    clj-common.clojure)
   (:require
@@ -29,16 +29,16 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(def dataset-path (path/child env/*global-my-dataset-path* "deliblatska-pescara"))
+(def dataset-path (path/child env/*global-my-dataset-path* "gornje-podunavlje"))
 
-(def deliblatska-pescara (osm/extract-tags (overpass/wikidata-id->location :Q129979)))
+(def gornje-podunavlje (osm/extract-tags (overpass/wikidata-id->location :Q445028)))
 
 (web/register-map
- "deliblatska-pescara"
+ "gornje-podunavlje"
  {
   :configuration {
-                  :longitude (:longitude deliblatska-pescara) 
-                  :latitude (:latitude deliblatska-pescara)
+                  :longitude (:longitude gornje-podunavlje) 
+                  :latitude (:latitude gornje-podunavlje)
                   :zoom 12}
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [
@@ -48,15 +48,9 @@
 
 (def relation-id-seq
   [
-   12017137 ; Vrela
-   12017209 ; Borovi breg
-   12022982 ; Koprivić
-   12023017 ; Staza radosti
-   12026845 ; Staza zdravlja
-   12026935 ; Eko staza
-
-   12027004 ; Vrela MTB
-   12027006 ; Borovi breg MTB
+   12030870 ;; Forest
+   12034866 ;; Water
+   12035240 ;; Wild animals
    ])
 
 (do
@@ -109,7 +103,6 @@
        (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
        (println "{| border=1")
        (println "! scope=\"col\" | type")
-       (println "! scope=\"col\" | ref")
        (println "! scope=\"col\" | naziv")
        (println "! scope=\"col\" | osm")
        (println "! scope=\"col\" | waymarked")
@@ -117,8 +110,7 @@
        (doseq [relation relation-seq]
          (println "|-")
          (println "|" (get-in relation [:tags "route"]))
-         (println "|" (get-in relation [:tags "ref"]))
-         (println "|" (get-in relation [:tags "name:sr"]))
+         (println "|" (get-in relation [:tags "name"]))
          (println "|" (str "{{relation|" (:id relation) "}}"))
          (println "|" (str "[https://" (get-in relation [:tags "route"]) ".waymarkedtrails.org/#route?id=" (:id relation)  " waymarked]"))
          (println "|" (if-let [note (get-in relation  [:tags "note"])]

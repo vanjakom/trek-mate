@@ -364,22 +364,76 @@
 
 (defn try-order-route [relation]
   #_(def a relation)
-  (let [nodes (filter #(= (:type %) "node") (:members relation))
-        ways (filter #(= (:type %) "way") (:members relation))]
-    
+  (let [node-members (filter #(= (:type %) "node") (:members relation))
+        way-members (filter #(= (:type %) "way") (:members relation))
+        ;; create tuple [member start-node end-node]
+        way-tuples (map
+              (fn [member]
+                (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                  [
+                   member
+                   (first (:nodes way))
+                   (last (:nodes way))]))
+              way-members)]
+    (let [ordered-way-tuples (loop [ordered-ways [(first way-tuples)]
+                                    rest-of-ways (rest way-tuples)
+                                    open-connections #{
+                                                       (nth (first way-tuples) 1)
+                                                       (nth (first way-tuples) 2)}]
+                               (if-let [[_ start end :as next] (first rest-of-ways)]
+                                 (cond
+                                   (contains? open-connections start)
+                                   (recur
+                                    (conj ordered-ways next)
+                                    (rest rest-of-ways)
+                                    #{end})
 
+                                   (contains? open-connections end)
+                                   (recur
+                                    (conj ordered-ways next)
+                                    (rest rest-of-ways)
+                                    #{start})
 
-    
-    (update-in
-    relation
-    [:members]
-    #(reverse %))))
+                                   :else
+                                   (let [{matched true remaining-ways false}
+                                         (group-by
+                                          (fn [[_ start end :as way]]
+                                            (or
+                                             (contains? open-connections start)
+                                             (contains? open-connections end)))
+                                          rest-of-ways)]
+                                     (if (= (count matched) 1)
+                                       (let [[_ start end :as match] (first matched)]
+                                         (recur
+                                          (conj ordered-ways match)
+                                          remaining-ways
+                                          (if (contains? open-connections start)
+                                            #{end}
+                                            #{start})))
+                                       (concat ordered-ways rest-of-ways))))
+                                 ordered-ways))]
+      
+      (update-in
+       relation
+       [:members]
+       (fn [_]
+         (concat
+          node-members
+          (map
+           first
+           ordered-way-tuples)))))))
+#_(do
+  (println "original:")
+  (doseq [member (:members a)]
+    (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+      (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
 
-a
+#_(do
+  (println "ordered:")
+  (doseq [member (:members (try-order-route a))]
+    (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+      (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
 
-(first (:members a))
-
-(try-order-route a)
 
 (def tasks (atom {}))
 

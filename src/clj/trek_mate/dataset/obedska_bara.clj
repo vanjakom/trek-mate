@@ -98,8 +98,6 @@
                      :slot-a
                      [(constantly [draw/color-red 2])])})))
 
-
-;; create table for osm wiki
 (let [relation-seq (map osmapi/relation relation-id-seq)]
   (with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
    (binding [*out* (new java.io.OutputStreamWriter os)]
@@ -107,24 +105,23 @@
        (println "== Trenutno stanje ==")
        (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
        (println "{| border=1")
+       (println "! scope=\"col\" | type")
        (println "! scope=\"col\" | ref")
        (println "! scope=\"col\" | naziv")
        (println "! scope=\"col\" | osm")
        (println "! scope=\"col\" | waymarked")
-       (println "! scope=\"col\" | website")
        (println "! scope=\"col\" | note")
        (doseq [relation relation-seq]
          (println "|-")
+         (println "|" (get-in relation [:tags "route"]))
          (println "|" (get-in relation [:tags "ref"]))
          (println "|" (get-in relation [:tags "name:sr"]))
          (println "|" (str "{{relation|" (:id relation) "}}"))
-         (println "|" (str "[https://hiking.waymarkedtrails.org/#route?id=" (:id relation)  " waymarked]"))
-         (println "|" (str "[" (get-in relation [:tags "website"])  " website]"))
+         (println "|" (str "[https://" (get-in relation [:tags "route"]) ".waymarkedtrails.org/#route?id=" (:id relation)  " waymarked]"))
          (println "|" (if-let [note (get-in relation  [:tags "note"])]
                         note
                         "")))
        (println "|}")))))
-
 
 
 (web/create-server)
