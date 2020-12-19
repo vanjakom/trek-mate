@@ -223,6 +223,8 @@
 ;; todo
 ;; render, osm vs putevi srbije, osm deblje, putevi srbije iznad tanje
 
+;; oznaciti puteve koji nisu izgradjeni u potpunosti
+
 ;; report relations without ref
 (osmeditor/task-report
  "putevi-no-ref"
@@ -360,6 +362,20 @@
 
 #_(count road-map) ;; 367
 
+;; personal notes, concatenated to note from OSM
+;; prefix with @ to distinguish
+(def note-map
+  {
+   "312" "@ ima udvajanje, PS oznacavaju samo jedna pravac, postoji mapilary na kojem se vidi znak"
+   "316" "@ zavrsava linkom veceg reda"
+   "317" "@ pocinje sa dva jednosmerna puta"
+   "319" "@ zanimljiv, ima kruzni tok"})
+
+;; other notes
+;; secondary road bez ref
+;; https://www.openstreetmap.org/way/297179135
+;; https://www.openstreetmap.org/way/73044007 ima samo old ref
+
 (defn render-road [road]
   [:tr
    [:td {:style "border: 1px solid black; padding: 5px;"}
@@ -393,7 +409,16 @@
         [:a
          {:href (str "/projects/putevi/geometry/" (:ref road)) :target "_blank"}
          "geometry"]
-        ""))]])
+        ""))]
+   [:td {:style "border: 1px solid black; padding: 5px;"}
+    (str
+     (or
+      (get-in road [:osm :osm "note"])
+      "")
+     " "
+     (or
+      (get note-map (:ref road)))
+     "")]])
 
 (defn render-road-geometry
   [data]
@@ -517,4 +542,4 @@
    (vals
     (:ways
      (overpass/query->dataset
-      "[out:json];way[highway][ref=312](area:3601741311);out center;"))))))
+      "[out:json];way[highway][ref=319](area:3601741311);out center;"))))))

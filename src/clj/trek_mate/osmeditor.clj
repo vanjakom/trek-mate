@@ -402,7 +402,9 @@
                                              (contains? open-connections start)
                                              (contains? open-connections end)))
                                           rest-of-ways)]
-                                     (if (= (count matched) 1)
+                                     (cond
+                                       ;; single match, use it
+                                       (= (count matched) 1)
                                        (let [[_ start end :as match] (first matched)]
                                          (recur
                                           (conj ordered-ways match)
@@ -410,6 +412,16 @@
                                           (if (contains? open-connections start)
                                             #{end}
                                             #{start})))
+
+                                       ;; no match, maybe two part route, useful
+                                       ;; for road networks, no harm for hiking
+                                       (= (count matched) 0)
+                                       (recur
+                                        (conj ordered-ways next)
+                                        (rest rest-of-ways)
+                                        #{start end})
+                                       
+                                       :else
                                        (concat ordered-ways rest-of-ways))))
                                  ordered-ways))]
       
