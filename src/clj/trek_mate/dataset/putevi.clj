@@ -225,6 +225,10 @@
 
 ;; oznaciti puteve koji nisu izgradjeni u potpunosti
 
+;; mapiranje
+;; note = put nije izgradjen u potpunosti
+;; note = put nije mapiran u potpunosti
+
 ;; report relations without ref
 (osmeditor/task-report
  "putevi-no-ref"
@@ -369,7 +373,9 @@
    "312" "@ ima udvajanje, PS oznacavaju samo jedna pravac, postoji mapilary na kojem se vidi znak"
    "316" "@ zavrsava linkom veceg reda"
    "317" "@ pocinje sa dva jednosmerna puta"
-   "319" "@ zanimljiv, ima kruzni tok"})
+   "319" "@ zanimljiv, ima kruzni tok, treba izdeliti kruzni tok"
+   "336" "@ put nije mapiran"
+   "340" "@ lep primer za auto router"})
 
 ;; other notes
 ;; secondary road bez ref
@@ -542,4 +548,4 @@
    (vals
     (:ways
      (overpass/query->dataset
-      "[out:json];way[highway][ref=319](area:3601741311);out center;"))))))
+      "[out:json];way[highway][ref=344](area:3601741311);out center;"))))))

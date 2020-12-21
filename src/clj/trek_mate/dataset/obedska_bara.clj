@@ -50,7 +50,7 @@
   [
    11925850 ;; Potkovica
    11965948 ;; Debela gora
-   ;; Šumska koliba
+   12047784 ;; Šumska koliba
    11971142 ;; Ribnjak
    11971189 ;; Kružna edukativna staza
    11976032 ;; Čenjin

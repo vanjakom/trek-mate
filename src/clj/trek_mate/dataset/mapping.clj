@@ -121,15 +121,16 @@
                      [(constantly [draw/color-red 2])])}))
 
 
+;; #mapping #track #location #trek-mate
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1598168188
+#_(let [track-id 1608473115
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
                                           "trek-mate" "cloudkit" "track"
                                           env/*trek-mate-user* (str track-id ".json")))]
                            (:locations (json/read-keyworded is)))
-      location-seq [] #_(map
+      location-seq (map
                     (fn [location]
                       (update-in
                        location
@@ -207,3 +208,38 @@
                      [(constantly [draw/color-blue 2])])})
   (with-open [os (fs/output-stream ["tmp" (str track-id ".gpx")])]
      (gpx/write-track-gpx os [] track-location-seq)))
+
+
+;; #garmin #mapping #track #waypoint #id
+#_(let [track-id "Track_2020-12-20 150047"
+      waypoint-file-name "Waypoints_20-DEC-20.gpx"
+      
+      location-seq (with-open [is (fs/input-stream
+                                   (path/child
+                                    env/*global-my-dataset-path*
+                                    "garmin"
+                                    "waypoints"
+                                    waypoint-file-name))]
+                     (:wpt-seq (gpx/read-track-gpx is)))
+      track-seq (with-open [is (fs/input-stream
+                                (path/child
+                                 env/*global-my-dataset-path*
+                                 "garmin"
+                                 "gpx"
+                                 (str track-id ".gpx")))]
+                  (:track-seq (gpx/read-track-gpx is)))]
+  (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
+    (json/write-to-stream
+     (geojson/geojson
+      (concat
+       (map
+        geojson/location->point
+        (filter
+         ;; filter out hiking trail marks
+         #(not (= (:symbol %) "Civil"))
+         #_(constantly true)
+         location-seq))
+       (map
+        geojson/location-seq->line-string
+        track-seq)))
+     os)))

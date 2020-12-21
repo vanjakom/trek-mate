@@ -362,7 +362,12 @@
   #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
     dataset))
 
-(defn try-order-route [relation]
+(split-at 0 [1 2 3])
+(take 1 [1 2 3])
+(drop 3 [1 2 3])
+
+(defn try-order-route [relation anchor]
+  (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
   #_(def a relation)
   (let [node-members (filter #(= (:type %) "node") (:members relation))
         way-members (filter #(= (:type %) "way") (:members relation))
@@ -374,25 +379,35 @@
                    member
                    (first (:nodes way))
                    (last (:nodes way))]))
-              way-members)]
-    (let [ordered-way-tuples (loop [ordered-ways [(first way-tuples)]
-                                    rest-of-ways (rest way-tuples)
+              way-members)
+        ;; start order from, ignore before, useful for complex not suported cases
+        anchor (or anchor 0)]
+    (println "anchor at" anchor)
+    (let [ordered-way-tuples (loop [ordered-ways (into [] (take (inc anchor) way-tuples))
+                                    rest-of-ways (into [] (drop (inc anchor) way-tuples))
                                     open-connections #{
-                                                       (nth (first way-tuples) 1)
-                                                       (nth (first way-tuples) 2)}]
-                               (if-let [[_ start end :as next] (first rest-of-ways)]
+                                                       (nth (last ordered-ways) 1)
+                                                       (nth (last ordered-ways) 2)}]
+                               (println "ordered: " (map :id (map first ordered-ways)))
+                               (println "rest: " (map :id (map first rest-of-ways)))
+                               (println "open: " open-connections)
+                               (if-let [[id start end :as next] (first rest-of-ways)]
                                  (cond
                                    (contains? open-connections start)
-                                   (recur
-                                    (conj ordered-ways next)
-                                    (rest rest-of-ways)
-                                    #{end})
+                                   (do
+                                     (println "match on next start " start " add " id)
+                                     (recur
+                                      (conj ordered-ways next)
+                                      (rest rest-of-ways)
+                                      #{end}))
 
                                    (contains? open-connections end)
-                                   (recur
-                                    (conj ordered-ways next)
-                                    (rest rest-of-ways)
-                                    #{start})
+                                   (do
+                                     (println "match on next end " end " add " id)
+                                     (recur
+                                      (conj ordered-ways next)
+                                      (rest rest-of-ways)
+                                      #{start}))
 
                                    :else
                                    (let [{matched true remaining-ways false}
@@ -402,6 +417,7 @@
                                              (contains? open-connections start)
                                              (contains? open-connections end)))
                                           rest-of-ways)]
+                                     (println " matched: " (map :id (map first matched)))
                                      (cond
                                        ;; single match, use it
                                        (= (count matched) 1)
@@ -424,7 +440,7 @@
                                        :else
                                        (concat ordered-ways rest-of-ways))))
                                  ordered-ways))]
-      
+      (println "ways after:" (clojure.string/join " " (map :id (map first ordered-way-tuples))))
       (update-in
        relation
        [:members]
@@ -434,6 +450,7 @@
           (map
            first
            ordered-way-tuples)))))))
+
 #_(do
   (println "original:")
   (doseq [member (:members a)]
@@ -442,7 +459,7 @@
 
 #_(do
   (println "ordered:")
-  (doseq [member (:members (try-order-route a))]
+  (doseq [member (:members (try-order-route a nil))]
     (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
       (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
 
@@ -1179,14 +1196,11 @@
    request
    (let [id (get-in request [:params :id])
          ;; order of ways could be changed in visual editor
-         relation (json/read-keyworded (:body request))]
-     (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
-     (let [ordered (try-order-route relation)]
-       (println "ways after:" (clojure.string/join " " (map :id (:members ordered))))
+         {relation :relation anchor :anchor} (json/read-keyworded (:body request))]
+     (let [ordered (try-order-route relation anchor)]
        {
         :status 200
-        :body (json/write-to-string ordered)
-     })))
+        :body (json/write-to-string ordered)})))
   
   (compojure.core/POST
    "/route/edit/:id/update"

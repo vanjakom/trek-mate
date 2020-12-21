@@ -348,13 +348,18 @@
       var relationLayer = L.featureGroup()
       relationLayer.addTo(map)
       var selectedLayer = null
-      var selectedIndex = -1
+      var selectedIndex = 0
+
+      var anchor = null
 
       // used to contain data that is loaded ad hoc
       var availableLayer = L.featureGroup()
       availableLayer.addTo(map)
 
       var refreshRelationFn = function() {
+	  // reset anchor to prevent confusion
+	  anchor = null
+	  
 	  var memberMap = new Map()
 	  relation.members.forEach(function (member, index) {
 	      let id = member.type + member.id
@@ -537,7 +542,7 @@
       }).addTo(map);
 
       var anchorFn = function() {
-	  alert("not implemented")
+	  anchor = selectedIndex
       }
       new L.Control.Button({
 	  'text': 'anchor',
@@ -549,7 +554,10 @@
 	      "/route/edit/" + routeId + "/order",
 	      {
 		  method: "POST",
-		  body: JSON.stringify(relation)})
+		  body: JSON.stringify(
+		      {
+			  relation: relation,
+			  anchor: anchor})})
 	      .then(response => response.json())
 	      .then(
 		  function(data) {
