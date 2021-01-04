@@ -182,6 +182,13 @@
 (l 19.99080 44.13025 tag/tag-todo tag/tag-hike "obelezena staza vodi negde, prosao bajsom pred")
 (l 19.99713 44.09571 tag/tag-todo tag/tag-hike "obelezena staza vodopad")
 (l 19.99746 44.09563 tag/tag-todo tag/tag-hike "obelezena staza subjel")
+(q 16761408 tag/tag-todo) ;; Skaklo
+
+(l 19.990806 44.130214 tag/tag-todo "markacija")
+(l 19.989611 44.129356 tag/tag-todo "markacija")
+(l 19.995883 44.129200 tag/tag-todo "evropski put markacija" "E7")
+(l 20.00183, 44.12677 tag/tag-todo "evropski put markacija" "E7")
+(l 20.0018167 44.1311806 tag/tag-todo tag/tag-hike "znak za veliko brdo")
 
 ;; interesting places
 (n 6443059265) ;; "!Vrazji Vir"
