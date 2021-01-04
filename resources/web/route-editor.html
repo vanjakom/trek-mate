@@ -339,6 +339,7 @@
               return this[this.length - 1]
 	  }
       }
+
       var routeId = window.location.pathname.split("/").last()
       var relationDataset = null
       // pointer to relation from dataset, mutates with changes and it's reported
@@ -347,13 +348,18 @@
       var relationLayer = L.featureGroup()
       relationLayer.addTo(map)
       var selectedLayer = null
-      var selectedIndex = -1
+      var selectedIndex = 0
+
+      var anchor = null
 
       // used to contain data that is loaded ad hoc
       var availableLayer = L.featureGroup()
       availableLayer.addTo(map)
 
       var refreshRelationFn = function() {
+	  // reset anchor to prevent confusion
+	  anchor = null
+	  
 	  var memberMap = new Map()
 	  relation.members.forEach(function (member, index) {
 	      let id = member.type + member.id
@@ -362,10 +368,12 @@
 		  memberInfo = {
 		      id: member.id,
 		      type: member.type,
-		      indexes: []}
+		      indexes: [],
+		      roles: []}
 		  memberMap.set(id, memberInfo)
 	      }
 	      memberInfo.indexes.push(index)
+	      memberInfo.roles.push(member.role)
 	  })
 
 	  relationLayer.clearLayers()
@@ -376,10 +384,11 @@
 		  if (offset > 0) {
 		      text += "<span style='color:black'>, </span>"
 		  }
-		  if (index == selectedIndex) {
-		      text += "<span style='color:red'>" + index + "</span>" 
+		  var role = memberInfo.roles[offset] != null ? memberInfo.roles[offset].substring(0, 1) : ""
+		  if (index.index == selectedIndex) {
+		      text += "<span style='color:red'>" + index + role + "</span>" 
 		  } else {
-		      text += "<span style='color:blue'>" + index + "</span>" 
+		      text += "<span style='color:blue'>" + index + role + "</span>" 
 		  }
 	      })
 	      text += "</div>"
@@ -533,7 +542,7 @@
       }).addTo(map);
 
       var anchorFn = function() {
-	  alert("not implemented")
+	  anchor = selectedIndex
       }
       new L.Control.Button({
 	  'text': 'anchor',
@@ -541,8 +550,22 @@
       }).addTo(map);
 
       var autoFn = function() {
-	  alert("not implemented")
+	  fetch(
+	      "/route/edit/" + routeId + "/order",
+	      {
+		  method: "POST",
+		  body: JSON.stringify(
+		      {
+			  relation: relation,
+			  anchor: anchor})})
+	      .then(response => response.json())
+	      .then(
+		  function(data) {
+		      relation = data
+		      refreshRelationFn()
+		      map.fitBounds(relationLayer.getBounds())})
       }
+      
       new L.Control.Button({
 	  "text": "auto",
 	  "onClick": autoFn

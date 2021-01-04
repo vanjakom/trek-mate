@@ -355,7 +355,9 @@
 (q 2451288) ;; "!Trem"
 
 ;; obedska bara
-(q 1935294 tag/tag-todo "obici pesacke staze")
+(q 1935294 tag/tag-todo "obici pesacke staze" "ucrtati puteve koji nedostaju, postoje notovi")
+
+(l 21.09798, 44.85429 tag/tag-todo "obici pesacke staze, marijana bajs...")
 
 (l 20.03958, 44.73710 tag/tag-todo "ostatak treka za stazu 1")
 (l 19.99147, 44.73091 tag/tag-todo "nedostaje trek za stazu 3")
@@ -487,6 +489,11 @@
    env/*global-my-dataset-path*
    "garmin"
    "gpx"))
+(def garmin-waypoints-path
+  (path/child
+   env/*global-my-dataset-path*
+   "garmin"
+   "waypoints"))
 (def trek-mate-track-path
   (path/child
    env/*global-my-dataset-path*
@@ -494,6 +501,13 @@
    "cloudkit"
    "track"
    env/*trek-mate-user*))
+
+(def garmin-symbol-map
+  {
+   "Museum" "objekat"
+   "Civil" "markacija"
+   "Block, Blue" "ukrstanje neasfaltiranih puteva"
+   "Block, Green" "ukrstanje pesackih puteva"})
 
 (osmeditor/project-report
  "tracks"
@@ -507,9 +521,11 @@
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
-             [:a {:href "/projects/tracks/garmin"} "garmin"]
+             [:a {:href "/projects/tracks/garmin"} "garmin tracks"]
              [:br]
-             [:a {:href "/projects/tracks/trek-mate"} "trek-mate"]
+             [:a {:href "/projects/tracks/garmin-wp"} "garmin waypoints"]
+             [:br]
+             [:a {:href "/projects/tracks/trek-mate"} "trek-mate tracks"]
              [:br]]])})
   (compojure.core/GET
    "/projects/tracks/view"
@@ -605,6 +621,60 @@
                      (map
                       last
                       (fs/list garmin-track-path)))))))]]]))})
+  (compojure.core/GET
+   "/projects/tracks/garmin-wp"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:html
+            [:body {:style "font-family:arial;"}
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (fn [name]
+                 [:tr
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   [:a
+                    {:href (str
+                            "/projects/tracks/garmin-wp/"(url-encode name))
+                     :target "_blank"}
+                    name]]])
+               (reverse
+                (sort
+                 (map
+                  #(.replace % ".gpx" "")
+                  (filter
+                   #(.endsWith % ".gpx")
+                   (map
+                    last
+                    (fs/list garmin-waypoints-path)))))))]]])})
+  (compojure.core/GET
+   "/projects/tracks/garmin-wp/:file"
+   [file]
+   (let [wp-path (path/child garmin-waypoints-path (str (url-decode file) ".gpx"))]
+     (if (fs/exists? wp-path)
+       (let [waypoints (:wpt-seq (gpx/read-track-gpx (fs/input-stream wp-path)))]
+         {
+          :status 200
+          :body (hiccup/html
+                 [:html
+                  [:body {:style "font-family:arial;"}
+                   [:table {:style "border-collapse:collapse;"}
+                    (map
+                     (fn [waypoint]
+                       [:tr
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (:name waypoint)]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (:symbol waypoint)]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (or
+                          (get garmin-symbol-map (:symbol waypoint))
+                          "")]])
+                     waypoints)]]])
+          })
+       {:status 404})))
+  
   (compojure.core/GET
    "/projects/tracks/trek-mate"
    _
@@ -813,6 +883,11 @@
 
 #_(pipeline/closed? (:track-in track-split-pipeline))
 
+
+;; #gopro
+;; to load photos from gopro and show on map use
+;; photo-map repo
+;; start server, run images import
 
 ;; us track
 ;; 10/175/408 

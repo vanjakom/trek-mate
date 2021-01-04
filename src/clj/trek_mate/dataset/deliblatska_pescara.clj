@@ -1,4 +1,4 @@
-(ns trek-mate.dataset.obedska-bara
+(ns trek-mate.dataset.deliblatska-pescara
   (:use
    clj-common.clojure)
   (:require
@@ -29,16 +29,16 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(def dataset-path (path/child env/*global-my-dataset-path* "obedska-bara"))
+(def dataset-path (path/child env/*global-my-dataset-path* "deliblatska-pescara"))
 
-(def obedska-bara (osm/extract-tags (overpass/wikidata-id->location :Q1935294)))
+(def deliblatska-pescara (osm/extract-tags (overpass/wikidata-id->location :Q129979)))
 
 (web/register-map
- "obedska-bara"
+ "deliblatska-pescara"
  {
   :configuration {
-                  :longitude (:longitude obedska-bara) 
-                  :latitude (:latitude obedska-bara)
+                  :longitude (:longitude deliblatska-pescara) 
+                  :latitude (:latitude deliblatska-pescara)
                   :zoom 12}
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [
@@ -48,14 +48,15 @@
 
 (def relation-id-seq
   [
-   11925850 ;; Potkovica
-   11965948 ;; Debela gora
-   12047784 ;; Šumska koliba
-   11971142 ;; Ribnjak
-   11971189 ;; Kružna edukativna staza
-   11976032 ;; Čenjin
-   11978744 ;; Staza Majke Angeline
-   11978745 ;; Biciklistička staza
+   12017137 ; Vrela
+   12017209 ; Borovi breg
+   12022982 ; Koprivić
+   12023017 ; Staza radosti
+   12026845 ; Staza zdravlja
+   12026935 ; Eko staza
+
+   12027004 ; Vrela MTB
+   12027006 ; Borovi breg MTB
    ])
 
 (do
@@ -98,6 +99,8 @@
                      :slot-a
                      [(constantly [draw/color-red 2])])})))
 
+
+;; create table for osm wiki
 (let [relation-seq (map osmapi/relation relation-id-seq)]
   (with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
    (binding [*out* (new java.io.OutputStreamWriter os)]
@@ -122,6 +125,7 @@
                         note
                         "")))
        (println "|}")))))
+
 
 
 (web/create-server)

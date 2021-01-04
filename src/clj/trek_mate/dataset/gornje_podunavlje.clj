@@ -1,4 +1,4 @@
-(ns trek-mate.dataset.obedska-bara
+(ns trek-mate.dataset.gornje_podunavlje
   (:use
    clj-common.clojure)
   (:require
@@ -29,16 +29,16 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(def dataset-path (path/child env/*global-my-dataset-path* "obedska-bara"))
+(def dataset-path (path/child env/*global-my-dataset-path* "gornje-podunavlje"))
 
-(def obedska-bara (osm/extract-tags (overpass/wikidata-id->location :Q1935294)))
+(def gornje-podunavlje (osm/extract-tags (overpass/wikidata-id->location :Q445028)))
 
 (web/register-map
- "obedska-bara"
+ "gornje-podunavlje"
  {
   :configuration {
-                  :longitude (:longitude obedska-bara) 
-                  :latitude (:latitude obedska-bara)
+                  :longitude (:longitude gornje-podunavlje) 
+                  :latitude (:latitude gornje-podunavlje)
                   :zoom 12}
    :vector-tile-fn (web/tile-vector-dotstore-fn
                     [
@@ -48,14 +48,9 @@
 
 (def relation-id-seq
   [
-   11925850 ;; Potkovica
-   11965948 ;; Debela gora
-   12047784 ;; Šumska koliba
-   11971142 ;; Ribnjak
-   11971189 ;; Kružna edukativna staza
-   11976032 ;; Čenjin
-   11978744 ;; Staza Majke Angeline
-   11978745 ;; Biciklistička staza
+   12030870 ;; Forest
+   12034866 ;; Water
+   12035240 ;; Wild animals
    ])
 
 (do
@@ -98,6 +93,8 @@
                      :slot-a
                      [(constantly [draw/color-red 2])])})))
 
+
+;; create table for osm wiki
 (let [relation-seq (map osmapi/relation relation-id-seq)]
   (with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
    (binding [*out* (new java.io.OutputStreamWriter os)]
@@ -106,7 +103,6 @@
        (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
        (println "{| border=1")
        (println "! scope=\"col\" | type")
-       (println "! scope=\"col\" | ref")
        (println "! scope=\"col\" | naziv")
        (println "! scope=\"col\" | osm")
        (println "! scope=\"col\" | waymarked")
@@ -114,14 +110,14 @@
        (doseq [relation relation-seq]
          (println "|-")
          (println "|" (get-in relation [:tags "route"]))
-         (println "|" (get-in relation [:tags "ref"]))
-         (println "|" (get-in relation [:tags "name:sr"]))
+         (println "|" (get-in relation [:tags "name"]))
          (println "|" (str "{{relation|" (:id relation) "}}"))
          (println "|" (str "[https://" (get-in relation [:tags "route"]) ".waymarkedtrails.org/#route?id=" (:id relation)  " waymarked]"))
          (println "|" (if-let [note (get-in relation  [:tags "note"])]
                         note
                         "")))
        (println "|}")))))
+
 
 
 (web/create-server)
