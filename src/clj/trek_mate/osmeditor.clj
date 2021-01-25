@@ -17,6 +17,7 @@
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
+   [clj-geo.import.geojson :as geojson]
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
@@ -244,6 +245,7 @@
 (def cache (atom {}))
 
 ;; todo cache cleanup periodic
+#_(swap! cache (constantly {}))
 
 (defn cache-update [dataset]
   (swap!
@@ -362,10 +364,6 @@
   #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
     dataset))
 
-(split-at 0 [1 2 3])
-(take 1 [1 2 3])
-(drop 3 [1 2 3])
-
 (defn try-order-route [relation anchor]
   (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
   #_(def a relation)
@@ -463,6 +461,54 @@
     (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
       (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
 
+(def dpm-ways (atom [729115595 313730002]))
+
+#_(deref dpm-ways) ;; [729115595 313730002 865771171]
+
+(defn way->feature [way-id]
+  (let [way-dataset (dataset-way way-id)]
+    (update-in
+     (geojson/location-seq->line-string
+      (map
+       #(let [node (get-in way-dataset [:nodes %])]
+          {
+           :longitude (as/as-double (:longitude node))
+           :latitude (as/as-double (:latitude node))})
+       (get-in way-dataset [:ways way-id :nodes])))
+     [:properties :id]
+     (constantly way-id))))
+
+(defn prepare-network-data
+  [id]
+  (println "prepare-network-data" id)
+  (geojson/geojson
+   (map
+    way->feature
+    (deref dpm-ways))))
+
+(defn prepare-network-explore-data
+  [id min-longitude max-longitude min-latitude max-latitude]
+
+  (println
+   "prepare-network-explore-data" id
+   min-longitude max-longitude min-latitude max-latitude)
+
+  (geojson/geojson
+   (map
+    way->feature
+    (map
+     :id
+     (filter
+      #(contains? (:tags %) "highway")
+      (vals
+       (:ways (osmapi/map-bounding-box
+               min-longitude min-latitude max-longitude max-latitude))))))))
+
+(defn update-network-data
+  [id way-id-seq]
+  (swap!
+   dpm-ways
+   (constantly way-id-seq)))
 
 (def tasks (atom {}))
 
@@ -1233,7 +1279,55 @@
     [id]
     {
      :status 200
-     :body (jvm/resource-as-stream ["web" "route-editor.html"])})))
+     :body (jvm/resource-as-stream ["web" "route-editor.html"])})
+
+  ;; network editor, used for creation for dpm
+  
+  (compojure.core/GET
+    "/network/edit/:id/retrieve"
+    [id]
+    (let [id (as/as-long id)
+          data (prepare-network-data id)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+
+  (compojure.core/GET
+    "/network/edit/:id/explore/:left/:top/:right/:bottom"
+    [id left top right bottom]
+    (let [id (as/as-long id)
+          left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-network-explore-data id left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+
+  (compojure.core/POST
+   "/network/edit/:id/update"
+   request
+   (let [id (get-in request [:params :id])
+         way-id-seq (json/read-keyworded (:body request))]
+     (println "ways:")
+     (run!
+      println
+      way-id-seq)
+     (update-network-data id way-id-seq)
+     {
+      :status 200}))
+
+  (compojure.core/GET
+    "/network/edit/:id"
+    [id]
+    {
+     :status 200
+     :body (jvm/resource-as-stream ["web" "network-editor.html"])})))
 
 (project-report
  "home"
@@ -1254,3 +1348,4 @@
              [:a {:href "/view/relation/x"} "view relation order"]
              [:br]
              [:a {:href "/route/edit/x"} "edit route order"]]])})))
+

@@ -82,6 +82,7 @@
 (def posts
   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
     (json/read-keyworded is)))
+#_(count posts) ;; 233 on 20201223
 
 ;; download route info and gpx if exists, supports restart
 #_(doseq [post posts]
@@ -91,14 +92,58 @@
         link (:permalink post)
         oznaka (get-in post [:postmeta "Oznaka" :value])
         info-path (path/child dataset-path "routes" (str oznaka ".json"))
+        content-path (path/child dataset-path "routes" (str oznaka ".html"))
         gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
     (println oznaka "-" title)
     (println "\t" postid)
     (println "\t" link)
-    (if (not (fs/exists? info-path))
+    (if (constantly true) #_(not (fs/exists? info-path))
       (do
         (println "\tdownloading post ...")
-        (let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
+        (let [content (io/input-stream->string (http/get-as-stream link))
+              gpx (if-let [gpx (second
+                                (re-find
+                                 #"<tr><th>GPX</th><td><a href=\"(.+?)\""
+                                 content))]
+                    (.trim gpx))
+              region (.trim
+                      (second
+                       (re-find
+                        #"<tr><th>Region</th><td>(.+?)</td>"
+                        content)))
+              uredjenost (.trim
+                          (second
+                           (re-find
+                            #"<tr><th>Uređenost</th><td>(.+?)</td>"
+                            content)))
+              planina (.trim
+                       (second
+                        (re-find
+                         #"<tr><th>Planina/predeo</th><td>(.+?)</td>"
+                         content)))
+              info {
+                    :id oznaka
+                    :gpx gpx
+                    :region region
+                    :title title
+                    :uredjenost uredjenost
+                    :planina planina
+                    :link link}]
+          (with-open [os (fs/output-stream info-path)]
+            (json/write-to-stream info os))
+          (with-open [os (fs/output-stream content-path)]
+            (io/write-string os content))
+          (when (not (empty? gpx))
+            (println "\tdownloading gpx ...")
+            (if (not (fs/exists? gpx-path))
+              (if-let [is (http/get-as-stream gpx)]
+               (with-open [os (fs/output-stream gpx-path)]
+                 (io/copy-input-to-output-stream is os))
+               (println "\tdownload failed ..."))
+              (println "\tallready downloaded ..."))))
+        
+        ;; old version, before 20201222
+        #_(let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
               matcher (.matcher
                        pattern
                        (io/input-stream->string (http/get-as-stream link)))]
@@ -116,8 +161,29 @@
                   (io/copy-input-to-output-stream
                    (http/get-as-stream gpx-link)
                    os))))))
-        (Thread/sleep 1000))
+        (Thread/sleep 3000))
       (println "\tpost already downloaded ..."))))
+
+;; try finding references to E7 and E4
+(doseq [post posts]
+  (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+        postid (:ID post)
+        title (:title post)
+        link (:permalink post)
+        oznaka (get-in post [:postmeta "Oznaka" :value])
+        info-path (path/child dataset-path "routes" (str oznaka ".json"))
+        content-path (path/child dataset-path "routes" (str oznaka ".html"))
+        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+    (if (fs/exists? content-path)
+      (let [content (with-open [is (fs/input-stream content-path)]
+                      (io/input-stream->string is))]
+        (if
+            (or
+             (.contains content "E-7")
+             (.contains content "E7"))
+          (do
+            (println oznaka "-" title)
+            (println "\t" link)))))))
 
 ;; per route stats
 #_(doseq [post posts]
@@ -290,30 +356,28 @@
                           (apply concat (:track-seq track)))
            first-location (when track
                             (first location-seq))
-           info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))
-           id (get-in info [:post :postmeta :Oznaka :value])
-           uredjenost (get-in info [:post :postmeta :Uređenost :value])
-           planina (get-in info [:post :postmeta (keyword "Planina/predeo") :value])
-           title (get-in info [:post :title])
-           link (get-in info [:post :permalink])]
+           info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))]
        (assoc
         routes
-        id
+        (:id info)
         {
-         :id id
+         :id (:id info)
          :gpx-path gpx-path
          :info-path info-path
-         :title title
-         :link link
+         :title (:title info)
+         :link (:link info)
          :location first-location
-         :uredjenost uredjenost
-         :planina planina}))
+         :uredjenost (:uredjenost info)
+         :region (:region info)
+         :planina (:planina info)}))
      )
    {}
    (filter
     #(.endsWith (last %) ".json")
     (fs/list (path/child dataset-path "routes")))))
 (println "routes prepared")
+
+#_(first routes)
 
 #_(get routes "4-27-6")
 
@@ -406,7 +470,7 @@
    "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
    "4-40-1" "kretanje železničkom prugom kroz tunele?"
    "4-31-9" "gpx problematičan, dosta odstupanja"
-   "2-16-1" "dosta odstupanje, staza jos nije markirana 20200722"})
+   "2-16-1" "dosta odstupanje, staza nije markirana 20200722"})
 
 (defn id->region
   [id]
@@ -422,9 +486,12 @@
       :else "nepoznat")))
 
 (defn id-compare
-  [id1 id2]
-  (let [[region1 club1 number1] (.split id1 "-")
-        [region2 club2 number2] (.split id2 "-")]
+  [route1 route2]
+  (let [[region1 club1 number1] (.split (:id route1) "-")
+        [region2 club2 number2] (.split (:id route2) "-")
+        ;; hotfix for T-3-13
+        region1 (str (first (:region route1)))
+        region2 (str (first (:region route2)))]
     (compare
      (+ (* (as/as-long region1) 10000) (* (as/as-long club1) 100) (as/as-long number1))
      (+ (* (as/as-long region2) 10000) (* (as/as-long club2) 100) (as/as-long number2)))))
@@ -470,7 +537,7 @@
       note]]))
 
 ;; prepare wiki table
-#_(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
   (binding [*out* (new java.io.OutputStreamWriter os)]
     (do
      (println "== Trenutno stanje ==")
@@ -486,8 +553,13 @@
      (println "! scope=\"col\" | osm")
      (println "! scope=\"col\" | note")
      (doseq [route (sort
-                    #(id-compare (:id %1) (:id %2))
-                    (filter #(some? (get % :gpx-path)) (vals routes)))]
+                    #(id-compare %1 %2)
+                    (filter
+                     #(or
+                       ;; in iteration 20201223 some gpx files were not downloaded
+                       ;; which previously existed
+                       (some? (get relation-map (:id %)))
+                       (some? (get % :gpx-path))) (vals routes)))]
        (let [id (:id route)
              relation (get relation-map id)]
          (println "|-")
@@ -507,22 +579,23 @@
                           "")))))
      (println "|}"))))
 
-;; set tile to be mapped
+
+;; set gpx as track to be used for route order fix and check
 #_(do
   (let [location-seq (with-open [is (fs/input-stream
                                      (path/child
                                       dataset-path
                                       "routes"
-                                      "4-48-2.gpx"))]
+                                      "4-37-1.gpx"))]
                        (doall
                         (mapcat
                          identity
                          (:track-seq (gpx/read-track-gpx is)))))]
     (web/register-dotstore
-     :pss
+     :track
      (dot/location-seq->dotstore location-seq))
     (web/register-map
-     "pss"
+     "track-transparent"
      {
       :configuration {
                       :longitude (:longitude (first location-seq))
@@ -530,15 +603,11 @@
                       :zoom 7}
       :vector-tile-fn (web/tile-vector-dotstore-fn
                        [(fn [_ _ _ _] [])])
-      :raster-tile-fn (web/tile-border-overlay-fn
-                       (web/tile-number-overlay-fn
-                        (web/tile-overlay-dotstore-render-fn
-                         (web/create-osm-external-raster-tile-fn)
-                         :pss
-                         [(constantly [draw/color-blue 2])])))})))
+      :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                       (web/create-transparent-raster-tile-fn)
+                       :track
+                       [(constantly [draw/color-blue 2])])})))
 ;;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
-
-
 
 (osmeditor/project-report
  "pss"
@@ -591,7 +660,7 @@
                  render-route
                  :id)
                 (sort
-                 #(id-compare (:id %1) (:id %2))
+                 #(id-compare %1 %2)
                  routes-with-gpx))]
               [:br]
               [:div (str "mapirane rute (" (count mapped-routes)  ")")]
@@ -602,7 +671,7 @@
                  render-route
                  :id)
                 (sort
-                 #(id-compare (:id %1) (:id %2))
+                 #(id-compare %1 %2)
                  mapped-routes))]
               [:br]
               [:div (str "ostale rute (" (count rest-of-routes) ")")]
@@ -613,7 +682,7 @@
                  render-route
                  :id)
                 (sort
-                 #(id-compare (:id %1) (:id %2))
+                 #(id-compare %1 %2)
                  rest-of-routes))]]]))})
   (compojure.core/GET
    "/projects/pss/data/list"
@@ -669,4 +738,4 @@
                                      :type "LineString"
                                      :coordinates location-seq}}]})}))))
 
-
+(web/create-server)

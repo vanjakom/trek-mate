@@ -592,6 +592,7 @@
   {
    "osm:place=town" tag/tag-city
    "osm:place=city" tag/tag-city
+   "osm:place=suburb" tag/tag-city
    "osm:place=village" tag/tag-village
    "osm:natural=water" tag/tag-water
    "osm:waterway=stream" tag/tag-creek
@@ -639,6 +640,7 @@
     #(when (= (get % "natural") "cave_entrance") tag/tag-cave)
     #(when (= (get % "place") "town") tag/tag-city)
     #(when (= (get % "place") "city") tag/tag-city)
+    #(when (= (get % "place") "suburb") tag/tag-city)
     #(when (= (get % "place") "village") tag/tag-village)
     #(when (= (get % "place") "hamlet") tag/tag-village)
 

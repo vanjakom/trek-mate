@@ -123,14 +123,14 @@
 
 ;; #mapping #track #location #trek-mate
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1608473115
+#_(let [track-id 1609658172
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
                                           "trek-mate" "cloudkit" "track"
                                           env/*trek-mate-user* (str track-id ".json")))]
                            (:locations (json/read-keyworded is)))
-      location-seq (map
+      location-seq [] #_(map
                     (fn [location]
                       (update-in
                        location
@@ -211,8 +211,8 @@
 
 
 ;; #garmin #mapping #track #waypoint #id
-#_(let [track-id "Track_2020-12-20 150047"
-      waypoint-file-name "Waypoints_20-DEC-20.gpx"
+#_(let [track-id "Track_2021-01-05 124210"
+      waypoint-file-name "Waypoints_05-JAN-21.gpx"
       
       location-seq (with-open [is (fs/input-stream
                                    (path/child
@@ -236,8 +236,8 @@
         geojson/location->point
         (filter
          ;; filter out hiking trail marks
-         #(not (= (:symbol %) "Civil"))
-         #_(constantly true)
+         #_(not (= (:symbol %) "Civil"))
+         (constantly true)
          location-seq))
        (map
         geojson/location-seq->line-string

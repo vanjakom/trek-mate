@@ -189,6 +189,25 @@
        (first (filter #(= (:tag %) :wpt) (:content (xml/parse is))))))
      [:longitude :latitude :tags])))
 
+(defn list-geocache-gpx [gpx-path]
+  (with-open [is (fs/input-stream gpx-path)]
+    (map
+     (fn [wpt]
+       (select-keys
+        (geocache->location (extract-geocache-wpt wpt))
+        [:longitude :latitude :tags]))
+     (filter
+      ;; used to filter geocaches from waypoints
+      (fn [wpt]
+        (constantly true)
+        #_(= (get-in
+            (first
+             (filter #(= (:tag %) :sym) (:content wpt)))
+            [:content 0])
+           "Geocache"))
+      (filter #(= (:tag %) :wpt) (:content (xml/parse is)))))))
+
+
 (defn pocket-query-go
   "Reads given pocket query geocaches and emits them to channel"
   [context path out]

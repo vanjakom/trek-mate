@@ -152,6 +152,7 @@
 (def ignore-set
   #{
     ;; E roads
+    1175707 ;; E3 bulgaria
     6023218 ;; E3 romania
     1175728 ;; E8, not going through Serbia
     9933591 ;; E8 romania

@@ -346,7 +346,7 @@
                       (some? (get-in % [:osm "ref"])))
                     relation-seq)))
 
-#_(count osm-road-map) ;; 103
+#_(count osm-road-map) ;; 217 ;; 103
 #_(count relation-seq) ;; 220
 
 ;; unite sources
@@ -375,7 +375,16 @@
    "317" "@ pocinje sa dva jednosmerna puta"
    "319" "@ zanimljiv, ima kruzni tok, treba izdeliti kruzni tok"
    "336" "@ put nije mapiran"
-   "340" "@ lep primer za auto router"})
+   "340" "@ lep primer za auto router"
+   "346" "@ zanimljiv na 20.42966, 44.64931"
+   "348" "@ put nije mapiran"
+   "354" "@ put nije mapiran"
+   "366" "@ postoji neslaganje geometrije"
+   "378" "@ zanimljiv"})
+
+;; todo
+;; preci pdf, proveriti izgradjeno / neizgradjeno i tagove
+;; 390 missing
 
 ;; other notes
 ;; secondary road bez ref
@@ -538,7 +547,7 @@
 ;; prepare road for editing
 ;; just change ref in overpass
 ;; todo support switch to daily dump once ways are analyzed
-(osmeditor/dataset-insert-relation
+#_(osmeditor/dataset-insert-relation
  (osmapi/create-relation
   -1
   1
@@ -548,4 +557,4 @@
    (vals
     (:ways
      (overpass/query->dataset
-      "[out:json];way[highway][ref=344](area:3601741311);out center;"))))))
+      "[out:json];way[highway][ref=A5](area:3601741311);out center;"))))))

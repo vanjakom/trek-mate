@@ -290,7 +290,49 @@
       var params = new URLSearchParams(window.location.search)
       var mapType = params.get("type")
       // legacy type
-      if (mapType == null) {
+      if (mapType == "track") {
+	  var dataLayer = L.featureGroup()
+	  var dataset = params.get("dataset")
+	  var track = encodeURIComponent(params.get("track"))
+	  // todo make in sync
+	  jsonGet(
+	      "http://localhost:7077/projects/tracks/retrieve?dataset=" + dataset + "&track=" + track,
+	      function (data) {
+		  dataLayer.addLayer(L.geoJSON(data, {}))
+		  map.fitBounds(dataLayer.getBounds())
+	      },
+	      function () {})
+      } else if (mapType == "waypoint") {
+	  var dataLayer = L.featureGroup()
+	  var dataset = params.get("dataset")
+	  var waypoint = encodeURIComponent(params.get("waypoint"))
+	  // todo make in sync
+	  jsonGet(
+	      "http://localhost:7077/projects/tracks/retrieve?dataset=" + dataset + "&waypoint=" + waypoint,
+	      function (data) {
+		  dataLayer.addLayer(
+		      L.geoJSON(
+			  data,
+			  {
+			      pointToLayer: function(point, latlng) {
+				  var marker = L.marker(
+				      latlng,
+				      {
+					  title: point.properties.name
+				      })
+				  marker.bindPopup(
+				      latlng.lng + ", " + latlng.lat + "</br>" +
+					  projectedLocationToWord(
+					      projectX(latlng.lng),
+					      projectY(latlng.lat)) + "</br>" +
+				      point.properties.text)
+				  return marker
+			      }}))
+		  map.fitBounds(dataLayer.getBounds())
+	      },
+	      function () {})
+      } else {
+	  // default to old map style
 	  var mapId = window.location.pathname.split ("/").last()
 	  dataLayer = new L.GridLayer.MarkerLoader(
 	      "/tile/vector/" + mapId + "/{z}/{x}/{y}",
@@ -305,18 +347,6 @@
 		  map.setView (
 		      [configuration.latitude, configuration.longitude],
 		      configuration.zoom)
-	      },
-	      function () {})
-      } else if (mapType == "track") {
-	  var dataLayer = L.featureGroup()
-	  var dataset = params.get("dataset")
-	  var track = encodeURIComponent(params.get("track"))
-	  // todo make in sync
-	  jsonGet(
-	      "http://localhost:7077/projects/tracks/retrieve?dataset=" + dataset + "&track=" + track,
-	      function (data) {
-		  dataLayer.addLayer(L.geoJSON(data, {}))
-		  map.fitBounds(dataLayer.getBounds())
 	      },
 	      function () {})
       }
@@ -370,6 +400,15 @@
 	      noWrap: true
 	  })
 
+      var mapboxDPMTile = L.tileLayer(
+	  'https://api.mapbox.com/styles/v1/vanjakom/ckjng7rsq2qaw19li02anmwes/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
       var mapboxSatelliteTile = L.tileLayer(
 	  'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
 	  {
@@ -650,6 +689,7 @@
 	  "my-serbia": mySerbiaTile,
 	  "track": trackTile,
 	  "gopro evidence": goProEvidence,
+	  "DPM": mapboxDPMTile,
 	  "slot-a": slotATile,
 	  "slot-b": slotBTile,
 	  "slot-c": slotCTile}

@@ -129,6 +129,48 @@
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
 
+(def center (overpass/wikidata-id->location :Q3711))
+
+;; 20210108 ns
+(do
+  (def center (overpass/wikidata-id->location :Q55630))
+  
+  (n 4151026289) ;; "!Planet Bike "
+  (n 7594661566) ;; "!Планет Бајк"
+  (n 5005024123) ;; "!Ris"
+  (w 690699864) ;; "!Lesnina XXXL"
+  (w 351591634) ;; "!Stojanov"
+
+  (with-open [os (fs/output-stream ["tmp" "20210108.gpx"])]
+    (gpx/write-gpx
+     os
+     (map
+      (fn [location]
+        (gpx/waypoint
+         (:longitude location)
+         (:latitude location)
+         nil
+         (get-in location [:osm "name"])
+         nil))
+      (vals (deref dataset)))))
+
+  (storage/import-location-v2-seq-handler
+   (map
+    #(t % "@ns20210108")
+    (vals (deref dataset))))
+
+  (storage/import-location-v2-seq-handler
+   (map
+    #(t % "@ns20210108")
+    (geocaching/list-geocache-gpx ["Users" "vanja" "Downloads" "BM913CV.gpx"])))
+
+  (run!
+   dataset-add
+   (geocaching/list-geocache-gpx ["Users" "vanja" "Downloads" "BM913CV.gpx"]))) 
+
+
+
+(vals (deref dataset))
 
 ;; hike staza petruskih monaha
 #_(do
@@ -387,7 +429,7 @@
  (map #(t % "@lisina2020") (vals (deref dataset)))))
 
 ;; @summer2020, herceg novi
-(do
+#_(do
   (def center (overpass/wikidata-id->location :Q193103))
 
   (w 296992116)
@@ -411,7 +453,7 @@
   :configuration {
                   :longitude (:longitude center) 
                   :latitude (:latitude center)
-                  :zoom 10}
+                  :zoom 12}
   :vector-tile-fn (web/tile-vector-dotstore-fn
                    [(fn [_ _ _ _]
                       (vals (deref dataset)))])})

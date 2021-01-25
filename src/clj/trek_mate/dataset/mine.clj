@@ -169,7 +169,12 @@
 ;; dones
 #_(r 11227980) ;; "!Baberijus"
 
+(l 20 44 tag/tag-todo "20/44 geocache")
+
+(l 22.11163, 43.22160 tag/tag-todo tag/tag-rooftoptent "idealno mesto za obilazak suve planine")
+
 ;; todos
+(l 19.52307, 44.96080 "@todo" "@tepui" "zasavica kamp, odemo nocimo mapiramo staze, kupimo sir od magarca")
 (q 3444519
    "@todo" "ruta sava zavrsiti" "biciklisticka staza" "vikend"
    (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
@@ -500,7 +505,8 @@
    "Museum" "objekat"
    "Civil" "markacija"
    "Block, Blue" "ukrstanje neasfaltiranih puteva"
-   "Block, Green" "ukrstanje pesackih puteva"})
+   "Block, Green" "ukrstanje pesackih puteva"
+   "Golf Course" "nesto"})
 
 (osmeditor/project-report
  "tracks"
@@ -533,20 +539,69 @@
     (ring.middleware.keyword-params/wrap-keyword-params
      (fn [request]
        (let [dataset (get-in request [:params :dataset])
-             track (url-decode (get-in request [:params :track]))]
+             track (if-let [track (get-in request [:params :track])]
+                     (url-decode track)
+                     nil)
+             waypoint (if-let [waypoint (get-in request [:params :waypoint])]
+                        (url-decode waypoint)
+                        nil)]
          (cond
            (= dataset "garmin")
-           (let [path (path/child garmin-track-path (str track ".gpx"))]
-             (if (fs/exists? path)
-               (with-open [is (fs/input-stream path)]
-                 (let [track-seq (:track-seq (gpx/read-track-gpx is))]
-                   {
-                    :status 200
-                    :body (json/write-to-string
-                           (geojson/geojson
-                            [(geojson/location-seq-seq->multi-line-string
-                             track-seq)]))}))
-               {:status 404}))
+           (if (some? waypoint)
+             (let [path (path/child garmin-waypoints-path (str waypoint ".gpx"))]
+               (if (fs/exists? path)
+                 (with-open [is (fs/input-stream path)]
+                   (let [tags-map (into
+                                   {}
+                                   (with-open [is (fs/input-stream
+                                                   (path/child
+                                                    garmin-waypoints-path
+                                                    "index.tsv"))]
+                                     (doall
+                                      (filter
+                                       some?
+                                       (map
+                                        (fn [line]
+                                          (when (not (.startsWith line ";;"))
+                                            (let [fields (.split line "\\|")]
+                                              (when (== (count fields) 2)
+                                                [
+                                                 (first fields)
+                                                 (second fields)]))))
+                                        (io/input-stream->line-seq is))))))
+                         waypoint-seq (:wpt-seq (gpx/read-track-gpx is))]
+                     {
+                      :status 200
+                      :body (json/write-to-string
+                             (geojson/geojson
+                              (map
+                               (fn [waypoint]
+                                 (geojson/location->feature
+                                  {
+                                   :longitude (:longitude waypoint)
+                                   :latitude (:latitude waypoint)
+                                   :text (clojure.string/join
+                                          "</br>"
+                                          (filter
+                                           some?
+                                           [
+                                            (:name waypoint)
+                                            (get garmin-symbol-map (:symbol waypoint))
+                                            (get tags-map (:name waypoint))
+                                            ]))}))
+                               waypoint-seq)))}))
+                 {:status 404}))
+             (let [path (path/child garmin-track-path (str track ".gpx"))]
+               (if (fs/exists? path)
+                 (with-open [is (fs/input-stream path)]
+                   (let [track-seq (:track-seq (gpx/read-track-gpx is))]
+                     {
+                      :status 200
+                      :body (json/write-to-string
+                             (geojson/geojson
+                              [(geojson/location-seq-seq->multi-line-string
+                                track-seq)]))}))
+                 {:status 404})))
            (= dataset "trek-mate")
            (let [path (path/child trek-mate-track-path (str track ".json"))]
              (if (fs/exists? path)
@@ -557,7 +612,7 @@
                     :body (json/write-to-string
                            (geojson/geojson
                             [(geojson/location-seq->line-string
-                             location-seq)]))}))
+                              location-seq)]))}))
                {:status 404}))
            
            :else
@@ -646,12 +701,37 @@
    [file]
    (let [wp-path (path/child garmin-waypoints-path (str (url-decode file) ".gpx"))]
      (if (fs/exists? wp-path)
-       (let [waypoints (:wpt-seq (gpx/read-track-gpx (fs/input-stream wp-path)))]
+       ;; todo tags are not parsed
+       (let [tags-map (into
+                          {}
+                          (with-open [is (fs/input-stream
+                                          (path/child garmin-waypoints-path "index.tsv"))]
+                            (doall
+                             (filter
+                              some?
+                              (map
+                               (fn [line]
+                                 (when (not (.startsWith line ";;"))
+                                   (let [fields (.split line "\\|")]
+                                     (when (== (count fields) 2)
+                                       [
+                                        (first fields)
+                                        (.split (second fields) " ")]))))
+                               (io/input-stream->line-seq is))))))
+             waypoints (:wpt-seq (gpx/read-track-gpx (fs/input-stream wp-path)))]
          {
           :status 200
           :body (hiccup/html
                  [:html
                   [:body {:style "font-family:arial;"}
+                   [:a
+                    {:href (str
+                            "/projects/tracks/view?type=waypoint&dataset=garmin&waypoint="
+                            (url-encode file))
+                     :target "_blank"}
+                    "view on map"]
+                   [:br]
+                   [:br]
                    [:table {:style "border-collapse:collapse;"}
                     (map
                      (fn [waypoint]
@@ -659,10 +739,16 @@
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (:name waypoint)]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (str (:longitude waypoint) ", " (:latitude waypoint))]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
                          (:symbol waypoint)]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (or
                           (get garmin-symbol-map (:symbol waypoint))
+                          "")]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (or
+                          (get tags-map (:name waypoint))
                           "")]])
                      waypoints)]]])
           })
@@ -816,8 +902,6 @@
                      (web/create-osm-external-raster-tile-fn)
                      [(constantly [draw/color-green 2])]
                      track-repository-path)))})
-
-(web/create-server)
 
 #_(web/register-map
  "mine-frankfurt"
