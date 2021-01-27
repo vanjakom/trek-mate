@@ -164,8 +164,8 @@
         (Thread/sleep 3000))
       (println "\tpost already downloaded ..."))))
 
-;; try finding references to E7 and E4
-(doseq [post posts]
+;; find references to E7 and E4
+#_(doseq [post posts]
   (let [post (update-in post [:postmeta] #(view/seq->map :label %))
         postid (:ID post)
         title (:title post)
@@ -184,6 +184,30 @@
           (do
             (println oznaka "-" title)
             (println "\t" link)))))))
+
+;; find references to zapis
+(doseq [post posts]
+  (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+        postid (:ID post)
+        title (:title post)
+        link (:permalink post)
+        oznaka (get-in post [:postmeta "Oznaka" :value])
+        info-path (path/child dataset-path "routes" (str oznaka ".json"))
+        content-path (path/child dataset-path "routes" (str oznaka ".html"))
+        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+    (if (fs/exists? content-path)
+      (let [content (.toLowerCase
+                     (with-open [is (fs/input-stream content-path)]
+                       (io/input-stream->string is)))]
+        (if
+            (or
+             (.contains content "zapis ")
+             (.contains content " zapis"))
+          (do
+            (println oznaka "-" title)
+            (println "\t" link)))))))
+
+
 
 ;; per route stats
 #_(doseq [post posts]
