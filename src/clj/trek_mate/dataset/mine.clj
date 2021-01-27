@@ -180,6 +180,13 @@
    (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
 
 
+;; durmitor
+(l 19.10068, 43.20042
+   tag/tag-todo
+   "zeljko vidikovci na taru"
+   (tag/url-tag "putopis" "https://jasninaputovanja.me/2020/09/12/podgora-vidikovci-prema-kanjonu-tare/"))
+
+
 (l 20.46045, 44.16894 tag/tag-hike "!Ostrovica hike")
 
 ;; divcibare
@@ -238,6 +245,8 @@
 ;; kosmaj
 (r 11483827 "nije mapirana staza do kraja, ide preko potoka, istocno ima neki vodopad")
 (r 11483846) ;; "!Parcanski vis"
+
+(q 3323264);; "!Spomenik despotu Stefanu Lazareviću"
 
 ;; rudnik
 (l 20.54873, 44.18115
