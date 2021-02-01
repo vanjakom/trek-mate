@@ -547,6 +547,23 @@
 (defn tasks-list []
   (vals (deref tasks)))
 
+;; util functions for various url links
+(defn link-id-localhost
+  ([longitude latitude zoom]
+   (str "http://localhost:8080/#map=" zoom "/" latitude "/" longitude )))
+
+(defn link-wikipedia-sr
+  [title]
+  (str "http://sr.wikipedia.org/wiki/" title))
+
+(defn link-wikidata
+  [id]
+  (str "http://wikidata.org/wiki/" id))
+
+(defn hiccup-a [title link]
+  (list
+   [:a {:href link :target "_blank"} title]
+   [:br]))
 
 (defn candidate-render-default
   "Default candidate rendering fn, used if one not provided during task registration.
@@ -820,6 +837,14 @@
                     "Content-Type" "text/html; charset=utf-8"}
           :body (hiccup/html
                  [:html
+                  [:head
+                   [:link
+                    {
+                     :rel "stylesheet"
+                     :href "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"}]
+                   [:script
+                    {
+                     :src "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"}]]
                   [:body {:style "font-family:arial;"}
                    [:script
                     "var applyChange = function(taskId, id) {"
@@ -829,9 +854,7 @@
                    [:table {:style "border-collapse:collapse;"}
                     (map
                      #(render-fn task-id (:description task) %)
-                     (sort-by
-                       :id
-                       candidates))]]])})
+                     candidates)]]])})
        {
         :status 404})
      (catch Exception e

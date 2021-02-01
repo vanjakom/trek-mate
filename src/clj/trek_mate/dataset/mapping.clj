@@ -211,8 +211,8 @@
 
 
 ;; #garmin #mapping #track #waypoint #id
-#_(let [track-id "Track_2021-01-05 124210"
-      waypoint-file-name "Waypoints_05-JAN-21.gpx"
+#_(let [track-id "Track_2021-01-30 180015"
+      waypoint-file-name "Waypoints_30-JAN-21.gpx"
       
       location-seq (with-open [is (fs/input-stream
                                    (path/child

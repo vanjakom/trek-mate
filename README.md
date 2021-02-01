@@ -1,6 +1,15 @@
 # trek-mate project
 
-# build of clojure script part
+## osm editor project
+(:id candidate) must be unique, usually it's node/way/relation id, but it could be something else  
+(:description candidate) added by osm editor
+trek-mate.dataset.zapis  
+trek-mate.dataset.putevi  
+trek-mate.dataset.wiki-integrate  
+zapis is latest dataset with support, adds new nodes  
+putevi dataset uses custom element rendering and custom apply  
+
+## build of clojure script part
 trek-mate app is depending on target/core.js file
 
 build with
@@ -10,7 +19,7 @@ lein cljsbuild once
 
 add cljsbuild to list of lein plugins
 
-# setup
+## setup
 trek-mate project depends on two other open source projects clj-common ( colletion of useful functions ) and clj-geo ( importing and visualization functions ).
 
 clj-geo is relaying on data being present locally, storage location of data is defined in clj-geo.env.

@@ -371,7 +371,8 @@
           (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
-(defn html-href [url title] (str "<a href=\"" url "\">" title "</a>"))
+(defn html-href [url title] (str "<a href=\"" url "\" target=\"_blank\">" title "</a>"))
+
 (defn url-tag->html [tag]
   (if (tag/url-tag? tag)
     (html-href (tag/url-tag->url tag) (tag/url-tag->title tag))

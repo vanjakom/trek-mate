@@ -323,6 +323,9 @@
 (defn wikidata-tag [wikidata-id]
   (link-tag "wikidata" wikidata-id))
 
+(defn wikidata-url-tag [wikidata-id]
+  (url-tag wikidata-id (str "http://wikidata.org/wiki/" wikidata-id)))
+
 ;; todo, language prefix, where should go
 (defn wikipedia-tag [wikipedia]
   (link-tag "wikipedia" wikipedia))

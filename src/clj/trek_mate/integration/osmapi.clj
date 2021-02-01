@@ -66,6 +66,15 @@
   ([comment changeset]
    (swap! active-changeset-map assoc comment changeset)))
 
+(defn ensure-changeset
+  "Either retrieves active changeset for comment or creates new one"
+  [comment]
+  (if-let [changeset (active-changeset comment)]
+    changeset
+    (let [changeset (changeset-create comment)]
+      (active-changeset comment changeset)
+      changeset)))
+
 ;; conversion utils
 
 (defn node-xml->node
@@ -292,6 +301,50 @@
     (full-xml->dataset (:content nodes))))
 
 #_(def a (nodes [5360954914 7579653984]))
+
+(defn node-create
+  "Performs /api/0.6/[node|way|relation]/create
+  Note: changeset should be open changeset
+  Note: node should be in same format as returned by node fn, or use new-node"
+  [changeset longitude latitude tag-map]
+  (let [content (xml/emit-str
+                 (xml/element
+                  :osm
+                  {}
+                  (update-in
+                   (node->node-xml
+                    {
+                     :id -1
+                     :version 1
+                     :longitude longitude
+                     :latitude latitude
+                     :tags tag-map})
+                   [:attrs :changeset]
+                   (constantly changeset))))]
+    (if-let [is (http/with-basic-auth *user* *password*
+                  (http/put-as-stream
+                   (str *server* "/api/0.6/node/create")  
+                   (io/string->input-stream content)))]
+      (let [id (io/input-stream->string is)]
+        (*changelog-report*
+         :node
+         id
+         ;; todo
+         "node-create"
+         (map
+          (fn [[tag value]]
+            {
+             :change :tag-add
+             :tag tag
+             :value value})
+          tag-map))
+        id)
+      (do
+        (logging/report
+         {
+          :fn trek-mate.integration.osmapi/node-create
+          :content content})
+        nil))))
 
 (defn node-update
   "Performs /api/0.6/[node|way|relation]/#id

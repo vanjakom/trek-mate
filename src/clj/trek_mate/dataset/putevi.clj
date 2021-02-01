@@ -234,8 +234,7 @@
  "putevi-no-ref"
  "work on https://wiki.openstreetmap.org/wiki/Serbia/Uređivanje_meta_podataka_putne_mreže_Srbije"
  (fn [task-id description candidate]
-  (let [id (:id candidate)
-        relation-seq (:relation-seq candidate)]
+  (let [id (:id candidate)]
     [:tr 
      [:td {:style "border: 1px solid black; padding: 5px;"}
       id]
