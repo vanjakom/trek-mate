@@ -44,6 +44,9 @@
 
 (def active-changeset-map (atom {}))
 
+#_(close-all-changesets)
+#_(deref active-changeset-map)
+
 (defn close-changeset [comment]
   ;; todo call close
   (swap!
@@ -56,15 +59,59 @@
    active-changeset-map
    (constantly {})))
 
-#_(close-all-changesets)
-#_(deref active-changeset-map)
-
 ;; set / get
 (defn active-changeset 
   ([comment]
    (get (deref active-changeset-map) comment))
   ([comment changeset]
    (swap! active-changeset-map assoc comment changeset)))
+
+(defn permissions
+  "Performs /api/0.6/permissions"
+  []
+  (xml/parse
+   (http/with-basic-auth
+     *user*
+     *password*
+     (http/get-as-stream
+      (str *server* "/api/0.6/permissions")))))
+
+(defn changeset-create
+  [comment]
+  (as/as-long
+   (io/input-stream->string
+    (http/with-basic-auth
+      *user*
+      *password*
+      (http/put-as-stream
+       (str *server* "/api/0.6/changeset/create")
+       (io/string->input-stream
+        (xml/emit-str
+         (xml/element
+          :osm
+          {}
+          (xml/element
+           :changeset
+           {}
+           (xml/element
+            :tag
+            {:k "comment" :v comment}))))))))))
+
+(defn changeset-close
+  "Performs /api/0.6/changeset/#id/close"
+  [changeset]
+  (io/input-stream->string
+   (http/with-basic-auth
+     *user*
+     *password*
+     (http/put-as-stream
+      (str *server* "/api/0.6/changeset/" changeset "/close")
+      (io/string->input-stream
+       (xml/emit-str
+        (xml/element
+         :osm
+         {})))))))
+
 
 (defn ensure-changeset
   "Either retrieves active changeset for comment or creates new one"
@@ -232,52 +279,6 @@
        dataset))
    {}
    elements))
-
-(defn permissions
-  "Performs /api/0.6/permissions"
-  []
-  (xml/parse
-   (http/with-basic-auth
-     *user*
-     *password*
-     (http/get-as-stream
-      (str *server* "/api/0.6/permissions")))))
-
-(defn changeset-create
-  [comment]
-  (as/as-long
-   (io/input-stream->string
-    (http/with-basic-auth
-      *user*
-      *password*
-      (http/put-as-stream
-       (str *server* "/api/0.6/changeset/create")
-       (io/string->input-stream
-        (xml/emit-str
-         (xml/element
-          :osm
-          {}
-          (xml/element
-           :changeset
-           {}
-           (xml/element
-            :tag
-            {:k "comment" :v comment}))))))))))
-
-(defn changeset-close
-  "Performs /api/0.6/changeset/#id/close"
-  [changeset]
-  (io/input-stream->string
-   (http/with-basic-auth
-     *user*
-     *password*
-     (http/put-as-stream
-      (str *server* "/api/0.6/changeset/" changeset "/close")
-      (io/string->input-stream
-       (xml/emit-str
-        (xml/element
-         :osm
-         {})))))))
 
 (defn node
   "Performs /api/0.6/[node|way|relation]/#id"

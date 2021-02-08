@@ -16,6 +16,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-geo.math.core :as geo]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
@@ -132,7 +133,7 @@
 (def center (overpass/wikidata-id->location :Q3711))
 
 ;; 20210108 ns
-(do
+#_(do
   (def center (overpass/wikidata-id->location :Q55630))
   
   (n 4151026289) ;; "!Planet Bike "
@@ -460,3 +461,219 @@
 
 #_(storage/import-location-v2-seq-handler
  (map #(t % "@petruski-monasi") (vals (deref dataset))))
+
+;; @20210206 #deliblato #brompton
+
+;; old version, didn't reverse ways when needed
+#_(defn relation->location-seq
+  "takes only way members into account "
+  [relation-id]
+  (let [dataset (osmapi/relation-full relation-id)]
+   (reduce
+    (fn [location-seq member]
+      (concat
+       location-seq
+       (map
+        (fn [node-id]
+          (let [node (get-in dataset [:nodes node-id])]
+            {
+             :longitude (as/as-double (:longitude node))
+             :latitude (as/as-double (:latitude node))
+             :tags #{}}))
+        (:nodes member))))
+    []
+    (map
+     #(get-in dataset [:ways (:id %)])
+     (filter
+      #(= (:type %) :way)
+      (:members (get-in dataset [:relations relation-id])))))))
+
+(defn relation->location-seq
+  "takes only way members into account"
+  [relation-id]
+  (let [dataset (osmapi/relation-full relation-id)
+        way-seq (map
+                 :nodes
+                 (map
+                  #(get-in dataset [:ways (:id %)])
+                  (filter
+                   #(= (:type %) :way)
+                   (:members (get-in dataset [:relations relation-id])))))
+        [way-1 way-2 & way-seq] way-seq
+        node-seq (loop [way-seq way-seq
+                        node-seq (cond
+                                   (= (first way-1) (first way-2))
+                                   (into [] (concat (reverse way-1) way-2))
+                                   (= (first way-1) (last way-2))
+                                   (into [] (concat (reverse way-1 (reverse way-2))))
+                                   (= (last way-1) (first way-2))
+                                   (into [] (concat way-1 way-2))
+                                   :else
+                                   (into [] (concat way-1 (reverse way-2))))]
+                   (if-let [way (first way-seq)]
+                     (recur
+                      (rest way-seq)
+                      (if (= (last node-seq) (first way))
+                        (into [] (concat node-seq way))
+                        (into [] (concat node-seq (reverse way)))))
+                     node-seq))]
+    (map
+        (fn [node-id]
+          (let [node (get-in dataset [:nodes node-id])]
+            {
+             :longitude (as/as-double (:longitude node))
+             :latitude (as/as-double (:latitude node))
+             :tags #{}}))
+        node-seq)))
+
+;; copied form maply-backend-tools/route
+(defn filter-constant-bearing [max-bearing-delta locations]
+  (let [first-location (first locations)
+        second-location (second locations)
+        rest-locations (rest (rest locations))]
+    (if (or (nil? first-location) (nil? second-location) (empty? rest-locations))
+      locations
+      (let [[new-locations _ last-location last-added]
+            (reduce
+              (fn [[new-locations last-bearing last-location last-added] location]
+                (let [bearing (geo/bearing last-location location)
+                      delta-bearing (Math/abs (- bearing last-bearing))]
+                  (if
+                    (> delta-bearing max-bearing-delta)
+                    [(conj new-locations last-location) bearing location true]
+                    ;; note bearing not updated, location was
+                    [new-locations last-bearing location false])))
+              [
+                [first-location second-location]
+                (geo/bearing first-location second-location)
+                second-location
+                true]
+              rest-locations)]
+        (if last-added
+          new-locations
+          (conj new-locations last-location))))))
+
+; removes locations with distance between each other less than min-distance
+(defn filter-minimal-distance [min-dinstance locations]
+  (let [first-location (first locations)]
+    (if
+      (some? first-location)
+      (let [[new-locations last-location last-added]
+            (reduce
+              (fn [[new-locations last-location last-added] location]
+                (let [distance (geo/distance last-location location)]
+                  (if
+                    (> distance min-dinstance)
+                    [(conj new-locations location) location true]
+                    [new-locations last-location false])))
+              [[(first locations)] (first locations) true]
+              (rest locations))]
+        (if last-added
+              new-locations
+              (conj new-locations last-location)))
+      locations)))
+
+(defn extract-route [location-seq]
+  (let [bearing-threshold 20
+        distance-threshold 20
+        precision-threshold 10
+        route (filter-constant-bearing
+                    bearing-threshold
+                    (filter-minimal-distance
+                      distance-threshold
+                      location-seq))]
+    (println "route extract, from " (count location-seq) " to " (count route))
+    route))
+
+;; with route extraction
+#_(with-open [os (fs/output-stream ["tmp" "deliblato-staze-trek.gpx"])]
+  (gpx/write-gpx
+   os
+   [
+    (gpx/track
+     [
+      (gpx/track-segment
+       (extract-route (relation->location-seq 12017137)))
+      (gpx/track-segment
+       (extract-route (relation->location-seq 12017209)))
+      (gpx/track-segment
+       (extract-route (relation->location-seq 12022982)))
+      (gpx/track-segment
+       (extract-route (relation->location-seq 12023017)))
+      (gpx/track-segment
+       (extract-route (relation->location-seq 12026845)))
+      (gpx/track-segment
+       (extract-route (relation->location-seq 12026935)))
+      ])]))
+
+
+;; #garmin #route #relation #gpx #track
+;; without route extraction
+#_(with-open [os (fs/output-stream ["tmp" "deliblato-staze-trek.gpx"])]
+  (gpx/write-gpx
+   os
+   [
+    (gpx/track
+     [
+      (gpx/track-segment
+       (relation->location-seq 12017137))
+      (gpx/track-segment
+       (relation->location-seq 12017209))
+      (gpx/track-segment
+       (relation->location-seq 12022982))
+      (gpx/track-segment
+       (relation->location-seq 12023017))
+      (gpx/track-segment
+       (relation->location-seq 12026845))
+      (gpx/track-segment
+       (relation->location-seq 12026935))
+      ])]))
+
+;; #garmin #route #relation #gpx
+;; using route, not easy to show on garmin
+#_(with-open [os (fs/output-stream ["tmp" "deliblato-staze.gpx"])]
+  (gpx/write-gpx
+   os
+   [
+    (gpx/route
+     "staza 1"
+     nil
+     (map-indexed
+      (fn [index location]
+        (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
+      (extract-route (relation->location-seq 12017137))))
+    (gpx/route
+     "staza 2"
+     nil
+     (map-indexed
+      (fn [index location]
+        (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
+      (extract-route (relation->location-seq 12017209))))
+    (gpx/route
+     "staza 3"
+     nil
+     (map-indexed
+      (fn [index location]
+        (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
+      (extract-route (relation->location-seq  12022982))))
+    (gpx/route
+     "staza 4"
+     nil
+     (map-indexed
+      (fn [index location]
+        (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
+      (extract-route (relation->location-seq  12023017))))
+    (gpx/route
+     "staza 5"
+     nil
+     (map-indexed
+      (fn [index location]
+        (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
+      (extract-route (relation->location-seq 12026845))))
+    (gpx/route
+     "staza 6"
+     nil
+     (map-indexed
+      (fn [index location]
+        (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
+      (extract-route (relation->location-seq  12026935))))]))

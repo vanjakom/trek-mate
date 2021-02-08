@@ -1,5 +1,8 @@
 # trek-mate project
 
+# creating gpx from relation
+used in trek-mate.dataset.current to create gpx of all hiking relations in Deliblato  
+
 ## osm editor project
 (:id candidate) must be unique, usually it's node/way/relation id, but it could be something else  
 (:description candidate) added by osm editor

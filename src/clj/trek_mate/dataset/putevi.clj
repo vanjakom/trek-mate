@@ -345,8 +345,8 @@
                       (some? (get-in % [:osm "ref"])))
                     relation-seq)))
 
-#_(count osm-road-map) ;; 217 ;; 103
-#_(count relation-seq) ;; 220
+#_(count osm-road-map) ;; 218 ;; 217 ;; 103
+#_(count relation-seq) ;; 329;; 220
 
 ;; unite sources
 (def road-map
@@ -379,7 +379,10 @@
    "348" "@ put nije mapiran"
    "354" "@ put nije mapiran"
    "366" "@ postoji neslaganje geometrije"
-   "378" "@ zanimljiv"})
+   "378" "@ zanimljiv"
+   "424" "@ u delu ima oznaku i L6"
+   "428" "@ deluje da je vise mapirano"
+   "433" "@ deluje da je vise mapirano"})
 
 ;; todo
 ;; preci pdf, proveriti izgradjeno / neizgradjeno i tagove
@@ -556,4 +559,4 @@
    (vals
     (:ways
      (overpass/query->dataset
-      "[out:json];way[highway][ref=A5](area:3601741311);out center;"))))))
+      "[out:json];way[highway][ref=435](area:3601741311);out center;"))))))

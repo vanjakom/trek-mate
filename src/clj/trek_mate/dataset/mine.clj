@@ -112,7 +112,9 @@
                                       (overpass/wikidata-id->location (keyword (str "Q" q)))
                                       (catch Exception e (println "retrying ...")))]
                         data
-                        (recur)))))
+                        (do
+                          (Thread/sleep 3000)
+                          (recur))))))
                   [:tags]
                   into
                   (conj
@@ -209,6 +211,12 @@
   (n 6443059265) ;; "!Vrazji Vir"
   (n 7997045503) ;; "!Drvo ljubavi"
 
+  (q 164205 tag/tag-todo) ;; "!Caričin grad"
+
+  (n 8393499969 tag/tag-todo "#zasadidrvo" "ŠU Apatin, Kružni nasip 13")
+
+  (l 19.52434, 44.58723 tag/tag-todo "Q283402 Trojanov grad, trvrdjava, lokacija? ")
+  (l 19.57716, 44.18829 tag/tag-todo "planinarenje na Bobiji")
 
   ;; vojvodina
   (q 2629582)
@@ -333,6 +341,12 @@
   (q 12757663) ;; "!Potpece Cave"
   (q 6589753) ;; stopica pecina
 
+  (q 25426045) ;; "!Slapovi Sopotnice"
+  (q 7361170) ;; "!Rusanda"
+  (q 12758768) ;; "!Semeteško jezero"
+
+  (l 21.03012 44.84682 tag/tag-todo (tag/url-tag "website" "http://srpkraljevac.rs/sr/turizam/") "postoji staza")
+  
   (l 19.93326, 43.70182
      "!spust Rzav" tag/tag-kayak
      (tag/url-tag "tifran organizacija" "https://www.tifran.org/veliki-rzav/")
@@ -365,7 +379,12 @@
       "https://www.nptara.rs/za-posetioce/turizam-i-rekreacija/biciklisticke-rute.html")) ;; "!Царска Тара"
 
   (l 19.42486, 43.91966 tag/tag-todo "planinarske staze" (tag/url-tag "klub tara" "http://www.planinarskiklubtara.org/planinarske-staze/"))
+  (l 19.45611, 43.83474 tag/tag-sleep "Čarobni breg")
 
+  ;; pancevo
+  (n 8367163317) ;; "!Stara Vajfertova pivara"
+  (n 3164273137) ;; "!Restoran „Šajka“"
+  
   (q 341936) ;; djavolja varos
 
   ;; suva planina
@@ -374,7 +393,8 @@
   ;; obedska bara
   (q 1935294 tag/tag-todo "obici pesacke staze" "ucrtati puteve koji nedostaju, postoje notovi")
 
-  (l 21.09798, 44.85429 tag/tag-todo "obici pesacke staze, marijana bajs...")
+  ;; deliblatska pescara
+  (l 21.09798, 44.85429 tag/tag-todo "obici stazu 3, postoji nova staza 7, obici")
 
   (l 20.03958, 44.73710 tag/tag-todo "ostatak treka za stazu 1")
   (l 19.99147, 44.73091 tag/tag-todo "nedostaje trek za stazu 3")
@@ -387,6 +407,17 @@
   (n 4359302840) ;; "!Tri kladenca"
   (l 22.80984, 43.24679 "!Ponor" "krasko polje" (tag/url-tag "wikiloc" "https://www.wikiloc.com/hiking-trails/stara-planina-kruzna-tura-plan-dom-dojkinci-ponor-2305052#wp-2305056"))
 
+  
+  (q 1142337) ;; "!Manastir Sopoćani"
+  (q 1559411) ;; "!Petrova crkva"
+  (q 917814) ;; "!Stari Ras"
+  (q 592512) ;; "!Đurđevi stupovi"
+  (q 26805744) ;; "!Crkva Svete Petke"
+
+  
+  ;; grcka
+  (q 1288074) ;; "!Καϊμακτσαλάν", Кајмакчалан
+  
   ;; ibar
   (l 20.71416, 43.69570 tag/tag-sleep "!Brvnara Jez" (tag/url-tag "booking" "https://www.booking.com/hotel/rs/jez.sr.html"))
 

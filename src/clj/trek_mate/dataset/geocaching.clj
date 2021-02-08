@@ -156,6 +156,41 @@
    (var geocache-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "read")
+   (path/child pocket-query-path "23387302_serbia-not-found.gpx")
+   (channel-provider :filter-my-hides))
+  #_(pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-my-finds")
+   (channel-provider :filter-my-finds)
+   (filter #(not (contains? my-finds-set (get-in % [:geocaching :code]))))
+   (channel-provider :filter-my-hides))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-my-hides")
+   (channel-provider :filter-my-hides)
+   (filter #(not (= "vanjakom" (get-in % [:geocaching :owner]))))
+   (channel-provider :map))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "map")
+   (channel-provider :map)
+   (map
+    (fn [geocache]
+      (if (and
+           (contains? (:tags geocache) "#last-found")
+           (contains? (:tags geocache) "#traditional-cache"))
+        (update-in geocache [:tags] conj "@geocache-sigurica")
+        geocache)))
+   (channel-provider :capture))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var geocache-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
@@ -288,3 +323,13 @@
     geocache-seq))))
 
 (web/create-server)
+
+;; list of our geocaches with notes
+(def beograd (wikidata/id->location :Q3711))
+
+(defn l [longitude latitude & tags]
+  {:longitude longitude :latitude latitude :tags (into #{}  tags)})
+
+
+
+

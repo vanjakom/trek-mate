@@ -114,6 +114,24 @@
    dataset)
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
+;; 20210205 counters:
+	 ;; capture in = 7222
+	 ;; filter-node in = 15701564
+	 ;; filter-node out = 4627
+	 ;; filter-relation in = 25299
+	 ;; filter-relation out = 754
+	 ;; filter-way in = 1398700
+	 ;; filter-way out = 1841
+	 ;; funnel in = 7222
+	 ;; funnel in-close = 3
+	 ;; funnel out = 7222
+	 ;; read error-unknown-type = 1
+	 ;; read node-in = 15701564
+	 ;; read node-out = 15701564
+	 ;; read relation-in = 25299
+	 ;; read relation-out = 25299
+	 ;; read way-in = 1398700
+	 ;; read way-out = 1398700
 ;; 20201015 counters:
 	 ;; capture in = 7024
 	 ;; filter-node in = 14375310
@@ -259,10 +277,8 @@
                :value (str
                        "sr:"
                        wikipedia)}]))))
-      (take
-       200
-       (filter-wikidata-no-wikipedia
-        (prepare-dataset)))))))
+      (filter-wikidata-no-wikipedia
+       (prepare-dataset))))))
 
   (osmeditor/task-report
    "wiki-integrate-not-human-readable-wikipedia"

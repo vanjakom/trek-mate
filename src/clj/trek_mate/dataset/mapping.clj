@@ -28,7 +28,9 @@
    [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]
-   [trek-mate.web :as web]))
+   [trek-mate.web :as web]
+   ;; temporary to be able to do fast name mapping
+   [trek-mate.dataset.zapis :as zapis]))
 
 ;; to be used after activity to update survey data to OSM
 
@@ -123,7 +125,7 @@
 
 ;; #mapping #track #location #trek-mate
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1609658172
+#_(let [track-id 1612620540
       track-location-seq (with-open [is (fs/input-stream
                                          (path/child
                                           env/*global-my-dataset-path*
@@ -211,8 +213,8 @@
 
 
 ;; #garmin #mapping #track #waypoint #id
-#_(let [track-id "Track_2021-01-30 180015"
-      waypoint-file-name "Waypoints_30-JAN-21.gpx"
+#_(let [track-id "Track_2021-02-07 153732"
+      waypoint-file-name "Waypoints_07-FEB-21.gpx"
       
       location-seq (with-open [is (fs/input-stream
                                    (path/child
@@ -243,3 +245,40 @@
         geojson/location-seq->line-string
         track-seq)))
      os)))
+
+;; set track as background
+;; #track #slot-a #background
+#_(do
+  ;; data in osm, over osm api
+  (let [track-id "Track_2021-02-06 145627"
+        location-seq (first
+                      (with-open [is (fs/input-stream
+                                      (path/child
+                                       env/*global-my-dataset-path*
+                                       "garmin"
+                                       "gpx"
+                                       (str track-id ".gpx")))]
+                        (:track-seq (gpx/read-track-gpx is))))]
+  (web/register-dotstore
+   :slot-a
+   (dot/location-seq->dotstore location-seq))
+
+  (web/register-map
+   "slot-a"
+   {
+    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
+                     (web/create-transparent-raster-tile-fn)
+                     :slot-a
+                     [(constantly [draw/color-red 2])])})))
+
+;; #name #translate
+(defn prepare-name-tags [name-cyrillic]
+  (println "name =" name-cyrillic)
+  (println "name:sr =" name-cyrillic)
+  (println "name:sr-Latn =" (zapis/cyrillic->latin name-cyrillic)))
+
+#_(prepare-name-tags "Чесма Свете Тројице") 
+#_(prepare-name-tags "ЈП \"Војводинашуме\"")
+#_(prepare-name-tags "Споменик природе Два стабла белог јасена")
+#_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
+#_(prepare-name-tags "Црква Свете Петке у Трнави")

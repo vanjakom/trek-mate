@@ -43,7 +43,6 @@
 
 (def dataset-path (path/child env/*global-my-dataset-path* "zapis"))
 
-
 (def dataset (atom {}))
 
 (defn dataset-add [location]
@@ -153,10 +152,104 @@
                       (vals (deref dataset)))])})
 (web/create-server)
 
-(def spisak (wikipedia/title->wikitext "sr" "Списак_записа_у_Србији"))
+;; todo support for integration with wikipedia
+;; clj-common/markdown initial parser, continue work
 
+#_(def spisak (wikipedia/title->wikitext "sr" "Списак_записа_у_Србији"))
 #_(doseq [line (take 100 spisak)]
   (println line))
+
+
+
+(def osm-pbf-path (path/child
+                   env/*global-dataset-path*
+                   "geofabrik.de"
+                   "serbia-latest.osm.pbf"))
+
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+;; read state from osm
+(def osm-seq nil)
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   osm-pbf-path
+   (channel-provider :node-in)
+   nil
+   nil)
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-node")
+   (channel-provider :node-in)
+   (filter
+    (fn [node]
+      (and
+       (= (get-in node [:osm "zapis"]) "yes")
+       (= (get-in node [:osm "natural"]) "tree"))))
+   (channel-provider :capture-node-in))
+  
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :capture-node-in)
+    (channel-provider :capture-way-in)
+    (channel-provider :capture-relation-in)]
+   (channel-provider :capture-in))
+
+  (pipeline/capture-atom-seq-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture-node-in)
+   osm-seq)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
+;; read state from overpass
+(def osm-seq (overpass/query-string "node[natural=tree][zapis=yes](area:3601741311);"))
+
+#_(count osm-seq) ;; 42 ;; 28
+
+;; todo create project list with mapped and wiki-status.md
+#_(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+  (binding [*out* (new java.io.OutputStreamWriter os)]
+    (do
+     (println "== Trenutno stanje ==")
+     (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
+     (println "Tabela zapisa unešenih u OSM bazu:\n")
+     (println "{| border=1")
+     (println "! scope=\"col\" | ref")
+     (println "! scope=\"col\" | naziv")
+     (println "! scope=\"col\" | wikipedia")
+     (println "! scope=\"col\" | wikidata")
+     (println "! scope=\"col\" | osm")
+     (println "! scope=\"col\" | note")
+     (doseq [route (sort
+                    #(id-compare %1 %2)
+                    (filter
+                     #(or
+                       ;; in iteration 20201223 some gpx files were not downloaded
+                       ;; which previously existed
+                       (some? (get relation-map (:id %)))
+                       (some? (get % :gpx-path))) (vals routes)))]
+       (let [id (:id route)
+             relation (get relation-map id)]
+         (println "|-")
+         (println "|" id)
+         (println "|" (id->region id))
+         (println "|" (:planina route))
+         (println "|" (:uredjenost route))
+         (println "|" (:title route))
+         (println "|" (str "[" (:link route) " pss]"))
+         (println "|" (if-let [relation-id (:id relation)]
+                        (str "{{relation|" relation-id "}}")
+                        ""))
+         (println "|" (if-let [note (get (:osm relation) "note")]
+                        note
+                        (if-let [note (get note-map id)]
+                          note
+                          "")))))
+     (println "|}"))))
 
 
 ;; read original dataset
@@ -175,7 +268,7 @@
    "zoran_blagojevic" "Zapisi-2021.tsv"))
 
 ;; print header
-(with-open [is (fs/input-stream original-dataset-path)]
+#_(with-open [is (fs/input-stream original-dataset-path)]
   (let [header (first (io/input-stream->line-seq is))]
     (let [header (.split header "\t")]
       (doseq [field header]
@@ -183,72 +276,97 @@
 
 (def wikipedia-cache (atom {}))
 
-(wikipedia/title->metadata "sr" "Запис_јасен_код_цркве_(Дреновац)")
+#_(wikipedia/title->metadata "sr" "Запис_јасен_код_цркве_(Дреновац)")
+#_(wikipedia/title->metadata "sr" "Запис храст код цркве (Трмбас)")
 
-(wikipedia/title->metadata "sr" "Запис храст код цркве (Трмбас)")
+(def original-seq
+  (with-open [is (fs/input-stream original-dataset-path)
+              os (fs/output-stream (path/child dataset-path "zapisi.tsv"))]
+    (let [[header & line-seq] (io/input-stream->line-seq is)]
+      (let [header (map #(.trim %) (.split header "\t"))]
+        (doall
+         (map
+          (fn [zapis]
+            (let [id (get zapis "ID")
+                  name (get zapis "Zapis")
+                  wikipedia (get zapis "Vikipedija-stranica")
+                  longitude (as/as-double (.replace (get zapis "Long_D") "," "."))
+                  latitude (as/as-double (.replace (get zapis "Lat_D") "," "."))]
+              (let [wikipedia (wikipedia/title->metadata "sr" wikipedia)
+                    wikidata-id (:wikidata-id wikipedia)]
+                {
+                 :longitude longitude
+                 :latitude latitude
+                 :properties {
+                              :id id
+                              :name name
+                              :wikipedia (:title wikipedia)
+                              :wikidata wikidata-id}
+                 :raw zapis
+                 :tags (into
+                        #{}
+                        (filter
+                         some?
+                         [
+                          (tag/name-tag name)
+                          (when-let [wikidata-id wikidata-id]
+                            (tag/wikidata-tag wikidata-id)
+                            (tag/wikidata-url-tag wikidata-id))]))})
+              #_(do
+                  (println id)
+                  (println "\t" name)
+                  (println "\t" wikipedia)
+                  (println "\t" longitude)
+                  (println "\t" latitude))))
+          (filter
+           #(not
+             (or
+              (= (get % "Zapis") "Запис")
+              (= (get % "Zapis") "Запис ()")
+              (empty? (get % "Zapis"))))
+           (map
+            (fn [line]
+              (let [fields (map #(.trim %) (.split line "\t"))]
+                (zipmap header fields)))
+            line-seq))))))))
 
-(with-open [is (fs/input-stream original-dataset-path)
-            os (fs/output-stream (path/child dataset-path "zapisi.tsv"))]
-  (let [[header & line-seq] (io/input-stream->line-seq is)]
-    (let [header (map #(.trim %) (.split header "\t"))]
-      (doseq [zapis (take 100 (filter
-                      #(not
-                        (or
-                         (= (get % "Zapis") "Запис")
-                         (= (get % "Zapis") "Запис ()")
-                         (empty? (get % "Zapis"))))
-                      (map
-                       (fn [line]
-                         (let [fields (map #(.trim %) (.split line "\t"))]
-                           (zipmap header fields)))
-                       line-seq)))]
-        (let [id (get zapis "ID")
-              name (get zapis "Zapis")
-              wikipedia (get zapis "Vikipedija-stranica")
-              longitude (as/as-double (.replace (get zapis "Long_D") "," "."))
-              latitude (as/as-double (.replace (get zapis "Lat_D") "," "."))]
-          (let [wikipedia (wikipedia/title->metadata "sr" wikipedia)
-                wikidata-id (:wikidata-id wikipedia)]
-            (dataset-add
-             {
-              :longitude longitude
-              :latitude latitude
-              :properties {
-                           :id id
-                           :name name
-                           :wikipedia (:title wikipedia)
-                           :wikidata wikidata-id}
-              :raw zapis
-              :tags (into
-                     #{}
-                     (filter
-                      some?
-                      [
-                       (tag/name-tag name)
-                       (when-let [wikidata-id wikidata-id]
-                         (tag/wikidata-tag wikidata-id)
-                         (tag/wikidata-url-tag wikidata-id))]))}))
-          #_(do
-            (println id)
-            (println "\t" name)
-            (println "\t" wikipedia)
-            (println "\t" longitude)
-            (println "\t" latitude)))))))
+#_(count original-seq) ;; 1167
 
-#_(count (deref dataset)) ;; 1091
-#_(swap! dataset (constantly {}))
+;; reduces original-seq to list of zapis which could be imported to osm
+;; todo add supoort for ignore list if needed
+(def import-seq
+  (filter
+   #(not (= (get-in % [:properties :wikidata]) "Q8066418"))
+   (filter
+    #(some? (get-in % [:properties :wikidata]))
+    original-seq)))
+
+#_(count import-seq) ;; 649
+
+;; find duplicate wikidata ids
+#_(do
+  (reduce
+   (fn [wikidata-ids zapis]
+     (let [wikidata-id (get-in zapis [:properties :wikidata])]
+       (if (contains? wikidata-ids wikidata-id)
+         (do
+           (println "duplicate" wikidata-id)
+           (println "\t" (get-in zapis [:properties :wikipedia])  #_(get zapis :raw))
+           wikidata-ids)
+         (conj wikidata-ids wikidata-id))))
+   #{}
+   import-seq)
+  nil)
 
 ;; check wikidata id, when set, is unique
-#_(let [dataset (vals (deref dataset))
-      wikidata-ids (filter
-                    some?
-                    (map
-                     #(get-in % [:properties :wikidata])
-                     dataset))]
+;; number of zapis we could import to osm
+#_(let [wikidata-ids (map
+                    #(get-in % [:properties :wikidata])
+                    import-seq)]
   (when (=
          (count (into #{} wikidata-ids))
          (count wikidata-ids))
-    (count wikidata-ids))) ;; 26
+    (count wikidata-ids))) ;; 649
 
 ;; print sample
 #_(with-open [is (fs/input-stream original-dataset-path)
@@ -341,6 +459,9 @@
           c))
       name))))
 
+;; todo
+;; go deeper with species
+
 (defn extract-genus
   [zapis]
   (let [mapping {"Храст" "Quercus"
@@ -348,7 +469,11 @@
                  "Крушка" "Pyrus"
                  "Крушка оскоруша" "Pyrus"
                  "Орах" "Juglans"
-                 "Липа" "Tilia"}
+                 "Липа" "Tilia"
+                 "Дуд" "Morus"
+                 "Јавор" "Acer"
+                 "Цер" "Quercus"
+                 "Јасен" "Fraxinus"}
         natural (get zapis "natural")]
     (get mapping natural)))
 
@@ -359,54 +484,81 @@
     "Quercus" "broadleaved"
     "Pyrus" "broadleaved"
     "Juglans" "broadleaved"
-    "Tilia" "broadleaved"}
+    "Tilia" "broadleaved"
+    "Morus" "broadleaved"
+    "Acer" "broadleaved"
+    "Fraxinus" "broadleaved"}
    genus))
 
+;; note map
+(def note-map
+  {
+   "0220" "Q50827528, mladi zapis"
+   "0223" "Q50827544, mladi zapis"
+   "0256" "mladi zapis"
+   "0258" "zanimljiva priča"
+   "0277" "slike litija"
+   "0287" "Q51783582, mladi zapis"})
+
+(def ignore-map
+  {
+   "0225" "posečeni zapis"
+   "0288" "ostaci zapisa"})
+
+;; todo
+
+;; create task with 100 zapis which are not mapped
 ;; wikidata id is used as key, only candidates with id are added
-(let [dataset (vals (deref dataset))
+(let [in-osm-wikidata-set (into
+                           #{}
+                           (filter some? (map #(get-in % [:osm "wikidata"]) osm-seq)))
       candidate-seq (sort-by
                      #(as/as-long (:ref %))
-                     (map
-                      (fn [zapis]
-                        (let [properties (get zapis :properties)
-                              name (normalize-name (get-in zapis [:properties :name]))
-                              genus (extract-genus (get zapis :raw))
-                              leaf-type (extract-leaf-type genus)
-                              wikidata (get-in zapis [:properties :wikidata])
-                              wikipedia (get-in zapis [:properties :wikipedia])]
-                          {
-                           ;; wikidata id is key
-                           :id (get-in zapis [:properties :wikidata])
-                           :longitude (get zapis :longitude)
-                           :latitude (get zapis :latitude)
-                           :wikidata wikidata
-                           :wikipedia wikipedia
-                           :ref (get-in zapis [:properties :id])
-                           :name (get-in zapis [:properties :name])
-                           :raw (get zapis :raw)
-                           :notes (filter
-                                   some?
-                                   [
-                                    (when (nil? wikidata) "no wikidata")
-                                    (when (nil? genus) "no genus")
-                                    (when (nil? leaf-type) "no leaf type")])
-                           :tag-map (into
-                                     #{}
-                                     (filter
-                                      #(some? (second %))
-                                      [
-                                       ["source" "zblagojevic_zapis"]
-                                       ["natural" "tree"]
-                                       ["zapis" "yes"]
-                                       ["genus" genus]
-                                       ["leaf_type" leaf-type]
-                                       ["wikidata" wikidata]
-                                       ["wikipedia" (str "sr:" wikipedia)]
-                                       ["ref" (get-in zapis [:properties :id])]
-                                       ["name" name]
-                                       ["name:sr" name]
-                                       ["name:sr-Latn" (cyrillic->latin name)]]))}))
-                      (filter #(some? (get-in % [:properties :wikidata])) dataset)))]
+                     (take
+                      100
+                      (filter
+                       #(not (contains? in-osm-wikidata-set (:id %)))
+                       (map
+                        (fn [zapis]
+                          (let [properties (get zapis :properties)
+                                name (normalize-name (get-in zapis [:properties :name]))
+                                genus (extract-genus (get zapis :raw))
+                                leaf-type (extract-leaf-type genus)
+                                wikidata (get-in zapis [:properties :wikidata])
+                                wikipedia (get-in zapis [:properties :wikipedia])]
+                            {
+                             ;; wikidata id is key
+                             :id (get-in zapis [:properties :wikidata])
+                             :longitude (get zapis :longitude)
+                             :latitude (get zapis :latitude)
+                             :wikidata wikidata
+                             :wikipedia wikipedia
+                             :ref (get-in zapis [:properties :id])
+                             :name (get-in zapis [:properties :name])
+                             :raw (get zapis :raw)
+                             :notes (filter
+                                     some?
+                                     [
+                                      (when (nil? wikidata) "no wikidata")
+                                      (when (nil? genus) "no genus")
+                                      (when (nil? leaf-type) "no leaf type")])
+                             :tag-map (into
+                                       #{}
+                                       (filter
+                                        #(some? (second %))
+                                        [
+                                         ["source" "zblagojevic_zapis"]
+                                         ["natural" "tree"]
+                                         ["zapis" "yes"]
+                                         ["genus" genus]
+                                         ["leaf_type" leaf-type]
+                                         ["wikidata" wikidata]
+                                         ["wikipedia" (str "sr:" wikipedia)]
+                                         ["ref" (get-in zapis [:properties :id])]
+                                         ["name" name]
+                                         ["name:sr" name]
+                                         ["name:sr-Latn" (cyrillic->latin name)]]))}))
+                        import-seq))))]
   (osmeditor/task-report
    "zapis-new"
    "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Mapiranje_zapisa"
