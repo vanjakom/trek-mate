@@ -37,7 +37,6 @@
 
 ;; depends on way, relation splitted file
 ;; read relations and extract road-ref
-
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)
@@ -382,7 +381,11 @@
    "378" "@ zanimljiv"
    "424" "@ u delu ima oznaku i L6"
    "428" "@ deluje da je vise mapirano"
-   "433" "@ deluje da je vise mapirano"})
+   "433" "@ deluje da je vise mapirano"
+   "440" "@ deluje da je vise mapirano"
+   "472" "@ put nije mapiran"
+
+   "167" "@ postoji neslaganje na pocetku"})
 
 ;; todo
 ;; preci pdf, proveriti izgradjeno / neizgradjeno i tagove
@@ -546,6 +549,9 @@
        (render-road-geometry (json/read-keyworded (fs/input-stream path) ))
        {:status 404})))))
 
+;; todo
+;; primary and secondary without ref, example 168
+
 ;; prepare road for editing
 ;; just change ref in overpass
 ;; todo support switch to daily dump once ways are analyzed
@@ -559,4 +565,4 @@
    (vals
     (:ways
      (overpass/query->dataset
-      "[out:json];way[highway][ref=435](area:3601741311);out center;"))))))
+      "[out:json];way[highway][ref=170](area:3601741311);out center;"))))))

@@ -414,6 +414,8 @@
   (q 592512) ;; "!Đurđevi stupovi"
   (q 26805744) ;; "!Crkva Svete Petke"
 
+  (l 19.76835, 43.78819 "!Bajo" tag/tag-eat "milan preporuka")
+
   
   ;; grcka
   (q 1288074) ;; "!Καϊμακτσαλάν", Кајмакчалан

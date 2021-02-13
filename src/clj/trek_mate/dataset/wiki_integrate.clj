@@ -208,13 +208,49 @@
    (get-in entity [:osm "name"])
    "unknown"))
 
+
+(def ignore-list
+  #{
+    ;; kosovo i metohija
+    "r1332172" "r1332173" "r1332176" "r1332181" "r1332182" "r6903238"
+    "r6946055" "r7081677" "r7463938"
+
+    ;; rumunija
+    "r2366863" "r2366873" "r2366962"
+
+    ;; madjarska
+    "r2374833" "r2374836"
+
+    ;; bosna i hercegovina
+    "r2528260" "r2528269"
+
+    ;; makedonija
+    "r2570958"})
+
+(defn filter-ignore [dataset]
+  (filter
+   (fn [entity]
+     (not
+      (contains?
+       ignore-list
+       (str
+        (cond
+          (= (:type entity) :node)
+          "n"
+          (= (:type entity) :way)
+          "w"
+          (= (:type entity) :relation)
+          "r")
+        (:id entity)))))
+   dataset))
+
 (defn filter-wikipedia-no-wikidata [dataset]
   (filter
     (fn [entity]
       (and
        (get-in entity [:osm "wikipedia"])
        (nil? (get-in entity [:osm "wikidata"]))))
-    dataset))
+    (filter-ignore dataset)))
 
 (defn filter-wikidata-no-wikipedia [dataset]
   (filter
@@ -222,7 +258,7 @@
       (and
        (get-in entity [:osm "wikidata"])
        (nil? (get-in entity [:osm "wikipedia"]))))
-    dataset))
+    (filter-ignore dataset)))
 
 (defn filter-invalid-wikidata [dataset]
   (filter
@@ -230,7 +266,7 @@
      (and
       (get-in entity [:osm "wikidata"])
       (nil? (wikidata/wikidata->url (get-in entity [:osm "wikidata"])))))
-   dataset))
+   (filter-ignore dataset)))
 
 (defn filter-invalid-wikipedia [dataset]
   (filter
@@ -238,14 +274,14 @@
      (and
       (get-in entity [:osm "wikipedia"])
       (nil? (wikidata/wikipedia->url (get-in entity [:osm "wikipedia"])))))
-   dataset))
+   (filter-ignore dataset)))
 
 (defn filter-not-sr-wikipedia [dataset]
   (filter
    (fn [entity]
      (when-let [url (wikidata/wikipedia->url (get-in entity [:osm "wikipedia"]))]
        (not (.startsWith url "https://sr.wikipedia.org"))))
-   dataset))
+   (filter-ignore dataset)))
 
 (defn filter-not-human-readable-wikipedia [dataset]
   ;; todo add check for encoded
@@ -253,7 +289,7 @@
    (fn [entity]
      (when-let [wikipedia (get-in entity [:osm "wikipedia"])]
        (.contains wikipedia "_")))
-   dataset))
+   (filter-ignore dataset)))
 
 ;; prepare tasks
 (do
@@ -325,10 +361,8 @@
                :change :tag-add
                :tag "wikidata"
                :value wikidata}]))))
-      (take
-       300
-       (filter-wikipedia-no-wikidata
-        (prepare-dataset)))))))
+      (filter-wikipedia-no-wikidata
+       (prepare-dataset))))))
   
   (osmeditor/task-report
    "wiki-integrate-not-sr-wikipedia"

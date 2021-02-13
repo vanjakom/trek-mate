@@ -152,8 +152,6 @@
    (channel-provider :relation-in))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-
-
 ;; flatten relations and ways to nodes
 ;; osmconvert \
 ;; 	/Users/vanja/dataset/geofabrik.de/serbia-latest.osm.pbf \

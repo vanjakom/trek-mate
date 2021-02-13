@@ -140,26 +140,12 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
-(web/register-map
- "zapis"
- {
-  :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
-                  :zoom 10}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (vals (deref dataset)))])})
-(web/create-server)
-
 ;; todo support for integration with wikipedia
 ;; clj-common/markdown initial parser, continue work
 
 #_(def spisak (wikipedia/title->wikitext "sr" "Списак_записа_у_Србији"))
 #_(doseq [line (take 100 spisak)]
   (println line))
-
-
 
 (def osm-pbf-path (path/child
                    env/*global-dataset-path*
@@ -208,54 +194,9 @@
 ;; read state from overpass
 (def osm-seq (overpass/query-string "node[natural=tree][zapis=yes](area:3601741311);"))
 
-#_(count osm-seq) ;; 42 ;; 28
-
-;; todo create project list with mapped and wiki-status.md
-#_(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
-  (binding [*out* (new java.io.OutputStreamWriter os)]
-    (do
-     (println "== Trenutno stanje ==")
-     (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
-     (println "Tabela zapisa unešenih u OSM bazu:\n")
-     (println "{| border=1")
-     (println "! scope=\"col\" | ref")
-     (println "! scope=\"col\" | naziv")
-     (println "! scope=\"col\" | wikipedia")
-     (println "! scope=\"col\" | wikidata")
-     (println "! scope=\"col\" | osm")
-     (println "! scope=\"col\" | note")
-     (doseq [route (sort
-                    #(id-compare %1 %2)
-                    (filter
-                     #(or
-                       ;; in iteration 20201223 some gpx files were not downloaded
-                       ;; which previously existed
-                       (some? (get relation-map (:id %)))
-                       (some? (get % :gpx-path))) (vals routes)))]
-       (let [id (:id route)
-             relation (get relation-map id)]
-         (println "|-")
-         (println "|" id)
-         (println "|" (id->region id))
-         (println "|" (:planina route))
-         (println "|" (:uredjenost route))
-         (println "|" (:title route))
-         (println "|" (str "[" (:link route) " pss]"))
-         (println "|" (if-let [relation-id (:id relation)]
-                        (str "{{relation|" relation-id "}}")
-                        ""))
-         (println "|" (if-let [note (get (:osm relation) "note")]
-                        note
-                        (if-let [note (get note-map id)]
-                          note
-                          "")))))
-     (println "|}"))))
-
-
-;; read original dataset
-;; extract id, name, wikipedia page, lat lon, type
-;; depending on wikipedia retrieve wikidata
-
+#_(count osm-seq)
+;; 80 20210210
+;; 72 ;; 42 ;; 28
 
 ;; todo
 ;; postoji podatak da li je drvo nestalo, proveriti sa zoranom
@@ -273,8 +214,6 @@
     (let [header (.split header "\t")]
       (doseq [field header]
         (println field)))))
-
-(def wikipedia-cache (atom {}))
 
 #_(wikipedia/title->metadata "sr" "Запис_јасен_код_цркве_(Дреновац)")
 #_(wikipedia/title->metadata "sr" "Запис храст код цркве (Трмбас)")
@@ -309,6 +248,7 @@
                          some?
                          [
                           (tag/name-tag name)
+                          id
                           (when-let [wikidata-id wikidata-id]
                             (tag/wikidata-tag wikidata-id)
                             (tag/wikidata-url-tag wikidata-id))]))})
@@ -332,10 +272,24 @@
 
 #_(count original-seq) ;; 1167
 
+
+(web/register-map
+ "zapis"
+ {
+  :configuration {
+                  :longitude (:longitude beograd) 
+                  :latitude (:latitude beograd)
+                  :zoom 10}
+  :vector-tile-fn (web/tile-vector-dotstore-fn
+                   [(fn [_ _ _ _]
+                      original-seq)])})
+(web/create-server)
+
 ;; reduces original-seq to list of zapis which could be imported to osm
 ;; todo add supoort for ignore list if needed
 (def import-seq
   (filter
+   ;; some trees have single zapis wikidata
    #(not (= (get-in % [:properties :wikidata]) "Q8066418"))
    (filter
     #(some? (get-in % [:properties :wikidata]))
@@ -459,8 +413,7 @@
           c))
       name))))
 
-;; todo
-;; go deeper with species
+;; todo with categorization go deeper with species
 
 (defn extract-genus
   [zapis]
@@ -473,7 +426,8 @@
                  "Дуд" "Morus"
                  "Јавор" "Acer"
                  "Цер" "Quercus"
-                 "Јасен" "Fraxinus"}
+                 "Јасен" "Fraxinus"
+                 "Трешња" "Prunus"}
         natural (get zapis "natural")]
     (get mapping natural)))
 
@@ -487,10 +441,10 @@
     "Tilia" "broadleaved"
     "Morus" "broadleaved"
     "Acer" "broadleaved"
-    "Fraxinus" "broadleaved"}
+    "Fraxinus" "broadleaved"
+    "Prunus" "broadleaved"}
    genus))
 
-;; note map
 (def note-map
   {
    "0220" "Q50827528, mladi zapis"
@@ -498,14 +452,109 @@
    "0256" "mladi zapis"
    "0258" "zanimljiva priča"
    "0277" "slike litija"
-   "0287" "Q51783582, mladi zapis"})
+   "0287" "Q51783582, mladi zapis"
+   "0326" "лепа крушка"
+   "0348" "активан запис у дворишту школе"
+   "0349" "активан, мала црквица поред"})
 
 (def ignore-map
   {
    "0225" "posečeni zapis"
-   "0288" "ostaci zapisa"})
+   "0288" "ostaci zapisa"
+   "0329" "osuseno drvo?"})
 
-;; todo
+
+;; create project list with mapped
+
+;; create wiki table, wiki-status.md
+#_(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+  (binding [*out* (new java.io.OutputStreamWriter os)]
+    (do
+     (println "== Zapisi unešeni u OSM bazu ==")
+     (println "Tabela se mašinski generiše na osnovu OSM baze\n")
+     (println "{| border=1")
+     (println "! scope=\"col\" | ref")
+     (println "! scope=\"col\" | naziv")
+     (println "! scope=\"col\" | rod")
+     (println "! scope=\"col\" | wikipedia")
+     (println "! scope=\"col\" | wikidata")
+     (println "! scope=\"col\" | osm")
+     (println "! scope=\"col\" | note")
+     (doseq [zapis (sort-by
+                    #(if-let [ref (get-in % [:osm "ref"])]
+                       (as/as-long ref)
+                       0)
+                    osm-seq)]
+       (do
+         (println "|-")
+         (println "|" (or (get-in zapis [:osm "ref"]) ""))
+         (println "|" (or (get-in zapis [:osm "name"]) ""))
+         (println "|" (or (get-in zapis [:osm "genus"]) ""))
+         (println "|" (if-let [wikipedia (get-in zapis [:osm "wikipedia"])]
+                        (str
+                         "["
+                         (osmeditor/link-wikipedia-sr wikipedia)
+                         "  "
+                         (.substring wikipedia 3) "]")
+                        ""))
+         (println "|" (if-let [wikidata (get-in zapis [:osm "wikidata"])]
+                        (str "[" (osmeditor/link-wikidata wikidata) " " wikidata "]")
+                        ""))
+         (println "|" (str "{{node|" (:id zapis) "}}"))
+         (println "|" (or
+                       (get-in zapis [:osm "note"])
+                       #_(get note-map (get-in zapis [:osm "ref"]))
+                       ""))))
+     (println "|}"))))
+
+;; project
+(osmeditor/project-report
+ "zapis"
+ "zapis dataset"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/zapis/index"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:html
+            [:body {:style "font-family:arial;"}
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (fn [zapis]
+                 [:tr
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (get-in zapis [:osm "ref"]) "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (get-in zapis [:osm "name"]) "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (get-in zapis [:osm "genus"]) "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (if-let [wikipedia (get-in zapis [:osm "wikipedia"])]
+                     (osmeditor/hiccup-a
+                      (.substring wikipedia 3)
+                      (osmeditor/link-wikipedia-sr wikipedia))
+                     "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (if-let [wikidata (get-in zapis [:osm "wikidata"])]
+                     (osmeditor/hiccup-a
+                      wikidata
+                      (osmeditor/link-wikidata wikidata))
+                     "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (let [id (get zapis :id)]
+                     (osmeditor/hiccup-a id (osmeditor/link-osm-node id)))]])
+               (sort-by
+                #(if-let [ref (get-in % [:osm "ref"])]
+                   (as/as-long ref)
+                   0)
+                osm-seq))]
+             [:br]]])})))
+
+
 
 ;; create task with 100 zapis which are not mapped
 ;; wikidata id is used as key, only candidates with id are added
@@ -517,7 +566,9 @@
                      (take
                       100
                       (filter
-                       #(not (contains? in-osm-wikidata-set (:id %)))
+                       #(and
+                         (not (some? (get ignore-map (:ref %))))
+                         (not (contains? in-osm-wikidata-set (:id %))))
                        (map
                         (fn [zapis]
                           (let [properties (get zapis :properties)

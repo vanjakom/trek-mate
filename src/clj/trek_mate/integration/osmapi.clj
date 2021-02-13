@@ -399,9 +399,7 @@
                  change-seq)]
     (when (not (= original updated))
       (do
-        (let [changeset (or
-                         (active-changeset comment)
-                         (changeset-create comment))]
+        (let [changeset (ensure-changeset comment)]
           (println "changeset" changeset)
           (node-update changeset updated)
           ;; there is change of reporting change that was already been made
@@ -503,9 +501,7 @@
     (when (not (= original updated))
       (do
         (println "commiting")
-        (let [changeset (or
-                         (active-changeset comment)
-                         (changeset-create comment))]
+        (let [changeset (ensure-changeset comment)]
           (println "changeset" changeset)
           (way-update changeset updated)
           ;; there is chance of reporting change that was already been made
@@ -611,9 +607,7 @@
     (when (not (= original updated))
       (do
         (println "commiting")
-        (let [changeset (or
-                         (active-changeset comment)
-                         (changeset-create comment))]
+        (let [changeset (ensure-changeset comment)]
           (println "changeset" changeset)
           (relation-update changeset updated)
           ;; there is chance of reporting change that was already been made

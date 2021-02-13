@@ -554,11 +554,18 @@
 
 (defn link-wikipedia-sr
   [title]
-  (str "http://sr.wikipedia.org/wiki/" title))
+  (str "http://sr.wikipedia.org/wiki/" (.replace
+                                        (url-encode title)
+                                        "+"
+                                        "%20")))
 
 (defn link-wikidata
   [id]
   (str "http://wikidata.org/wiki/" id))
+
+(defn link-osm-node
+  [id]
+  (str "http://openstreetmap.org/node/" id))
 
 (defn hiccup-a [title link]
   (list
@@ -680,15 +687,14 @@
      [:td {:style "border: 1px solid black; padding: 5px;"}
       [:div
        {
-        :id (str (name (:type candidate)) (:id candidate))}
+        :id (:id candidate)}
        (if (:done candidate) "done" "pending")]]]))
 
 (defn candidate-apply-tag-change
   "Default apply-fn for candidate. Assumes candidate is osm object."
   [task-id description candidate]
   (let [id (:id candidate)
-        type (:type candidate)
-        description (:description candidate)]
+        type (:type candidate)]
     (if-let [changeset (cond
                          (= type :node)
                          (osmapi/node-apply-change-seq
