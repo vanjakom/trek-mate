@@ -236,6 +236,112 @@
       "dataLayer.addTo(map)\n"
       "map.fitBounds(dataLayer.getBounds())\n"]])})
 
+(defn render-change [change]
+  (cond
+    (= (:change change) :create)
+    [:div "created"]
+
+    (= (:change change) :location)
+    [:div "moved"]
+
+    (= (:change change) :nodes)
+    [:div "changed nodes"]
+
+    (= (:change change) :member-add)
+    [:div {:style "color:green;"}
+     (cond
+       (= (:type change) "way")
+       "wy"
+       (= (:type change) "node")
+       "nd"
+       (= (:type change) "relation")
+       "rel")
+     " "
+     (:id change)
+     " "
+     (when (some? (:role change))
+       (str " as " (:role change) " "))
+     [:a {
+          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+          :target "_blank"}
+      "osm"]]
+
+    (= (:change change) :member-remove)
+    [:div {:style "color:red;"}
+     (cond
+       (= (:type change) "way")
+       "wy"
+       (= (:type change) "node")
+       "nd"
+       (= (:type change) "relation")
+       "rel")
+     " "
+     (:id change)
+     " "
+     (when (some? (:role change))
+       (str " as " (:role change) " "))
+     [:a {
+          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+          :target "_blank"}
+      "osm"]]
+
+    (= (:change change) :member-order)
+    [:div {:style "color:blue;"}
+     (cond
+       (= (:type change) "way")
+       "wy"
+       (= (:type change) "node")
+       "nd"
+       (= (:type change) "relation")
+       "rel")
+     " "
+     (:id change)
+     " "
+     (when (some? (:role change))
+       (str " as " (:role change) " "))
+     [:a {
+          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+          :target "_blank"}
+      "osm"]]
+
+    ;; deprecated
+    (= (:change change) :members)
+    (concat
+     (list
+      [:div "changed members order or made circular:"])
+     (map
+      (fn [member]
+        [:div
+         (cond
+           (= (:type member) "way")
+           "wy"
+           (= (:type member) "node")
+           "nd"
+           (= (:type member) "relation")
+           "rel")
+         " "
+         (:ref member)
+         " "
+         (when (some? (:role member))
+           (str " as " (:role member) " "))
+         [:a {
+              :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+              :target "_blank"}
+          "osm"]])
+      (:members change)))
+
+    (= (:change change) :tag-add)
+    [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
+
+    (= (:change change) :tag-remove)
+    [:div {:style "color:red;"} (name (:tag change)) " = " (:value change) ]
+
+    (= (:change change) :tag-change)
+    [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
+
+    :else
+    [:div "unknown"]))
+
 ;; to be used as layer on top of osm data, uses same structure as dataset
 ;; provided by by osm, should have overpass, osmapi function to add data
 ;; and functions to retrieve data
@@ -461,9 +567,9 @@
     (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
       (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
 
-(def dpm-ways (atom [729115595 313730002]))
-
+(def dpm-ways (atom [729115595 313730002 865771171 906841733]))
 #_(deref dpm-ways) ;; [729115595 313730002 865771171]
+#_(swap! dpm-ways (constantly [729115595 313730002 865771171]))
 
 (defn way->feature [way-id]
   (let [way-dataset (dataset-way way-id)]
@@ -1037,8 +1143,9 @@
             " "
             [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
             [:br]])
-         (reverse (first
-            (reduce
+         (reverse
+          (first
+           (reduce
              (fn [[changes version] change]
                (let [changes (if (not (= version (:version change)))
                                (conj
@@ -1052,110 +1159,7 @@
                                changes)]
                 [(conj
                   changes
-                  (cond
-                    (= (:change change) :create)
-                    [:div "created"]
-
-                    (= (:change change) :location)
-                    [:div "moved"]
-
-                    (= (:change change) :nodes)
-                    [:div "changed nodes"]
-
-                    (= (:change change) :member-add)
-                    [:div {:style "color:green;"}
-                     (cond
-                       (= (:type change) "way")
-                       "wy"
-                       (= (:type change) "node")
-                       "nd"
-                       (= (:type change) "relation")
-                       "rel")
-                     " "
-                     (:id change)
-                     " "
-                     (when (some? (:role change))
-                       (str " as " (:role change) " "))
-                     [:a {
-                          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
-                          :target "_blank"}
-                      "osm"]]
-
-                    (= (:change change) :member-remove)
-                    [:div {:style "color:red;"}
-                     (cond
-                       (= (:type change) "way")
-                       "wy"
-                       (= (:type change) "node")
-                       "nd"
-                       (= (:type change) "relation")
-                       "rel")
-                     " "
-                     (:id change)
-                     " "
-                     (when (some? (:role change))
-                       (str " as " (:role change) " "))
-                     [:a {
-                          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
-                          :target "_blank"}
-                      "osm"]]
-
-                    (= (:change change) :member-order)
-                    [:div {:style "color:blue;"}
-                     (cond
-                       (= (:type change) "way")
-                       "wy"
-                       (= (:type change) "node")
-                       "nd"
-                       (= (:type change) "relation")
-                       "rel")
-                     " "
-                     (:id change)
-                     " "
-                     (when (some? (:role change))
-                       (str " as " (:role change) " "))
-                     [:a {
-                          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
-                          :target "_blank"}
-                      "osm"]]
-
-                    ;; deprecated
-                    (= (:change change) :members)
-                    (concat
-                     (list
-                      [:div "changed members order or made circular:"])
-                     (map
-                      (fn [member]
-                        [:div
-                         (cond
-                           (= (:type member) "way")
-                           "wy"
-                           (= (:type member) "node")
-                           "nd"
-                           (= (:type member) "relation")
-                           "rel")
-                         " "
-                         (:ref member)
-                         " "
-                         (when (some? (:role member))
-                           (str " as " (:role member) " "))
-                         [:a {
-                              :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
-                              :target "_blank"}
-                      "osm"]])
-                      (:members change)))
-
-                    (= (:change change) :tag-add)
-                    [:div {:style "color:green;"} (name (:tag change)) " = " (:value change)]
-
-                    (= (:change change) :tag-remove)
-                    [:div {:style "color:red;"} (name (:tag change)) " = " (:value change) ]
-
-                    (= (:change change) :tag-change)
-                    [:div (name (:tag change)) " " (:old-value change) " -> " (:new-value change)]
-
-                    :else
-                    [:div "unknown"]))
+                  (render-change change))
                  (:version change)]))
              ['() nil]
              (cond
@@ -1165,6 +1169,91 @@
                (osmapi/calculate-way-change id)
                (= type "relation")
                (osmapi/calculate-relation-change id)))))]])}))
+  (compojure.core/GET
+   "/view/osm/history/changeset/:id"
+   [id]
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body
+    (hiccup/html
+     [:html
+      [:head [:title (str
+                      (cond
+                        (= type "way")
+                        "w"
+                        (= type "node")
+                        "n"
+                        (= type "relation")
+                        "r")
+                      id)]]
+      [:body {:style "font-family:arial;"}
+       (let [changeset (osmapi/changeset-download id)]         
+         (concat
+          [
+           [:div
+            "changeset: "
+            [:a {
+                 :href (str "https://www.openstreetmap.org/changeset/" id)
+                 :target "_blank"}
+             id]]
+           [:br]]
+          (mapcat
+           (fn [element]
+             (let [id (:id element)]
+               (cond
+                 (= (:type element) :node)
+                 (concat
+                  [
+                   [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id]
+                    " "
+                    [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+                    " "
+                    [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+                    [:br]]]
+                  (map
+                   render-change
+                   (osmapi/calculate-node-change id (:version element)))
+                  [[:br]])
+                
+                 (= (:type element) :way)
+                 (concat
+                  [
+                   [:div
+                    "way: "
+                    [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id]
+                    " "
+                    [:a {:href (str "http://localhost:8080/#id=w" id) :target "_blank"} "iD(localhost)"]
+                    " "
+                    [:a {:href (str "http://level0.osmz.ru/?url=way/" id) :target "_blank"} "level0"]
+                    [:br]]]
+                  (map
+                   render-change
+                   (osmapi/calculate-way-change id (:version element)))
+                  [[:br]])
+                
+                 (= (:type element) :relation)
+                 (concat
+                  [
+                   [:div
+                    "relation: "
+                    [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
+                    " "
+                    [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+                    " "
+                    [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+                    " "
+                    [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
+                    [:br]]]
+                  (map
+                   render-change
+                   (osmapi/calculate-relation-change id (:version element)))
+                  [[:br]])
+                
+                 :else
+                 (list {:change :unknown}))))
+           (:modify changeset))))]])})
   (compojure.core/GET
    "/view/poi/:type"
    [type]

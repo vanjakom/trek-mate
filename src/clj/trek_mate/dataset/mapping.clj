@@ -213,8 +213,8 @@
 
 
 ;; #garmin #mapping #track #waypoint #id
-#_(let [track-id "Track_2021-02-13 160350"
-      waypoint-file-name "Waypoints_13-FEB-21.gpx"
+#_(let [track-id "Track_2021-02-15 180407"
+      waypoint-file-name "Waypoints_15-FEB-21.gpx"
       
       location-seq (with-open [is (fs/input-stream
                                    (path/child
@@ -283,4 +283,4 @@
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
 #_(prepare-name-tags "Црква Свете Петке у Трнави")
 #_(prepare-name-tags "35249 Бусиловац")
-#_(prepare-name-tags "Вила Драга")
+#_(prepare-name-tags "Лучића ограда")

@@ -427,7 +427,8 @@
                  "Јавор" "Acer"
                  "Цер" "Quercus"
                  "Јасен" "Fraxinus"
-                 "Трешња" "Prunus"}
+                 "Трешња" "Prunus"
+                 "Бор" "Pinus"}
         natural (get zapis "natural")]
     (get mapping natural)))
 
@@ -442,7 +443,8 @@
     "Morus" "broadleaved"
     "Acer" "broadleaved"
     "Fraxinus" "broadleaved"
-    "Prunus" "broadleaved"}
+    "Prunus" "broadleaved"
+    "Pinus" "needleleaved"}
    genus))
 
 (def note-map

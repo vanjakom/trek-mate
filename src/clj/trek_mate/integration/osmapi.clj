@@ -42,6 +42,32 @@
           :comment comment))
         (io/write-new-line os)))))
 
+(defn osmc-xml->changeset  
+  [osmc-xml]
+  (todo-warn "support add and delete")
+  (let [modify-seq (mapcat
+                    :content
+                    (filter
+                     #(= (:tag %) :modify)
+                     (:content osmc-xml)))]
+    {
+     :modify
+     (map
+      (fn [element]
+        (cond
+          (= (:tag element) :node)
+          (node-xml->node element)
+
+          (= (:tag element) :way)
+          (way-xml->way element)
+
+          (= (:tag element) :relation)
+          (relation-xml->relation)
+
+          :else
+          (throw (ex-info "unknown element" element))))
+      modify-seq)}))
+
 (def active-changeset-map (atom {}))
 
 #_(close-all-changesets)
@@ -112,6 +138,16 @@
          :osm
          {})))))))
 
+(defn changeset-download
+  "Performs /api/0.6/changeset/#id/download"
+  [changeset]
+  (osmc-xml->changeset
+   (xml/parse
+    (http/with-basic-auth
+      *user*
+      *password*
+      (http/get-as-stream
+       (str *server* "/api/0.6/changeset/" changeset "/download"))))))
 
 (defn ensure-changeset
   "Either retrieves active changeset for comment or creates new one"
@@ -128,6 +164,7 @@
   [node]
   {
    :id (as/as-long (:id (:attrs node)))
+   :type :node
    :version (as/as-long (:version (:attrs node)))
    ;; keep longitude and latitude as strings to prevent diff as result of conversion ?
    :longitude (:lon (:attrs node))
@@ -159,6 +196,7 @@
   [way]
   {
    :id (as/as-long (:id (:attrs way)))
+   :type :way
    :version (as/as-long (:version (:attrs way)))
    :tags (reduce
           (fn [tags tag]
@@ -199,6 +237,7 @@
   [relation]
   {
    :id (as/as-long (:id (:attrs relation)))
+   :type :relation
    :version (as/as-long (:version (:attrs relation)))
    :tags (reduce
           (fn [tags tag]
@@ -411,6 +450,7 @@
 (defn node-history
   "Performs /api/0.6/[node|way|relation]/#id/history"
   [id]
+  (println (str "[osmapi] /node/" id "/history"))
   (json/read-keyworded
    (http/get-as-stream
     (str *server* "/api/0.6/node/" id "/history.json"))))
@@ -514,6 +554,7 @@
   "Performs
   /api/0.6/[node|way|relation]/#id/history"
   [id]
+  (println (str "[osmapi] /way/" id "/history"))
   (json/read-keyworded
    (http/get-as-stream
     (str *server* "/api/0.6/way/" id "/history.json"))))
@@ -625,6 +666,7 @@
   "Performs
   /api/0.6/[node|way|relation]/#id/history"
   [id]
+  (println (str "[osmapi] /relation/" id "/history"))
   (json/read-keyworded
    (http/get-as-stream
     (str *server* "/api/0.6/relation/" id "/history.json"))))
@@ -874,44 +916,72 @@
         #(not (contains? (:tags new) (first %)))
         (:tags old)))))))
 
-(defn calculate-node-change [id]
-  (first
-   (reduce
-    (fn [[changes previous] next]
-      [
-       (concat
-        changes
-        (compare-element previous next))
-       next])
-    []
-    (:elements (node-history id)))))
+(defn calculate-node-change 
+  "Support two modes, retrieve entire history or just at given version"
+  ([id]
+   (first
+    (reduce
+     (fn [[changes previous] next]
+       [
+        (concat
+         changes
+         (compare-element previous next))
+        next])
+     []
+     (:elements (node-history id)))))
+  ([id version]
+   (let [versions (:elements (node-history id))]
+     (compare-element
+      (first
+       (filter #(= (:version %) (dec version)) versions))
+      (first
+       (filter #(= (:version %) version) versions))))))
 
 #_(node-history 1637504812)
 #_(calculate-node-change 1637504812)
+#_(calculate-node-change 1637504812 3)
 
-(defn calculate-way-change [id]
-  (first
-   (reduce
-    (fn [[changes previous] next]
-      [
-       (concat
-        changes
-        (compare-element previous next))
-       next])
-    []
-    (:elements (way-history id)))))
+(defn calculate-way-change
+  "Support two modes, retrieve entire history or just at given version"
+  ([id]
+   (first
+    (reduce
+     (fn [[changes previous] next]
+       [
+        (concat
+         changes
+         (compare-element previous next))
+        next])
+     []
+     (:elements (way-history id)))))
+  ([id version]
+   (let [versions (:elements (way-history id))]
+     (compare-element
+      (first
+       (filter #(= (:version %) (dec version)) versions))
+      (first
+       (filter #(= (:version %) version) versions))))))
 
-(defn calculate-relation-change [id]
-  (first
-   (reduce
-    (fn [[changes previous] next]
-      [
-       (concat
-        changes
-        (compare-element previous next))
-       next])
-    []
-    (:elements (relation-history id)))))
+(defn calculate-relation-change
+  "Support two modes, retrieve entire history or just at given version"
+  ([id]
+   (first
+    (reduce
+     (fn [[changes previous] next]
+       [
+        (concat
+         changes
+         (compare-element previous next))
+        next])
+     []
+     (:elements (relation-history id)))))
+  ([id version]
+   (let [versions (:elements (relation-history id))]
+     (compare-element
+      (first
+       (filter #(= (:version %) (dec version)) versions))
+      (first
+       (filter #(= (:version %) version) versions))))))
 
 (defn report-change [version change]
   (when (not (= version (:version change)))

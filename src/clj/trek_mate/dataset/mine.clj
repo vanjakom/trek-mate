@@ -206,11 +206,19 @@
   (l 19.995883 44.129200 tag/tag-todo "evropski put markacija" "E7")
   (l 20.00183, 44.12677 tag/tag-todo "evropski put markacija" "E7")
   (l 20.0018167 44.1311806 tag/tag-todo tag/tag-hike "znak za veliko brdo")
-
+  (l 19.99069, 44.09845 tag/tag-todo "Charter #16104" "little free library")
+  (l 19.97735, 44.11711 tag/tag-todo "istraziti gde vodi staza")
+  (l 19.94486, 44.08989 tag/tag-todo "Rosica jezero, PSK Balkan staza")
+  (l 19.94498, 44.08964 tag/tag-todo "Subjel, PSK Balkan")
+  (l 19.97236, 44.10132 tag/tag-todo "!Tulumirski podrum" "Divcibare knjiga, 53" "ostatci kuce")
+  (l 19.98076, 44.10122 tag/tag-todo "cudno skretanje prema 175 putu")
+  (l 19.99126, 44.10241 tag/tag-todo "izviditi da li postoji neki drugi put oko zujna")
+  
   ;; interesting places
   (n 6443059265) ;; "!Vrazji Vir"
   (n 7997045503) ;; "!Drvo ljubavi"
-
+  (l 19.976569, 44.09741 trek-mate.tag/tag-rooftoptent)
+  
   (q 164205 tag/tag-todo) ;; "!Caričin grad"
 
   (n 8393499969 tag/tag-todo "#zasadidrvo" "ŠU Apatin, Kružni nasip 13")
@@ -407,6 +415,7 @@
   (n 4359302840) ;; "!Tri kladenca"
   (l 22.80984, 43.24679 "!Ponor" "krasko polje" (tag/url-tag "wikiloc" "https://www.wikiloc.com/hiking-trails/stara-planina-kruzna-tura-plan-dom-dojkinci-ponor-2305052#wp-2305056"))
 
+  (q 61358878 tag/tag-todo "!Rosomacki lonci") ;; "!Rosomacki lonci" 
   
   (q 1142337) ;; "!Manastir Sopoćani"
   (q 1559411) ;; "!Petrova crkva"

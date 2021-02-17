@@ -16,6 +16,8 @@
    [trek-mate.osmeditor :as osmeditor]))
 
 
+;; current work done in osmeditor:464
+
 ;; divcibarska pešačka mreža
 ;; todo
 ;; take osm extract of nodes, filter all nodes in lat lon range
