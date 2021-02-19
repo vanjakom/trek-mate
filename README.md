@@ -1,5 +1,8 @@
 # trek-mate project
 
+# prepare OsmChange ( osmc ) file for edits
+in trek-mate.dataset.zapis, 20210218, changing tags for zapis mapping  
+
 # creating gpx from relation
 used in trek-mate.dataset.current to create gpx of all hiking relations in Deliblato  
 

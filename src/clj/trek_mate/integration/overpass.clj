@@ -3,11 +3,13 @@
    clj-common.clojure)
   (:require
    clojure.walk
+   [clojure.data.xml :as xml]
    [clj-common.as :as as]
    [clj-common.http :as http]
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
-   [trek-mate.integration.osm :as osm]))
+   [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]))
 
 (def ^:dynamic *endpoint* "http://overpass-api.de/")
 
@@ -218,34 +220,44 @@
    (:elements (request query-string))))
 
 (defn query->dataset
-  "Performs query and returns dataset in same format as osmapi"
+  "Performs query and returns dataset in same format as osmapi.
+  Executed query [out:xml];...out meta;"
   [query]
-  (println "[overpass]" query)
-  ;; todo stringify tags on arrival, possible issue with tags which cannot be keywords
-  ;; currently stringified in each type convert fn
-  (reduce
-   (fn [dataset element]
-     (cond
-       (= (:type element) "way")
-       (update-in
-        dataset
-        [:ways (:id element)]
-        (constantly element))
-       (= (:type element) "node")
-       (update-in
-        dataset
-        [:relations (:id element)]
-        (constantly element))
-       (= (:type element) "relation")
-       (update-in
-        dataset
-        [:ways (:id element)]
-        (constantly element))))
-   {}
-   (:elements
-    (json/read-keyworded
-     (http/get-as-stream
-      (str
-       *endpoint*
-       "/api/interpreter?data="
-       (java.net.URLEncoder/encode query)))))))
+  (let [full-query (str "[out:xml];" query "out meta;")]
+    (println "[overpass]" full-query)
+    (reduce
+     (fn [dataset element]
+       (cond
+         (= (:tag element) :node)
+         (let [node (osmapi/node-xml->node element)]
+           (update-in
+            dataset
+            [:nodes (:id node)]
+            (constantly node)))
+         
+         (= (:tag element) :way)
+         (let [way (osmapi/way-xml->way element)]
+           (update-in
+            dataset
+            [:ways (:id way)]
+            (constantly way)))
+         
+         (= (:tag element) :relation)
+         (let [relation (osmapi/relation-xml->relation element)]
+           (update-in
+            dataset
+            [:relations (:id relation)]
+            (constantly relation)))))
+     {}
+     (filter
+      #(or
+        (= (:tag %) :node)
+        (= (:tag %) :way)
+        (= (:tag %) :relation))
+      (:content
+       (xml/parse
+        (http/get-as-stream
+         (str
+          *endpoint*
+          "/api/interpreter?data="
+          (java.net.URLEncoder/encode full-query)))))))))

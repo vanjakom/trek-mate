@@ -42,6 +42,136 @@
           :comment comment))
         (io/write-new-line os)))))
 
+;; conversion utils
+
+(defn node-xml->node
+  [node]
+  {
+   :id (as/as-long (:id (:attrs node)))
+   :type :node
+   :version (as/as-long (:version (:attrs node)))
+   :changeset (as/as-long (:changeset (:attrs node)))
+   ;; keep longitude and latitude as strings to prevent diff as result of conversion ?
+   :longitude (:lon (:attrs node))
+   :latitude (:lat (:attrs node))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (:content node))})
+
+(defn node->node-xml
+  [node]
+  (xml/element
+   :node
+   {
+    :id (str (:id node))
+    :version (str (:version node))
+    :changeset (str (:changeset node))
+    :lon (:longitude node)
+    :lat (:latitude node)}
+   (map
+    (fn [[key value]]
+      (xml/element :tag {:k key :v value}))
+    (:tags node))))
+
+(defn way-xml->way
+  [way]
+  {
+   :id (as/as-long (:id (:attrs way)))
+   :type :way
+   :version (as/as-long (:version (:attrs way)))
+   :changeset (as/as-long (:changeset (:attrs node)))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (filter
+           #(= (:tag %) :tag)
+           (:content way)))
+   :nodes (map
+           #(as/as-long (:ref (:attrs %)))
+           (filter
+            #(= (:tag %) :nd)
+            (:content way)))})
+
+(defn way->way-xml
+  [way]
+  (xml/element
+   :way
+   {
+    :id (str (:id way))
+    :version (str (:version way))
+    :changeset (str (:changeset node))}
+   (concat
+    (map
+     (fn [id]
+       (xml/element
+        :nd
+        {:ref (str id)}))
+     (:nodes way))
+    (map
+     (fn [[key value]]
+       (xml/element :tag {:k key :v value}))
+     (:tags way)))))
+
+(defn relation-xml->relation
+  [relation]
+  {
+   :id (as/as-long (:id (:attrs relation)))
+   :type :relation
+   :version (as/as-long (:version (:attrs relation)))
+   :changeset (as/as-long (:changeset (:attrs node)))
+   :tags (reduce
+          (fn [tags tag]
+            (assoc
+             tags
+             (:k (:attrs tag))
+             (:v (:attrs tag))))
+          {}
+          (filter
+           #(= (:tag %) :tag)
+           (:content relation)))
+   :members (map
+             (fn [member]
+               {
+                :id (as/as-long (:ref (:attrs member)))
+                :type (keyword (:type (:attrs member)))
+                :role (let [role (:role (:attrs member))]
+                        (if (not (empty? role)) role nil))})
+             (filter
+              #(= (:tag %) :member)
+              (:content relation)))})
+
+(defn relation->relation-xml
+  [relation]
+  (xml/element
+   :relation
+   {
+    :id (str (:id relation))
+    :version (str (:version relation))
+    :changeset (str (:changeset node))}
+   (concat
+    (map
+     (fn [member]
+       (xml/element
+        :member
+        {
+         :ref (str (:id member))
+         :role (or (:role member) "")
+         :type (name (:type member))}))
+     (:members relation))
+    (map
+     (fn [[key value]]
+       (xml/element :tag {:k key :v value}))
+     (:tags relation)))))
+
 (defn osmc-xml->changeset  
   [osmc-xml]
   (todo-warn "support add and delete")
@@ -157,130 +287,6 @@
     (let [changeset (changeset-create comment)]
       (active-changeset comment changeset)
       changeset)))
-
-;; conversion utils
-
-(defn node-xml->node
-  [node]
-  {
-   :id (as/as-long (:id (:attrs node)))
-   :type :node
-   :version (as/as-long (:version (:attrs node)))
-   ;; keep longitude and latitude as strings to prevent diff as result of conversion ?
-   :longitude (:lon (:attrs node))
-   :latitude (:lat (:attrs node))
-   :tags (reduce
-          (fn [tags tag]
-            (assoc
-             tags
-             (:k (:attrs tag))
-             (:v (:attrs tag))))
-          {}
-          (:content node))})
-
-(defn node->node-xml
-  [node]
-  (xml/element
-   :node
-   {
-    :id (str (:id node))
-    :version (str (:version node))
-    :lon (:longitude node)
-    :lat (:latitude node)}
-   (map
-    (fn [[key value]]
-      (xml/element :tag {:k key :v value}))
-    (:tags node))))
-
-(defn way-xml->way
-  [way]
-  {
-   :id (as/as-long (:id (:attrs way)))
-   :type :way
-   :version (as/as-long (:version (:attrs way)))
-   :tags (reduce
-          (fn [tags tag]
-            (assoc
-             tags
-             (:k (:attrs tag))
-             (:v (:attrs tag))))
-          {}
-          (filter
-           #(= (:tag %) :tag)
-           (:content way)))
-   :nodes (map
-           #(as/as-long (:ref (:attrs %)))
-           (filter
-            #(= (:tag %) :nd)
-            (:content way)))})
-
-(defn way->way-xml
-  [way]
-  (xml/element
-   :way
-   {
-    :id (str (:id way))
-    :version (str (:version way))}
-   (concat
-    (map
-     (fn [id]
-       (xml/element
-        :nd
-        {:ref (str id)}))
-     (:nodes way))
-    (map
-     (fn [[key value]]
-       (xml/element :tag {:k key :v value}))
-     (:tags way)))))
-
-(defn relation-xml->relation
-  [relation]
-  {
-   :id (as/as-long (:id (:attrs relation)))
-   :type :relation
-   :version (as/as-long (:version (:attrs relation)))
-   :tags (reduce
-          (fn [tags tag]
-            (assoc
-             tags
-             (:k (:attrs tag))
-             (:v (:attrs tag))))
-          {}
-          (filter
-           #(= (:tag %) :tag)
-           (:content relation)))
-   :members (map
-             (fn [member]
-               {
-                :id (as/as-long (:ref (:attrs member)))
-                :type (keyword (:type (:attrs member)))
-                :role (let [role (:role (:attrs member))]
-                        (if (not (empty? role)) role nil))})
-             (filter
-              #(= (:tag %) :member)
-              (:content relation)))})
-
-(defn relation->relation-xml
-  [relation]
-  (xml/element
-   :relation
-   {
-    :id (str (:id relation))
-    :version (str (:version relation))}
-   (concat
-    (map
-     (fn [member]
-       (xml/element
-        :member
-        {
-         :ref (str (:id member))
-         :role (or (:role member) "")
-         :type (name (:type member))}))
-     (:members relation))
-    (map
-     (fn [[key value]]
-       (xml/element :tag {:k key :v value}))
-     (:tags relation)))))
 
 (defn create-relation
   [id version tags members]
@@ -412,30 +418,34 @@
           :content content})
         nil))))
 
+(defn node-prepare-change-seq
+  [node change-seq]
+  (reduce
+   (fn [node change]
+     (cond
+       (= :tag-add (:change change))
+       (let [{tag :tag value :value} change]
+         (if (not (contains? (:tags node)tag))
+           (update-in node [:tags] assoc tag value)
+           node))
+       (= :tag-change (:change change))
+       (let [{tag :tag value :new-value} change]
+         (update-in node [:tags] assoc tag value ))
+       (= :tag-remove (:change change))
+       (let [{tag :tag} change]
+         (update-in node [:tags] dissoc tag))
+       :else
+       node))
+   node
+   change-seq))
+
 (defn node-apply-change-seq
   "Applies given change seq to node, support for osmeditor.
   Retrives node from api, applies changes, creates changeset,
   updated node, closes changeset."
   [id comment change-seq]
   (let [original (node id)
-        updated (reduce
-                 (fn [node change]
-                   (cond
-                     (= :tag-add (:change change))
-                     (let [{tag :tag value :value} change]
-                       (if (not (contains? (:tags node)tag))
-                         (update-in node [:tags] assoc tag value)
-                         node))
-                     (= :tag-change (:change change))
-                     (let [{tag :tag value :new-value} change]
-                       (update-in node [:tags] assoc tag value ))
-                     (= :tag-remove (:change change))
-                     (let [{tag :tag} change]
-                       (update-in node [:tags] dissoc tag))
-                     :else
-                     node))
-                 original
-                 change-seq)]
+        updated (node-prepare-change-seq original change-seq)]
     (when (not (= original updated))
       (do
         (let [changeset (ensure-changeset comment)]
@@ -514,30 +524,34 @@
 
 #_(clojure.data.xml/emit-str (clojure.data.xml/element :osm {:k "<"} "test"))
 
+(defn way-prepare-change-seq
+  [way change-seq]
+  (reduce
+   (fn [way change]
+     (cond
+       (= :tag-add (:change change))
+       (let [{tag :tag value :value} change]
+         (if (not (contains? (:tags way) tag))
+           (update-in way [:tags] assoc tag value)
+           way))
+       (= :tag-change (:change change))
+       (let [{tag :tag value :new-value} change]
+         (update-in way [:tags] assoc tag value ))
+       (= :tag-remove (:change change))
+       (let [{tag :tag} change]
+         (update-in way [:tags] dissoc tag))
+       :else
+       way))
+   way
+   change-seq))
+
 (defn way-apply-change-seq
   "Applies given change seq to way, support for osmeditor.
   Retrives way from api, applies changes, creates changeset,
   updates way, closes changeset."
   [id comment change-seq]
   (let [original (way id)
-        updated (reduce
-                 (fn [way change]
-                   (cond
-                     (= :tag-add (:change change))
-                     (let [{tag :tag value :value} change]
-                       (if (not (contains? (:tags way) tag))
-                         (update-in way [:tags] assoc tag value)
-                         way))
-                     (= :tag-change (:change change))
-                     (let [{tag :tag value :new-value} change]
-                       (update-in way [:tags] assoc tag value ))
-                     (= :tag-remove (:change change))
-                     (let [{tag :tag} change]
-                       (update-in way [:tags] dissoc tag))
-                     :else
-                     way))
-                 original
-                 change-seq)]
+        updated (way-prepare-change-seq original change-seq)]
     (when (not (= original updated))
       (do
         (println "commiting")
@@ -621,30 +635,34 @@
 
 #_(def a (relation-version 11164146 2))
 
+(defn relation-prepare-change-seq
+  [relation change-seq]
+  (reduce
+   (fn [relation change]
+     (cond
+       (= :tag-add (:change change))
+       (let [{tag :tag value :value} change]
+         (if (not (contains? (:tags relation) tag))
+           (update-in relation [:tags] assoc tag value)
+           relation))
+       (= :tag-change (:change change))
+       (let [{tag :tag value :new-value} change]
+         (update-in relation [:tags] assoc tag value ))
+       (= :tag-remove (:change change))
+       (let [{tag :tag} change]
+         (update-in relation [:tags] dissoc tag))
+       :else
+       relation))
+   relation
+   change-seq))
+
 (defn relation-apply-change-seq
   "Applies given change seq to relation, support for osmeditor.
   Retrives relation from api, applies changes, creates changeset,
   updates relation, closes changeset."
   [id comment change-seq]
   (let [original (relation id)
-        updated (reduce
-                 (fn [relation change]
-                   (cond
-                     (= :tag-add (:change change))
-                     (let [{tag :tag value :value} change]
-                       (if (not (contains? (:tags relation) tag))
-                         (update-in relation [:tags] assoc tag value)
-                         relation))
-                     (= :tag-change (:change change))
-                     (let [{tag :tag value :new-value} change]
-                       (update-in relation [:tags] assoc tag value ))
-                     (= :tag-remove (:change change))
-                     (let [{tag :tag} change]
-                       (update-in relation [:tags] dissoc tag))
-                     :else
-                     relation))
-                 original
-                 change-seq)]
+        updated (relation-prepare-change-seq original change-seq)]
     (when (not (= original updated))
       (do
         (println "commiting")
@@ -1091,3 +1109,33 @@
       #(get-in dataset [:nodes %])
       ids))))
 
+
+;; util functions to work with OsmChange osmc
+(defn create-changeset [changeset create-seq modify-seq delete-seq]
+  (let [convert-fn (fn [element]
+                     (let [element (assoc element :changeset changeset)]
+                       (cond
+                         (= (:type element) :node)
+                         (node->node-xml element)
+
+                         (= (:type element) :way)
+                         (way->way-xml element)
+
+                         (= (:type element) :relation)
+                         (relation->relation-xml element))))]
+    (xml/element
+     :osmChange
+     {}
+     [
+      (xml/element
+       :create
+       {}
+       (map convert-fn create-seq))
+      (xml/element
+       :modify
+       {}
+       (map convert-fn modify-seq))
+      (xml/element
+       :delete
+       {}
+       (map convert-fn delete-seq))])))

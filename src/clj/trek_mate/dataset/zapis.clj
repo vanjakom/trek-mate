@@ -3,6 +3,7 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [clojure.data.xml :as xml]
    [hiccup.core :as hiccup]
    compojure.core
    ring.middleware.params
@@ -173,7 +174,7 @@
    (filter
     (fn [node]
       (and
-       (= (get-in node [:osm "zapis"]) "yes")
+       (= (get-in node [:osm "sacred"]) "zapis")
        (= (get-in node [:osm "natural"]) "tree"))))
    (channel-provider :capture-node-in))
   
@@ -192,7 +193,7 @@
 
 
 ;; read state from overpass
-(def osm-seq (overpass/query-string "node[natural=tree][zapis=yes](area:3601741311);"))
+(def osm-seq (overpass/query-string "node[natural=tree][sacred=zapis](area:3601741311);"))
 
 #_(count osm-seq)
 ;; 80 20210210
@@ -342,6 +343,38 @@
         (doseq [[key value] (sort-by first zapis)]
           (println "\t" key " = " value))))))
 
+;; 20210218
+;; change tags as agreed on imports list
+;; find with  overpass, create OsmChange, open in Level0, confirm, upload
+#_(with-open [os (io/output-stream->writer (fs/output-stream ["tmp" "change.osmc"]))]
+  (let [zapis-seq (vals (:nodes (overpass/query->dataset "node[natural=tree][zapis=yes];")))]
+    (xml/emit
+     (osmapi/create-changeset
+      "0"
+      nil
+      (map
+       (fn [zapis]
+         (osmapi/node-prepare-change-seq
+          zapis
+          [
+           {
+            :change :tag-remove
+            :tag "zapis"}
+           {
+            :change :tag-add
+            :tag "sacred"
+            :value "zapis"}
+           {
+            :change :tag-remove
+            :tag "ref"}
+           {
+            :change :tag-add
+            :tag "ref:zapis"
+            :value (get-in zapis [:tags "ref"])}]))
+       zapis-seq)
+      nil)
+     os)))
+
 ;; field domain
 #_(with-open [is (fs/input-stream original-dataset-path)
             os (fs/output-stream (path/child dataset-path "zapisi.tsv"))]
@@ -483,13 +516,13 @@
      (println "! scope=\"col\" | osm")
      (println "! scope=\"col\" | note")
      (doseq [zapis (sort-by
-                    #(if-let [ref (get-in % [:osm "ref"])]
+                    #(if-let [ref (get-in % [:osm "ref:zapis"])]
                        (as/as-long ref)
                        0)
                     osm-seq)]
        (do
          (println "|-")
-         (println "|" (or (get-in zapis [:osm "ref"]) ""))
+         (println "|" (or (get-in zapis [:osm "ref:zapis"]) ""))
          (println "|" (or (get-in zapis [:osm "name"]) ""))
          (println "|" (or (get-in zapis [:osm "genus"]) ""))
          (println "|" (if-let [wikipedia (get-in zapis [:osm "wikipedia"])]
@@ -505,7 +538,7 @@
          (println "|" (str "{{node|" (:id zapis) "}}"))
          (println "|" (or
                        (get-in zapis [:osm "note"])
-                       #_(get note-map (get-in zapis [:osm "ref"]))
+                       #_(get note-map (get-in zapis [:osm "ref:zapis"]))
                        ""))))
      (println "|}"))))
 
@@ -529,7 +562,7 @@
                (fn [zapis]
                  [:tr
                   [:td {:style "border: 1px solid black; padding: 5px;"}
-                   (or (get-in zapis [:osm "ref"]) "")]
+                   (or (get-in zapis [:osm "ref:zapis"]) "")]
                   [:td {:style "border: 1px solid black; padding: 5px;"}
                    (or (get-in zapis [:osm "name"]) "")]
                   [:td {:style "border: 1px solid black; padding: 5px;"}
@@ -550,7 +583,7 @@
                    (let [id (get zapis :id)]
                      (osmeditor/hiccup-a id (osmeditor/link-osm-node id)))]])
                (sort-by
-                #(if-let [ref (get-in % [:osm "ref"])]
+                #(if-let [ref (get-in % [:osm "ref:zapis"])]
                    (as/as-long ref)
                    0)
                 osm-seq))]
@@ -602,12 +635,12 @@
                                         [
                                          ["source" "zblagojevic_zapis"]
                                          ["natural" "tree"]
-                                         ["zapis" "yes"]
+                                         ["sacred" "zapis"]
                                          ["genus" genus]
                                          ["leaf_type" leaf-type]
                                          ["wikidata" wikidata]
                                          ["wikipedia" (str "sr:" wikipedia)]
-                                         ["ref" (get-in zapis [:properties :id])]
+                                         ["ref:zapis" (get-in zapis [:properties :id])]
                                          ["name" name]
                                          ["name:sr" name]
                                          ["name:sr-Latn" (cyrillic->latin name)]]))}))

@@ -213,6 +213,14 @@
   (l 19.97236, 44.10132 tag/tag-todo "!Tulumirski podrum" "Divcibare knjiga, 53" "ostatci kuce")
   (l 19.98076, 44.10122 tag/tag-todo "cudno skretanje prema 175 putu")
   (l 19.99126, 44.10241 tag/tag-todo "izviditi da li postoji neki drugi put oko zujna")
+
+  (l 20.47245, 44.81767 tag/tag-todo "mochi, japanski dezert")
+
+  (l 19.93885, 44.07820
+     tag/tag-todo
+     "Mali Kozomor, trebalo bi da ima vidikovac"
+     (tag/url-tag "vidikovac" "https://3.bp.blogspot.com/-KW39cohko3I/WrkTcJs1x4I/AAAAAAAALyM/8ILLXMA57X096x21Y0OHCDSk5QFyxByiQCEwYBhgL/s400/IMG_8294.JPG"))
+  (l 19.96902, 44.05330 tag/tag-todo "Vodopod Skakavci")
   
   ;; interesting places
   (n 6443059265) ;; "!Vrazji Vir"
