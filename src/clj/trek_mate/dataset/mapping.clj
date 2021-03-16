@@ -10,6 +10,7 @@
    [clj-common.io :as io]
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
+   [clj-common.http :as http]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
@@ -212,9 +213,43 @@
      (gpx/write-track-gpx os [] track-location-seq)))
 
 
+;; #garmin #connect #mapping #track
+#_(let [track-id "2021-03-07T09:14:06+00:00_6390754145"
+      waypoint-file-name "Waypoints_07-MAR-21.gpx"
+      
+      location-seq (with-open [is (fs/input-stream
+                                   (path/child
+                                    env/*global-my-dataset-path*
+                                    "garmin"
+                                    "waypoints"
+                                    waypoint-file-name))]
+                     (:wpt-seq (gpx/read-track-gpx is)))
+      track-seq (with-open [is (fs/input-stream
+                                (path/child
+                                 env/*global-my-dataset-path*
+                                 "garmin-connect"
+                                 (str track-id ".gpx")))]
+                  (:track-seq (gpx/read-track-gpx is)))]
+  (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
+    (json/write-to-stream
+     (geojson/geojson
+      (concat
+       (map
+        geojson/location->point
+        (filter
+         ;; filter out hiking trail marks
+         #_(not (= (:symbol %) "Civil"))
+         (constantly true)
+         location-seq))
+       (map
+        geojson/location-seq->line-string
+        track-seq)))
+     os)))
+
+
 ;; #garmin #mapping #track #waypoint #id
-#_(let [track-id "Track_2021-02-15 180407"
-      waypoint-file-name "Waypoints_15-FEB-21.gpx"
+#_(let [track-id "Track_2021-03-14 151429"
+      waypoint-file-name "Waypoints_14-MAR-21.gpx"
       
       location-seq (with-open [is (fs/input-stream
                                    (path/child
@@ -277,10 +312,72 @@
   (println "name:sr =" name-cyrillic)
   (println "name:sr-Latn =" (zapis/cyrillic->latin name-cyrillic)))
 
-#_(prepare-name-tags "Чесма Свете Тројице") 
+
+
+;; poste
+(do
+  (def posta-seq (overpass/query-string
+                  "nwr[amenity=post_office](area:3601741311);"))
+  (count posta-seq) ;; 453
+  
+  (doseq [[key entry-seq] (reverse
+                         (sort-by
+                          (comp count second)
+                          (group-by #(get-in % [:osm "name"]) posta-seq)))]
+    (println (count entry-seq) key))
+
+  (doseq [posta posta-seq]
+    (println (get-in posta [:osm "ref"]) (get-in posta [:osm "name"])))
+
+  (doseq [posta posta-seq]
+    (println (get-in posta [:osm "name"]))
+    (doseq [[tag value] (get posta :osm)]
+      (println "\t" tag " = " value)))
+
+  (doseq [operator (into
+                    #{}
+                    (map #(get-in % [:osm "operator"]) posta-seq))]
+    (println operator))
+
+  (doseq [operator (into
+                    #{}
+                    (map #(get-in % [:osm "brand"]) posta-seq))]
+    (println operator))
+  
+(require 'clj-http.client)
+
+(clj-http.client/post
+ "https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx"
+ {:form-params
+  {
+   :id 1
+   :tip 1
+   :lokstranice "cir"}})
+
+
+(def a
+ (http/post-form-as-string
+  "https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx"
+  {
+   :id 1
+   :tip 1
+   :lokstranice "cir"}))
+
+(second
+ (re-find
+  (re-matcher
+   #"Локација: </b>(.*?)<br/>"
+   (org.apache.commons.lang3.StringEscapeUtils/unescapeJava a))))
+
+ (re-matches #"hello" "hello, world")
+
+#_(Prepare-name-tags "Чесма Свете Тројице") 
 #_(prepare-name-tags "ЈП \"Војводинашуме\"")
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
-#_(prepare-name-tags "Црква Свете Петке у Трнави")
+#_(prepare-name-tags "Црква Свете Петке")
 #_(prepare-name-tags "35249 Бусиловац")
-#_(prepare-name-tags "Лучића ограда")
+#_(prepare-name-tags "Електропривреда Србије")
+#_(prepare-name-tags "ОШ ”Митрополит Михајло”")
+#_(prepare-name-tags "Кнежево поље")
+#_(prepare-name-tags "Одмаралиште Сава Вељковић")

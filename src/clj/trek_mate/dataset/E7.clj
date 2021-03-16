@@ -247,6 +247,28 @@
 (q 2447081) ;; "!Trnava"
 (q 2562629) ;; "!Gradac"
 
+;; E7-14
+(q 1394496) ;; "!Rudno"
+(q 143042) ;; "!Manastir Studenica"
+(q 1041206) ;; "!Ušće"
+(q 846607) ;; "!Goč"
+(q 2718552) ;; "!Bzenice"
+;; todo ;; Karaula
+(q 375359) ;; "!Kriva Reka"
+
+;; E7-15
+;; todo ;; Jaram
+(q 2050272) ;; "!Pančićev vrh"
+(q 883263) ;; "!Blaževo"
+(q 2729780) ;; "!Lukovo"
+(q 2730469) ;; "!Selova"
+
+;; E7-16
+(q 879935) ;; "!Blace"
+
+
+
+
 
 
 

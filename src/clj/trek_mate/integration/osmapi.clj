@@ -202,6 +202,7 @@
 
 #_(close-all-changesets)
 #_(deref active-changeset-map)
+#_(println (first (first (deref active-changeset-map))))
 
 (defn close-changeset [comment]
   ;; todo call close
@@ -233,7 +234,8 @@
       (str *server* "/api/0.6/permissions")))))
 
 (defn changeset-create
-  [comment]
+  "Performs /api/0.6/changeset/create"
+  [comment tags]
   (as/as-long
    (io/input-stream->string
     (http/with-basic-auth
@@ -249,9 +251,16 @@
           (xml/element
            :changeset
            {}
-           (xml/element
-            :tag
-            {:k "comment" :v comment}))))))))))
+           (conj
+            (map
+             (fn [[tag value]]
+               (xml/element
+                :tag
+                {:k tag :v value}))
+             tags)
+            (xml/element
+             :tag
+             {:k "comment" :v comment})))))))))))
 
 (defn changeset-close
   "Performs /api/0.6/changeset/#id/close"
@@ -281,10 +290,10 @@
 
 (defn ensure-changeset
   "Either retrieves active changeset for comment or creates new one"
-  [comment]
+  [comment tags]
   (if-let [changeset (active-changeset comment)]
     changeset
-    (let [changeset (changeset-create comment)]
+    (let [changeset (changeset-create comment tags)]
       (active-changeset comment changeset)
       changeset)))
 
@@ -448,7 +457,7 @@
         updated (node-prepare-change-seq original change-seq)]
     (when (not (= original updated))
       (do
-        (let [changeset (ensure-changeset comment)]
+        (let [changeset (ensure-changeset comment {})]
           (println "changeset" changeset)
           (node-update changeset updated)
           ;; there is change of reporting change that was already been made
@@ -555,7 +564,7 @@
     (when (not (= original updated))
       (do
         (println "commiting")
-        (let [changeset (ensure-changeset comment)]
+        (let [changeset (ensure-changeset comment {})]
           (println "changeset" changeset)
           (way-update changeset updated)
           ;; there is chance of reporting change that was already been made
@@ -666,7 +675,7 @@
     (when (not (= original updated))
       (do
         (println "commiting")
-        (let [changeset (ensure-changeset comment)]
+        (let [changeset (ensure-changeset comment {})]
           (println "changeset" changeset)
           (relation-update changeset updated)
           ;; there is chance of reporting change that was already been made

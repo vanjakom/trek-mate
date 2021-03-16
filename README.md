@@ -1,10 +1,16 @@
 # trek-mate project
 
+# dotstore, try 2
+in trek-mate.dotstore
+
 # prepare OsmChange ( osmc ) file for edits
 in trek-mate.dataset.zapis, 20210218, changing tags for zapis mapping  
 
 # creating gpx from relation
 used in trek-mate.dataset.current to create gpx of all hiking relations in Deliblato  
+
+# word
+describe location with alphabet leters, trek-mate.word
 
 ## osm editor project
 (:id candidate) must be unique, usually it's node/way/relation id, but it could be something else  

@@ -13,20 +13,20 @@
 ;; I J K L
 ;; M N O P
 
-(defn project-x [longitude]
-  
+(defn project-x [longitude]  
   (long (Math/floor (* (+ (/ longitude 360) 0.5) (Math/pow 2 24)))))
 
 (defn project-y [latitude]
   (let [sin (Math/sin (/ (* latitude Math/PI) 180))
-        y (- 0.5 (/
-                  (* 0.25 (Math/log (/ (+ 1 sin) (- 1 sin))))
-                  Math/PI))
+        y (-
+           0.5
+           (/
+            (* 0.25 (Math/log (/ (+ 1 sin) (- 1 sin))))
+            Math/PI))
         normalized-y (cond
                        (< y 0) 0
                        (> y 1) 1
                        :else y)]
-    (println sin)
     (int (Math/floor (* normalized-y (Math/pow 2 24))))))
 
 (defn x->y->word [x y]

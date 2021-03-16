@@ -3,12 +3,14 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
+   [clojure.data.xml :as xml]
    [hiccup.core :as hiccup]
    compojure.core
    ring.middleware.params
    ring.middleware.keyword-params
    
    [clj-common.as :as as]
+   [clj-common.base64 :as base64]
    [clj-common.context :as context]
    [clj-common.2d :as draw]
    [clj-common.edn :as edn]
@@ -214,6 +216,33 @@
   (l 19.98076, 44.10122 tag/tag-todo "cudno skretanje prema 175 putu")
   (l 19.99126, 44.10241 tag/tag-todo "izviditi da li postoji neki drugi put oko zujna")
 
+  (l 19.985153 44.131742 tag/tag-todo "#e7")
+  (l 19.989247 44.131161 tag/tag-todo "znak sa sekirom")
+  (l 19.99149, 44.10443 tag/tag-todo "studenac, gde je, negde oko Velikog brda")
+  (l 19.97934, 44.10078 tag/tag-todo "markacija prema golubcu, ispratiti")
+  (l 20.01447, 44.12382 tag/tag-todo  "postoje dve markacije sa desne strane kada se ide prema divcibarama na putevima")
+
+  (n
+   6443059265
+   "!Vrazji Vir"
+   (tag/url-tag
+    "wikiloc 1"
+    "https://www.wikiloc.com/hiking-trails/strogi-rezervat-prirode-vrazji-vir-na-reci-kamenici-divcibare-14376370")
+   (tag/url-tag
+    "wikiloc 2"
+    "https://www.wikiloc.com/hiking-trails/divcibare-crni-vrh-vrazji-vir-velika-pleca-44298535#wp-44298537"))
+
+  (l 19.989272, 44.102559 "#trash")
+  (l 19.977399, 44.099037 "#trash")
+
+  ;; rajac
+  (l 20.22482, 44.13628 tag/tag-todo "rajac, vrh, transverzala, e7")
+
+  (l 19.95901 44.03925
+     tag/tag-todo
+     (tag/url-tag "halooglasi" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/na-prodaju-zemljiste-u-blizini-gostoljublja/5425634401177?kid=1&sid=1613743569785")
+     "5k, 064/264-4266")
+  
   (l 20.47245, 44.81767 tag/tag-todo "mochi, japanski dezert")
 
   (l 19.93885, 44.07820
@@ -221,9 +250,10 @@
      "Mali Kozomor, trebalo bi da ima vidikovac"
      (tag/url-tag "vidikovac" "https://3.bp.blogspot.com/-KW39cohko3I/WrkTcJs1x4I/AAAAAAAALyM/8ILLXMA57X096x21Y0OHCDSk5QFyxByiQCEwYBhgL/s400/IMG_8294.JPG"))
   (l 19.96902, 44.05330 tag/tag-todo "Vodopod Skakavci")
+  (l 19.98668, 44.13595 tag/tag-todo "staza Markovi canci - Veliko Brdo, ima markacija")
   
   ;; interesting places
-  (n 6443059265) ;; "!Vrazji Vir"
+  
   (n 7997045503) ;; "!Drvo ljubavi"
   (l 19.976569, 44.09741 trek-mate.tag/tag-rooftoptent)
   
@@ -452,6 +482,31 @@
 
   (q 3395571) ;; "!Tvrđava Koznik"
 
+  ;; knjazevac
+  (l
+   22.16554, 43.63387
+   tag/tag-todo
+   "клисура Ждрело / Књажевачки метеори"
+   "Маркова пећина, Q85995989"
+   (tag/url-tag "Клисура Ждрело" "http://www.toknjazevac.org.rs/index.php/279-klisura-zdrelo")
+   (tag/url-tag "Стогазовац" "https://sr.wikipedia.org/sr-el/Стогазовац")
+   (tag/url-tag "novine" "https://knjazevacke.rs/2020/12/15/uncategorized/klisura-zdrelo-knjazevacki-meteori/"))
+
+  (l
+   20.95264, 43.75200
+   tag/tag-todo
+   "Gledicke planine"
+   "transverzala, obilazi se u septembru")
+  (l
+   20.86544, 43.89901
+   tag/tag-rooftoptent
+   "ispred doma ima livada")
+
+  (l
+   19.88405, 44.23761
+   tag/tag-todo
+   "Deguricka pecina, ima osm note")
+  
   ;; vojvodina
   (l 19.98038, 45.15546
      tag/tag-bike
@@ -467,15 +522,26 @@
      "!Kaštel Marijeta"
      (tag/url-tag "http://kastelmarijeta.com" "website"))
 
-  ;; bosnam sutjeska
+  ;; bosna
+
+  (q 37472) ;; "!Kravica Waterfall"
+  ;; sutjeska
   (q 1262800)
   (q 539439)
 
+  (q 3400817) ;; "!Зебрњак"
+
+  (l 20.0417000 44.1161833 tag/tag-mountain "Zabalac")
+  (l 20.00536, 44.11713 tag/tag-todo "istraziti puteve koji vezuju strazaru i pitomine")
+  (l 20.02589, 44.11766 tag/tag-todo "istraziti put do kraja, spaja se nize, 773 waypoint")
+  (l 20.04404, 44.11498 tag/tag-todo "markirati stazu do maljena")
+  (l 19.99050, 44.10517 tag/tag-todo "obici porez od crkve prema Radovanovica cesmi uz reku")
+  (l 19.98756, 44.10429 tag/tag-todo "vila narcis, upoznaj divcibare, 58.")
+  
   ;; crna gora
   (l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
   (l 19.39173, 43.31656 tag/tag-todo "meanderi ćehotine")
   (l 18.83574, 42.28090 tag/tag-eat "~" "!Branka" "poslasticarnica iz 1968")
-
 
   ;; todo world
 
@@ -568,6 +634,11 @@
    "cloudkit"
    "track"
    env/*trek-mate-user*))
+(def garmin-connect-path
+  (path/child
+   env/*global-my-dataset-path*
+   "garmin-connect"))
+
 
 (def garmin-symbol-map
   {
@@ -594,6 +665,8 @@
              [:br]
              [:a {:href "/projects/tracks/garmin-wp"} "garmin waypoints"]
              [:br]
+             [:a {:href "/projects/tracks/garmin-connect"} "garmin connect tracks"]
+             [:br]
              [:a {:href "/projects/tracks/trek-mate"} "trek-mate tracks"]
              [:br]]])})
   (compojure.core/GET
@@ -610,11 +683,12 @@
      (fn [request]
        (let [dataset (get-in request [:params :dataset])
              track (if-let [track (get-in request [:params :track])]
-                     (url-decode track)
+                     (base64/base64->string track)
                      nil)
              waypoint (if-let [waypoint (get-in request [:params :waypoint])]
-                        (url-decode waypoint)
+                        (base64/base64->string waypoint)
                         nil)]
+         (println "track retrieve, dataset:" dataset ", track:" track )
          (cond
            (= dataset "garmin")
            (if (some? waypoint)
@@ -684,6 +758,20 @@
                             [(geojson/location-seq->line-string
                               location-seq)]))}))
                {:status 404}))
+
+           (= dataset "garmin-connect")
+           (let [path (path/child garmin-connect-path (str track ".gpx"))]
+             (println (path/path->string path))
+               (if (fs/exists? path)
+                 (with-open [is (fs/input-stream path)]
+                   (let [track-seq (:track-seq (gpx/read-track-gpx is))]
+                     {
+                      :status 200
+                      :body (json/write-to-string
+                             (geojson/geojson
+                              [(geojson/location-seq-seq->multi-line-string
+                                track-seq)]))}))
+                 {:status 404}))
            
            :else
            {:status 404}))))))
@@ -719,7 +807,7 @@
                      [:a
                       {:href (str
                               "/projects/tracks/view?type=track&dataset=garmin&track="
-                              (url-encode name))
+                              (base64/string->base64-string name))
                        :target "_blank"}
                       name]]
                     [:td {:style "border: 1px solid black; padding: 5px;"}
@@ -754,7 +842,8 @@
                   [:td {:style "border: 1px solid black; padding: 5px;"}
                    [:a
                     {:href (str
-                            "/projects/tracks/garmin-wp/"(url-encode name))
+                            "/projects/tracks/garmin-wp/"
+                            (base64/string->base64-string name))
                      :target "_blank"}
                     name]]])
                (reverse
@@ -769,7 +858,8 @@
   (compojure.core/GET
    "/projects/tracks/garmin-wp/:file"
    [file]
-   (let [wp-path (path/child garmin-waypoints-path (str (url-decode file) ".gpx"))]
+   (let [file (base64/base64->string file)
+         wp-path (path/child garmin-waypoints-path (str file ".gpx"))]
      (if (fs/exists? wp-path)
        ;; todo tags are not parsed
        (let [tags-map (into
@@ -783,10 +873,10 @@
                                (fn [line]
                                  (when (not (.startsWith line ";;"))
                                    (let [fields (.split line "\\|")]
-                                     (when (== (count fields) 2)
+                                     (when (== (count fields) 3)
                                        [
-                                        (first fields)
-                                        (.split (second fields) " ")]))))
+                                        (str "Waypoints_" (first fields) (second fields))
+                                        (.split (nth fields 2) " ")]))))
                                (io/input-stream->line-seq is))))))
              waypoints (:wpt-seq (gpx/read-track-gpx (fs/input-stream wp-path)))]
          {
@@ -797,7 +887,7 @@
                    [:a
                     {:href (str
                             "/projects/tracks/view?type=waypoint&dataset=garmin&waypoint="
-                            (url-encode file))
+                            (base64/string->base64-string file))
                      :target "_blank"}
                     "view on map"]
                    [:br]
@@ -818,7 +908,9 @@
                           "")]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (or
-                          (get tags-map (:name waypoint))
+                          (clojure.string/join
+                           " "
+                           (get tags-map (str file (:name waypoint))))
                           "")]])
                      waypoints)]]])
           })
@@ -880,11 +972,87 @@
                      [:a
                       {:href (str
                               "/projects/tracks/view?type=track&dataset=trek-mate&track="
-                              (url-encode name))
+                              (base64/string->base64 name))
                        :target "_blank"}
                       name]]
                     [:td {:style "border: 1px solid black; padding: 5px; width: 250px; text-align: center;"}
                      (time/timestamp->date (as/as-long name))]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str "javascript:navigator.clipboard.writeText(\"" name "\")")}
+                      "copy"]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     (if-let [tags (get tags-map (keyword name))]
+                       (clojure.string/join " " tags)
+                       "#pending")]])
+                 track-name-seq)]]]))})
+
+  (compojure.core/GET
+   "/projects/tracks/garmin-connect"
+   _
+   {
+    :status 200
+    :body (let [track-name-seq (reverse
+                                (sort
+                                 (map
+                                  #(.replace % ".gpx" "")
+                                  (filter
+                                   #(.endsWith % ".gpx")
+                                   (map
+                                    last
+                                    (fs/list garmin-connect-path))))))
+                ;; tags map is a bit problematic, tags are stored inside track
+                ;; cache tags map and update if needed
+                tags-map (let [tags-cache-path (path/child
+                                                 garmin-connect-path
+                                                 "tags-cache")
+                               [refresh tags-map] (reduce
+                                                   (fn [[refresh tags-map] track-name]
+                                                     (if (contains? tags-map (keyword track-name))
+                                                       [refresh tags-map]
+                                                       (with-open [is (fs/input-stream
+                                                                       (path/child
+                                                                        garmin-connect-path
+                                                                        (str track-name ".gpx")))]
+                                                         (println "reading track: " track-name)
+                                                         [
+                                                          true
+                                                          (assoc
+                                                           tags-map
+                                                           track-name
+                                                           (into
+                                                            #{}
+                                                            (.split
+                                                             (get-in
+                                                              (xml/parse is)
+                                                              [:content 1 :content 0 :content 0])
+                                                             " ")))])))
+                                                   [
+                                                    false
+                                                    (if (fs/exists? tags-cache-path)
+                                                     (with-open [is (fs/input-stream tags-cache-path)]
+                                                       (json/read-keyworded is))
+                                                     {})]
+                                                   track-name-seq)]
+                           (when refresh
+                             (with-open [is (fs/output-stream tags-cache-path)]
+                               (json/write-to-stream tags-map is)
+                               tags-map))
+                           tags-map)]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 (fn [name]
+                   [:tr
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str
+                              "/projects/tracks/view?type=track&dataset=garmin-connect&track="
+                              (base64/string->base64 name))
+                       :target "_blank"}
+                      name]]
                     [:td {:style "border: 1px solid black; padding: 5px;"}
                      [:a
                       {:href (str "javascript:navigator.clipboard.writeText(\"" name "\")")}
@@ -1047,5 +1215,3 @@
   ["Users" "vanja" "my-dataset-temp" "track-split"]
   13
   (constantly [1 draw/color-red])))
-
-

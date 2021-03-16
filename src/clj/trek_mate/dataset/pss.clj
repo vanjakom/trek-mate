@@ -82,7 +82,9 @@
 (def posts
   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
     (json/read-keyworded is)))
-#_(count posts) ;; 233 on 20201223
+#_(count posts)
+;; 242 on 20210311
+;; 233 on 20201223
 
 ;; download route info and gpx if exists, supports restart
 #_(doseq [post posts]
@@ -97,7 +99,7 @@
     (println oznaka "-" title)
     (println "\t" postid)
     (println "\t" link)
-    (if (constantly true) #_(not (fs/exists? info-path))
+    (if (not (fs/exists? info-path))
       (do
         (println "\tdownloading post ...")
         (let [content (io/input-stream->string (http/get-as-stream link))
@@ -186,7 +188,7 @@
             (println "\t" link)))))))
 
 ;; find references to zapis
-(doseq [post posts]
+#_(doseq [post posts]
   (let [post (update-in post [:postmeta] #(view/seq->map :label %))
         postid (:ID post)
         title (:title post)
@@ -206,8 +208,6 @@
           (do
             (println oznaka "-" title)
             (println "\t" link)))))))
-
-
 
 ;; per route stats
 #_(doseq [post posts]

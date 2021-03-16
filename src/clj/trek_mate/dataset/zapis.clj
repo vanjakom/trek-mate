@@ -174,7 +174,8 @@
    (filter
     (fn [node]
       (and
-       (= (get-in node [:osm "sacred"]) "zapis")
+       (= (get-in node [:osm "religion"]) "christian")
+       (= (get-in node [:osm "denomination"]) "serbian_orthodox")
        (= (get-in node [:osm "natural"]) "tree"))))
    (channel-provider :capture-node-in))
   
@@ -193,9 +194,19 @@
 
 
 ;; read state from overpass
-(def osm-seq (overpass/query-string "node[natural=tree][sacred=zapis](area:3601741311);"))
+(def osm-seq
+  (overpass/query-string
+   "node[natural=tree][religion=christian][denomination=serbian_orthodox](area:3601741311);"))
 
 #_(count osm-seq)
+;; 170 20210315
+;; 164 20210312
+;; 141 20210310
+;; 133 20210305
+;; 124 20210302
+;; 112 20210226
+;; 108 20210225
+;; 94 20210224
 ;; 80 20210210
 ;; 72 ;; 42 ;; 28
 
@@ -375,6 +386,35 @@
       nil)
      os)))
 
+;; 20210302
+;; second change of tags, using combination of standard tags
+#_(with-open [os (io/output-stream->writer (fs/output-stream ["tmp" "change.osmc"]))]
+  (let [zapis-seq (vals (:nodes (overpass/query->dataset "node[natural=tree][sacred=zapis];")))]
+    (xml/emit
+     (osmapi/create-changeset
+      "0"
+      nil
+      (map
+       (fn [zapis]
+         (osmapi/node-prepare-change-seq
+          zapis
+          [
+           {
+            :change :tag-remove
+            :tag "sacred"}
+           {
+            :change :tag-add
+            :tag "religion"
+            :value "christian"}
+           {
+            :change :tag-add
+            :tag "denomination"
+            :value "serbian_orthodox"}]))
+       zapis-seq)
+      nil)
+     os)))
+
+
 ;; field domain
 #_(with-open [is (fs/input-stream original-dataset-path)
             os (fs/output-stream (path/child dataset-path "zapisi.tsv"))]
@@ -461,7 +501,10 @@
                  "Цер" "Quercus"
                  "Јасен" "Fraxinus"
                  "Трешња" "Prunus"
-                 "Бор" "Pinus"}
+                 "Бор" "Pinus"
+                 "Кестен" "Castanea"
+                 "Клен" "Acer"
+                 "Брест" "Ulmus"}
         natural (get zapis "natural")]
     (get mapping natural)))
 
@@ -477,7 +520,8 @@
     "Acer" "broadleaved"
     "Fraxinus" "broadleaved"
     "Prunus" "broadleaved"
-    "Pinus" "needleleaved"}
+    "Pinus" "needleleaved"
+    "Castanea" "broadleaved"}
    genus))
 
 (def note-map
@@ -490,14 +534,74 @@
    "0287" "Q51783582, mladi zapis"
    "0326" "лепа крушка"
    "0348" "активан запис у дворишту школе"
-   "0349" "активан, мала црквица поред"})
+   "0349" "активан, мала црквица поред"
+   "0386" "aktivan zapis u selu"
+   "0390" "ima cesmu pored"
+   "0400" "na sportskom terenu"
+   "0405" "mladi zapis, ima cesmu pored"
+   "0409" "stari hrast"
+   "0415" "mladi orah, na istoj lokaciji i stari orah"
+   "0418" "nisam uspeo da mapiram crkvu, postoji na slikama"
+   "0432" "леп запис"
+   "0503" "песникиња поклонила цркви"
+   "0504" "lep hrast u njivi pored auto-puta"
+   "0511" "stari hrast u selu"
+   "0525" "odrzavan zapis u okviru crkve"
+   "0544" "u okviru trznog centra, Jagodina"
+   "0550" "zanimljiv jasen na privatnoj parceli"})
 
+;; private, skip in first iteration
+;; 20210302 - started tracking private on 421
 (def ignore-map
   {
    "0225" "posečeni zapis"
    "0288" "ostaci zapisa"
-   "0329" "osuseno drvo?"})
+   "0329" "osuseno drvo?"
+   "0383" "poseceni zapis"
+   "0414" "zasadjeno novo stablo na istoj lokaciji pored starog"
+   "0427" "privatno"
+   "0428" "poseceni zapis"
+   "0436" "proveriti"
+   "0451" "privatno"
+   "0453" "privatno, u dvoristu, spomenik pored"
+   "0459" "obrok"
+   "0501" "krst"
+   "0513" "osuseno drvo"
+   "0517" "ostaci zapisa"
+   "0521" "ostaci zapisa"
+   "0532" "ostaci zapisa"
+   "0540" "krst"})
 
+;; started tracking in church and looks public at 0361 on 20210222 
+;; in church assumes looks public
+
+(def in-church
+  ["0388" "0392" "0397" "0401" "0411" "0456" "0508" "0512" "0518" "0519" "0525"
+   "0526" "0541" "0542"])
+
+(def looks-public
+  ["0386" "0387" "0389" "0390" "0395" "0400" "0405" "0407" "0417" "0421"
+   "0425" "0429" "0430" "0434" "0438" "0452" "0544" "0546"])
+
+;; started tracking at 0391 on 20210223
+(def close-to-road
+  ["0391" "0396" "0398" "0399" "0403" "0408" "0409" "0410" "0412" "0415"
+   "0422" "0431" "0437" "0440" "0523" "0547" "0550"])
+
+;; looks like private, not sure how to tag, either ignore or if looks important
+;; map and add to this list
+(def private
+  ["0423" "0441" "0442" "0443" "0455" "0458" "0502" "0516" "0522" "0524" "0528"])
+
+;; 20210310, од 0510
+;; одлучио се за две итерације уноса, прва ”знаменита стабла”, доста субјективно
+;; фактори: старост, видљивост ознаке, колико је јаван приступ, прича која прати запис
+;; стабла која не буду унешена иду на лист second-iteration
+
+(def second-iteration
+  #{"0520" "0529" "0531" "0537" "0545"})
+
+;; 0361 - kesten u staroj porti
 
 ;; create project list with mapped
 
@@ -599,10 +703,11 @@
       candidate-seq (sort-by
                      #(as/as-long (:ref %))
                      (take
-                      100
+                      20
                       (filter
                        #(and
                          (not (some? (get ignore-map (:ref %))))
+                         (not (contains? second-iteration (:ref %)))
                          (not (contains? in-osm-wikidata-set (:id %))))
                        (map
                         (fn [zapis]
@@ -635,7 +740,8 @@
                                         [
                                          ["source" "zblagojevic_zapis"]
                                          ["natural" "tree"]
-                                         ["sacred" "zapis"]
+                                         ["religion" "christian"]
+                                         ["denomination" "serbian_orthodox"]
                                          ["genus" genus]
                                          ["leaf_type" leaf-type]
                                          ["wikidata" wikidata]
@@ -733,7 +839,7 @@
      (let [longitude (:longitude candidate)
            latitude (:latitude candidate)
            tag-map (:tag-map candidate)]
-       (let [changeset (osmapi/ensure-changeset description)]
+       (let [changeset (osmapi/ensure-changeset description {"source" "zblagojevic_zapis"})]
          (if-let [id (osmapi/node-create changeset longitude latitude tag-map)]
            (ring.util.response/redirect
             (str "/view/osm/history/node/" id))
