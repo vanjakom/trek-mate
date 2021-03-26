@@ -313,71 +313,13 @@
   (println "name:sr-Latn =" (zapis/cyrillic->latin name-cyrillic)))
 
 
-
-;; poste
-(do
-  (def posta-seq (overpass/query-string
-                  "nwr[amenity=post_office](area:3601741311);"))
-  (count posta-seq) ;; 453
-  
-  (doseq [[key entry-seq] (reverse
-                         (sort-by
-                          (comp count second)
-                          (group-by #(get-in % [:osm "name"]) posta-seq)))]
-    (println (count entry-seq) key))
-
-  (doseq [posta posta-seq]
-    (println (get-in posta [:osm "ref"]) (get-in posta [:osm "name"])))
-
-  (doseq [posta posta-seq]
-    (println (get-in posta [:osm "name"]))
-    (doseq [[tag value] (get posta :osm)]
-      (println "\t" tag " = " value)))
-
-  (doseq [operator (into
-                    #{}
-                    (map #(get-in % [:osm "operator"]) posta-seq))]
-    (println operator))
-
-  (doseq [operator (into
-                    #{}
-                    (map #(get-in % [:osm "brand"]) posta-seq))]
-    (println operator))
-  
-(require 'clj-http.client)
-
-(clj-http.client/post
- "https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx"
- {:form-params
-  {
-   :id 1
-   :tip 1
-   :lokstranice "cir"}})
-
-
-(def a
- (http/post-form-as-string
-  "https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx"
-  {
-   :id 1
-   :tip 1
-   :lokstranice "cir"}))
-
-(second
- (re-find
-  (re-matcher
-   #"Локација: </b>(.*?)<br/>"
-   (org.apache.commons.lang3.StringEscapeUtils/unescapeJava a))))
-
- (re-matches #"hello" "hello, world")
-
 #_(Prepare-name-tags "Чесма Свете Тројице") 
 #_(prepare-name-tags "ЈП \"Војводинашуме\"")
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
 #_(prepare-name-tags "Црква Свете Петке")
 #_(prepare-name-tags "35249 Бусиловац")
-#_(prepare-name-tags "Електропривреда Србије")
+#_(prepare-name-tags "Чукаре")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
-#_(prepare-name-tags "Кнежево поље")
-#_(prepare-name-tags "Одмаралиште Сава Вељковић")
+#_(prepare-name-tags "Бробињак")
+#_(prepare-name-tags "Црква Светог Романа")

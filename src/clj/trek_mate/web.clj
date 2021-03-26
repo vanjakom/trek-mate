@@ -244,7 +244,7 @@
           (draw/write-png-to-stream fresh-image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
-(defn tile-vector-dotstore-fn
+#_(defn tile-vector-dotstore-fn
   [dotstore-fn-seq]
   (fn [zoom x y]
     (let [[min-longitude max-longitude min-latitude max-latitude]
@@ -336,7 +336,7 @@
 (defn list-dotstores []
   (keys (deref active-dotstore)))
 
-(defn tile-overlay-dotstore-render-fn
+#_(defn tile-overlay-dotstore-render-fn
   [original-tile-fn dotstore-id rule-seq]
   (fn [zoom x y]
     (let [[min-longitude max-longitude min-latitude max-latitude]
@@ -659,7 +659,7 @@
                  "Content-Type" "image/png"}
        :body image}
       {:status 404}))
-   (compojure.core/GET
+   #_(compojure.core/GET
     "/dotstore/:name/:min-longitude/:max-longitude/:min-latitude/:max-latitude"
     [name min-longitude max-longitude min-latitude max-latitude]
     (do
@@ -733,7 +733,9 @@
                      "Content-Type" "image/png"}
            :body input-stream}
           {:status 404})
-        {:status 404})
+        (if-let [dotstore (lookup-dotstore name)]
+          (dotstore (as/as-long zoom) (as/as-long x) (as/as-long y))
+          {:status 404}))
       (catch Throwable e
         (.printStackTrace e)
         {:status 500})))

@@ -39,6 +39,7 @@
    [trek-mate.render :as render]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
+   [trek-mate.word :as word]
    [trek-mate.web :as web]))
 
 (def dataset (atom {}))
@@ -138,6 +139,9 @@
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
 
+(defn d
+  "To be used to remove location once finished"
+  [location-word])
 
 ;; work on location list
 ;; Q3533204 - Triangle building, Paris
@@ -590,6 +594,9 @@
   ;; https://www.wikiloc.com/wikiloc/view.do?pic=hiking-trails&slug=zabrega-sisevac&id=24667423&rd=en
   ;; https://www.wikiloc.com/hiking-trails/stazama-petruskih-monaha-14208596
   ;; https://www.wikiloc.com/hiking-trails/staza-petruskih-monaha-psk-jastrebac-16945736
+
+  ;; macedonia
+  (q 927599) ;; "!Љуботен"
   )
 
 (web/register-map

@@ -79,7 +79,62 @@
                        official-seq))])})
 (web/create-server)
 
-;; todo more code in mapping ...
+
+
+
+#_(do
+  (def posta-seq (overpass/query-string
+                  "nwr[amenity=post_office](area:3601741311);"))
+  (count posta-seq) ;; 453
+  
+  (doseq [[key entry-seq] (reverse
+                         (sort-by
+                          (comp count second)
+                          (group-by #(get-in % [:osm "name"]) posta-seq)))]
+    (println (count entry-seq) key))
+
+  (doseq [posta posta-seq]
+    (println (get-in posta [:osm "ref"]) (get-in posta [:osm "name"])))
+
+  (doseq [posta posta-seq]
+    (println (get-in posta [:osm "name"]))
+    (doseq [[tag value] (get posta :osm)]
+      (println "\t" tag " = " value)))
+
+  (doseq [operator (into
+                    #{}
+                    (map #(get-in % [:osm "operator"]) posta-seq))]
+    (println operator))
+
+  (doseq [operator (into
+                    #{}
+                    (map #(get-in % [:osm "brand"]) posta-seq))]
+    (println operator)))
+  
+#_(require 'clj-http.client)
+
+#_(clj-http.client/post
+ "https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx"
+ {:form-params
+  {
+   :id 1
+   :tip 1
+   :lokstranice "cir"}})
+
+
+#_(def a
+ (http/post-form-as-string
+  "https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx"
+  {
+   :id 1
+   :tip 1
+   :lokstranice "cir"}))
+
+#_(second
+ (re-find
+  (re-matcher
+   #"Локација: </b>(.*?)<br/>"
+   (org.apache.commons.lang3.StringEscapeUtils/unescapeJava a))))
 
 (first official-seq)
 ;; {:longitude 20.4551225799788, :latitude 44.8072671560023, :id 1, :type 1}

@@ -48,4 +48,13 @@
    ""
    (partition 2 2 nil (reverse (range 0 24)))))
 
+(defn word
+  [longitude latitude]
+  (x->y->word (project-x longitude) (project-x latitude)))
+
+(defn location
+  [word]
+  ;; todo
+  )
+
 #_(x->y->word (project-x 21.02783) (project-y 44.80912))

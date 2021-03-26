@@ -84,7 +84,7 @@
    :id (as/as-long (:id (:attrs way)))
    :type :way
    :version (as/as-long (:version (:attrs way)))
-   :changeset (as/as-long (:changeset (:attrs node)))
+   :changeset (as/as-long (:changeset (:attrs way)))
    :tags (reduce
           (fn [tags tag]
             (assoc
@@ -108,7 +108,7 @@
    {
     :id (str (:id way))
     :version (str (:version way))
-    :changeset (str (:changeset node))}
+    :changeset (str (:changeset way))}
    (concat
     (map
      (fn [id]
@@ -127,7 +127,7 @@
    :id (as/as-long (:id (:attrs relation)))
    :type :relation
    :version (as/as-long (:version (:attrs relation)))
-   :changeset (as/as-long (:changeset (:attrs node)))
+   :changeset (as/as-long (:changeset (:attrs relation)))
    :tags (reduce
           (fn [tags tag]
             (assoc
@@ -156,7 +156,7 @@
    {
     :id (str (:id relation))
     :version (str (:version relation))
-    :changeset (str (:changeset node))}
+    :changeset (str (:changeset relation))}
    (concat
     (map
      (fn [member]

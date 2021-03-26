@@ -140,7 +140,9 @@
 		  var key = tileEvent.coords.z + "/" + tileEvent.coords.x + "/" + tileEvent.coords.y
 		  var tile = markerStore.get(key)
 		  //		  tileStore.delete(key)
-		  tile.remove()
+		  if (tile != null) {
+		      tile.remove()
+		  }
 		  markerStore.delete(key)
 	      })
 	  },
@@ -284,7 +286,7 @@
       var map = L.map("map", {maxBoundsViscosity: 1.0})
       map.setMaxBounds ([[-90,-180],[90,180]])
       L.control.scale({imperial: false}).addTo(map)
-
+      
       var dataLayer = null
       
       var params = new URLSearchParams(window.location.search)
@@ -341,6 +343,7 @@
 		  bounds: [[-90,-180], [90, 180]],
 		  noWrap: true
 	      })
+	  /*
 	  jsonGet(
 	      "/configuration/" + mapId,
 	      function (configuration) {
@@ -349,6 +352,7 @@
 		      configuration.zoom)
 	      },
 	      function () {})
+	  */
       }
       dataLayer.addTo(map)
       
@@ -674,7 +678,25 @@
 	      bounds: [[-90,-180], [90, 180]],
 	      noWrap: true
 	  })
+
       
+      var myDot = L.tileLayer(
+	  '/tile/raster/my-dot/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var geocacheNotFound = new L.GridLayer.MarkerLoader(
+	      "/tile/vector/geocache-not-found/{z}/{x}/{y}",
+	      {
+		  maxZoom: 21,
+		  bounds: [[-90,-180], [90, 180]],
+		  noWrap: true
+	      })
+     
       var overlayMaps = {
 	  "data": dataLayer,
 	  "cycle path": mapboxBicycleTile,
@@ -690,9 +712,11 @@
 	  "track": trackTile,
 	  "gopro evidence": goProEvidence,
 	  "DPM": mapboxDPMTile,
+	  "geocache-not-found": geocacheNotFound,
 	  "slot-a": slotATile,
 	  "slot-b": slotBTile,
-	  "slot-c": slotCTile}
+	  "slot-c": slotCTile,
+	  "my-dot": myDot}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       
@@ -710,9 +734,26 @@
 		  ])
 		  map.fitBounds(poly.getBounds());
 	      }).addTo(map)
+
+      if (window.location.hash) {
+	  var splits = window.location.hash.substring(5).split("/")
+	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
+      } else {
+	  map.setView([44.82763029742812, 20.50529479980469], 10)
+      }
+
+      window.onhashchange = function() {
+	  var splits = window.location.hash.substring(5).split("/")
+	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
+      }
+      
+      map.on(
+	  "moveend",
+	  function() {
+	      window.location.hash = "#map=" + map.getZoom() + "/" + map.getCenter().lat + "/" + map.getCenter().lng
+	  })
       
       var mousedownInterval;
-      
       map.on (
 	  "mousedown",
 	  function (e) {

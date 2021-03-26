@@ -199,6 +199,7 @@
    "node[natural=tree][religion=christian][denomination=serbian_orthodox](area:3601741311);"))
 
 #_(count osm-seq)
+;; 186 20210325
 ;; 170 20210315
 ;; 164 20210312
 ;; 141 20210310
@@ -504,7 +505,8 @@
                  "Бор" "Pinus"
                  "Кестен" "Castanea"
                  "Клен" "Acer"
-                 "Брест" "Ulmus"}
+                 "Брест" "Ulmus"
+                 "Платан" "Platanus"}
         natural (get zapis "natural")]
     (get mapping natural)))
 
@@ -521,7 +523,8 @@
     "Fraxinus" "broadleaved"
     "Prunus" "broadleaved"
     "Pinus" "needleleaved"
-    "Castanea" "broadleaved"}
+    "Castanea" "broadleaved"
+    "Platanus" "broadleaved"}
    genus))
 
 (def note-map
@@ -548,7 +551,10 @@
    "0511" "stari hrast u selu"
    "0525" "odrzavan zapis u okviru crkve"
    "0544" "u okviru trznog centra, Jagodina"
-   "0550" "zanimljiv jasen na privatnoj parceli"})
+   "0550" "zanimljiv jasen na privatnoj parceli"
+   "0555" "zapis u restoranu Novi zapis"
+   "0556" "zapis sa uredjenom okolinom"
+   "0565" "zapis ima zakacenu kucicu"})
 
 ;; private, skip in first iteration
 ;; 20210302 - started tracking private on 421
@@ -570,14 +576,17 @@
    "0517" "ostaci zapisa"
    "0521" "ostaci zapisa"
    "0532" "ostaci zapisa"
-   "0540" "krst"})
+   "0540" "krst"
+   "0554" "ostaci zapisa"
+   "0560" "ostaci zapisa"
+   "0568" "ostaci zapisa"})
 
 ;; started tracking in church and looks public at 0361 on 20210222 
 ;; in church assumes looks public
 
 (def in-church
   ["0388" "0392" "0397" "0401" "0411" "0456" "0508" "0512" "0518" "0519" "0525"
-   "0526" "0541" "0542"])
+   "0526" "0541" "0542" "0552"])
 
 (def looks-public
   ["0386" "0387" "0389" "0390" "0395" "0400" "0405" "0407" "0417" "0421"
@@ -586,7 +595,7 @@
 ;; started tracking at 0391 on 20210223
 (def close-to-road
   ["0391" "0396" "0398" "0399" "0403" "0408" "0409" "0410" "0412" "0415"
-   "0422" "0431" "0437" "0440" "0523" "0547" "0550"])
+   "0422" "0431" "0437" "0440" "0523" "0547" "0550" "0553"])
 
 ;; looks like private, not sure how to tag, either ignore or if looks important
 ;; map and add to this list
@@ -599,7 +608,8 @@
 ;; стабла која не буду унешена иду на лист second-iteration
 
 (def second-iteration
-  #{"0520" "0529" "0531" "0537" "0545"})
+  #{"0520" "0529" "0531" "0537" "0545" "0551" "0561" "0563" "0564" "0566"
+    "0569" "0570" "0572" "0574" "0575" "0579" "0580" "0580" })
 
 ;; 0361 - kesten u staroj porti
 
@@ -738,7 +748,6 @@
                                        (filter
                                         #(some? (second %))
                                         [
-                                         ["source" "zblagojevic_zapis"]
                                          ["natural" "tree"]
                                          ["religion" "christian"]
                                          ["denomination" "serbian_orthodox"]
