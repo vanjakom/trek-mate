@@ -226,6 +226,8 @@
   (l 19.97934, 44.10078 tag/tag-todo "markacija prema golubcu, ispratiti")
   (l 20.01447, 44.12382 tag/tag-todo  "postoje dve markacije sa desne strane kada se ide prema divcibarama na putevima")
 
+  (l 19.78655, 44.24440 "!Pakljanska prerast" "[pg:65:8] ima opis kako do")
+  
   (n
    6443059265
    "!Vrazji Vir"
@@ -641,6 +643,14 @@
    "cloudkit"
    "track"
    env/*trek-mate-user*))
+(def trek-mate-location-path
+  (path/child
+   env/*global-my-dataset-path*
+   "trek-mate"
+   "cloudkit"
+   "location-request"
+   env/*trek-mate-user*))
+
 (def garmin-connect-path
   (path/child
    env/*global-my-dataset-path*
@@ -650,11 +660,99 @@
 (def garmin-symbol-map
   {
    "Museum" "objekat"
-   "Civil" "markacija"
+   "Civil" "#markacija"
    "Block, Blue" "ukrstanje neasfaltiranih puteva"
    "Block, Green" "ukrstanje pesackih puteva"
-   "Golf Course" "nesto"
+   ;; not extracted since it doesn't add value but left for overview of symbols used
+   #_"Golf Course" #_"nesto"
    "Fishing Hot Spot Facility" "mala kuca"})
+
+(defn garmin-waypoint-note->tags
+  "Whole text will be extracted plus tag per each # or @ until space"
+  [note]
+  (conj
+   (into
+    #{}
+    (filter
+     some?
+     (first
+      (reduce
+       (fn [[tags in-tag tag-buffer] char]
+         (if in-tag
+           (if (= char \ )
+             [
+              (conj tags tag-buffer)
+              false
+              ""]
+             [
+              tags
+              true
+              (str tag-buffer char)])
+           (if (or (= char \#) (= char \@))
+             [
+              tags
+              true
+              (str char)]
+             [
+              tags
+              false
+              ""])))
+       []
+       note))))
+   note))
+
+#_(garmin-waypoint-note->tags "#e7 markacije i #markacija ostalih staza")
+
+(defn garmin-waypoint-file->location-seq
+  [path]
+  (let [name (.replace (.replace ^String (last path)  "Waypoints_" "") ".gpx" "")
+        note-map (with-open [is (fs/input-stream (path/child (path/parent path) "index.tsv"))]
+                   (reduce
+                    (fn [map ^String entry]
+                      (let [[file id note] (.split entry "\\|")]
+                        (if (= file name)
+                          (assoc map id note)
+                          map)))
+                    {}
+                    (filter
+                     #(not (.startsWith ^String % ";;"))
+                     (io/input-stream->line-seq is))))]
+    (with-open [is (fs/input-stream path)]
+      (doall
+       (map
+        (fn [waypoint]
+          {
+           :longitude (:longitude waypoint)
+           :latitude (:latitude waypoint)
+           :tags (into
+                  #{}
+                  (filter
+                   some?
+                   (conj
+                    (if-let [note (get note-map (:name waypoint))]
+                      (garmin-waypoint-note->tags note)
+                      [])
+                    (get garmin-symbol-map (:symbol waypoint)))))})
+        (:wpt-seq (gpx/read-gpx is)))))))
+
+(defn trek-mate-location-request-file->location-seq
+  [path]
+  (with-open [is (fs/input-stream path)]
+    (doall
+     (map
+      (fn [location-request]
+        {
+         :longitude (:longitude (:location location-request))
+         :latitude (:latitude (:location location-request))
+         :tags (into
+                #{}
+                (filter
+                 #(and
+                   (not (= % "#pending"))
+                   (not (.startsWith % "|+"))
+                   (not (.startsWith % "|-")))
+                 (:tags location-request)))})
+      (json/read-lines-keyworded is)))))
 
 (osmeditor/project-report
  "tracks"
@@ -699,6 +797,7 @@
          (cond
            (= dataset "garmin")
            (if (some? waypoint)
+             ;; switch to use garmin-waypoint-file->location-seq
              (let [path (path/child garmin-waypoints-path (str waypoint ".gpx"))]
                (if (fs/exists? path)
                  (with-open [is (fs/input-stream path)]

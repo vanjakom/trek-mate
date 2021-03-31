@@ -132,6 +132,41 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210330 #rajac #e7 #moto #otvaranje
+#_(do
+  (l 20.15596, 44.10907 "!Ravna gora")
+
+  (l 20.14086, 44.11242 "#e7")
+  (l 20.15036, 44.10988 "#e7")
+  (l 20.15674, 44.10890 "#e7")
+  (l 20.17515, 44.11933 "#e7")
+  (l 20.17588, 44.12775 "#e7")
+  (l 20.19124, 44.13861 "izviditi")
+  (l 20.24029, 44.13870 "izviditi")
+  (l 20.26295, 44.14021 "#e7")
+
+  (q 61125363 "KT1" "#transverzala") ;; "!Planinarski dom „Čika Duško Jovanović“"
+  (q 3417956 "KT2" "#transverzala") ;; "!Rajac"
+  (l 20.24823, 44.14902 "KT3" "!Рајац, Слап" "проверити" "#transverzala")
+  (l 20.24301, 44.14715 "KT4" "!Рајац, Пурина црква" "проверити" "#transverzala")
+  (l 20.22431, 44.14331 "KT5" "!Рајац, Провалија" "приверити" "#transverzala")
+  (l 20.22043, 44.14144 "KT6" "!Рајац, Којића ком" "проверити" "#transverzala")
+  (n 429424203 "KT7" "!Ба, Извор Љига" "#transverzala")
+  (w 701356208 "KT8" "#transverzala") ;; "!Planinarska kuća „Dobra Voda“"
+  (n 7556210050 "KT9" "#transverzala") ;; "!Veliki Šiljak"
+  (n 427886915 "KT10" "#transverzala") ;; "!Suvobor"
+(n 2496289172 "KT11" "#transverzala") ;; "!Danilov vrh"
+(l 20.22556, 44.10559 "KT12" "!Река Дичина, Топлике (извор)" "#transverzala")
+(l 20.24630, 44.12880 "KT13" "!Рајац, Црвено врело" "#transverzala")
+(l 20.26707, 44.13889 "KT14" "!Рајац, Чанак (извор)" "#transverzala")
+
+
+  (storage/import-location-v2-seq-handler
+   (map
+    #(t % "@moto20210330")
+    (vals (deref dataset)))))
+
+
 ;; 20210108 ns
 #_(do
   (def center (overpass/wikidata-id->location :Q55630))
@@ -169,9 +204,6 @@
    dataset-add
    (geocaching/list-geocache-gpx ["Users" "vanja" "Downloads" "BM913CV.gpx"]))) 
 
-
-
-(vals (deref dataset))
 
 ;; hike staza petruskih monaha
 #_(do

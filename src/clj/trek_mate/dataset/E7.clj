@@ -268,7 +268,8 @@
 
 
 
-
+;; toponimi van brosure
+(q 693449 "PSK pobeda planira da obelezi deonicu Divcibare - Boljkovci") ;; "!Boljkovci", 
 
 
 

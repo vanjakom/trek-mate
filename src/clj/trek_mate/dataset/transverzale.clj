@@ -17,6 +17,7 @@
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.http :as http]
+   [clj-common.http-server :as http-server]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
@@ -201,6 +202,9 @@
      (filter #(= (:type %) :node) (get-in dataset [:relations 11510161 :members])))))
 
 
+
+
+
 ;; write points to trek-mate
 #_(let [add-tag (fn [location & tag-seq]
                 (update-in
@@ -260,6 +264,48 @@
     (get-in a [(keyword (str (name (:type member)) "s")) (:id member)]))
   (filter #(= (:type %) :node) (get-in a [:relations 11510161 :members]))))
 {:id 3380199283, :type :node, :version 3, :changeset 99984411, :longitude "19.9125061", :latitude "45.1724802", :tags {"name" "FGT KT01", "ref" "FGM KT04"}}
+
+(defn prepare-planner-route-ways
+  [min-longitude max-longitude min-latitude max-latitude]
+  (println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+
+  (geojson/geojson
+   (map
+    osmeditor/way->feature
+    (map
+     :id
+     (filter
+      #(contains? (:tags %) "highway")
+      (vals
+       (:ways (osmapi/map-bounding-box
+               min-longitude min-latitude max-longitude max-latitude))))))))
+
+;; tools for route preparation
+;; planner - to be used for planning
+(http-server/create-server
+ 7056
+ (compojure.core/routes
+  (compojure.core/GET
+   "/planner/route/:id"
+   [id]
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "planner-route.html"])})
+  (compojure.core/GET
+    "/planner/route/:id/explore/:left/:top/:right/:bottom"
+    [id left top right bottom]
+    (let [id (as/as-long id)
+          left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-planner-route-ways left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))))
+
 
 
 (web/register-map

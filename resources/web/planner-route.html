@@ -1,0 +1,500 @@
+<html>
+  <head>
+    <title>network editor</title>
+    <!--<link rel="stylesheet" href="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/css/ol.css" type="text/css">-->
+    <!--<script type= "text/javascript" src= "https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script>-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js" integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.js"></script>
+    
+    <style>
+      ::-webkit-scrollbar {
+	  display: none;
+      }
+      .content {
+	  white-space: nowrap;
+	  overflow: hidden;
+      }
+      
+      .map {
+	  position: absolute;
+	  left:0px;
+	  top:0px;
+	  right: 0px;
+	  bottom: 0px;
+	  cursor: crosshair;
+      }
+    </style>
+  </head>
+  <body>
+    <!--<div id= "overlay" style= "width:20px;height:20px;">A</div>-->
+    <div id= "content" class= "content">
+      <div id= "map" class= "map"></div>
+    </div>
+    <script type= "text/javascript">            
+      L.TileBoundsLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+              var key = coords.z + "/" + coords.x + "/" + coords.y
+
+	      var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.strokeStyle = this._color
+	      ctx.fillStyle = this._color
+	      ctx.font = "15px Arial"
+	      ctx.lineWidth = 1
+	      ctx.beginPath()
+	      ctx.rect(0, 0, 255, 255)
+	      ctx.fillText(key, 5, 20)
+	      ctx.stroke()
+	      
+	      return tile
+	  },
+      });
+
+      var map = L.map("map", {maxBoundsViscosity: 1.0})
+      map.setMaxBounds([[-90,-180],[90,180]])
+      map.setView([44.81667, 20.46667], 10)
+
+      var osmTile = L.tileLayer(
+	  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      osmTile.addTo(map)
+
+      var mapboxOutdoorTile = L.tileLayer(
+	  'https://api.mapbox.com/styles/v1/vanjakom/ck67vr56k07vl1imrg3et4z6t/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  }) 
+
+      var mapboxBasicTile = L.tileLayer(
+	  'https://api.mapbox.com/styles/v1/vanjakom/ck62b8nqi0alo1iqo5jt6yf5n/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var mapboxBicycleTile = L.tileLayer(
+	  'https://api.mapbox.com/styles/v1/vanjakom/ck6wj5ipw1j5d1ipb4k2tfw9s/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var mapboxSatelliteTile = L.tileLayer(
+	  'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      var BingLayer = L.TileLayer.extend({
+	  getTileUrl: function (tilePoint) {
+	      return L.Util.template(
+		  this._url,
+		  {
+		      q: this._quadKey(tilePoint.x, tilePoint.y, this._getZoomForUrl())
+		  });
+	  },
+	  _quadKey: function (x, y, z) {
+	      var quadKey = [];
+	      for (var i = z; i > 0; i--) {
+		  var digit = '0';
+		  var mask = 1 << (i - 1);
+		  if ((x & mask) != 0) {
+		      digit++;
+		  }
+		  if ((y & mask) != 0) {
+		      digit++;
+		      digit++;
+		  }
+		  quadKey.push(digit);
+	      }
+	      return quadKey.join('');
+	  }
+      });
+
+      var bingAerialTile = new BingLayer(
+	  'http://ecn.t3.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1',
+	  {
+	      attribution: '&copy; <a href="Bing Maps',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      
+      L.EmptyLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+              var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.fillStyle = this._color
+	      ctx.beginPath()
+	      ctx.rect(0, 0, tile.width, tile.height)
+	      ctx.fill()
+	      
+	      return tile
+	  },
+      });
+      
+      var emptyWhiteTile = new L.EmptyLayer(
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(255, 255, 255, 1"})
+      
+      var usTopoTile = L.tileLayer(
+	  'https://tms.osm-hr.org/ustopo/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="Bing Maps',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      
+      var osmGpxTile = L.tileLayer(
+	  'http://gps-a.tile.openstreetmap.org/lines/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      var stravaHeatmapTile = L.tileLayer(
+	  'https://heatmap-external-{s}.strava.com/tiles/all/bluered/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 11,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      L.StravaAuthLayer = L.TileLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._url =
+		  "https://heatmap-external-{s}.strava.com/tiles-auth/all/hot/{z}/{x}/{y}.png?" +
+		  "Key-Pair-Id=" + options.keyPairId + "&Policy=" + options.policy + "&Signature=" + options.signature
+	  }});
+
+      // extracted from cookies, see #strava #heatmap @me note
+      var stravaAuthHeatmapTile = new L.StravaAuthLayer(
+	  {
+	      keyPairId: "APKAIDPUN4QMG7VUQPSA",
+	      policy: "eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vaGVhdG1hcC1leHRlcm5hbC0qLnN0cmF2YS5jb20vKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTU4OTE4NTQxNX0sIkRhdGVHcmVhdGVyVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNTg3OTYxNDE1fX19XX0_",
+	      signature: "Qaag1KPUHuCKSD1LNxI8eXNJwDxSyhK9afhkB3Q6fTmwF9xgVRNOJo~X~7LvKNtKje4har2kCugOjh9h~3em-IultLRWMXQOiFx-eb7Dk5RiYPfuESZ3GbDg6B8RtGsrPN5osaZSHHWi3qIZ5T97qH5hlcLG5GfIBaJ~brUh~R651EJYFgtFbAPLE9xIJiYkpoWKL6f5RKXfmUFDXzVNAwR4Zh62U0exUri-JMl2mY~tDjdN5fX1e-Ybiz2mjmQ3~4WrW3XhpfzdrYytlAFnQkHYzqtH2oLMCMeIgDzf3STKJsbPSIo8zheMTe6sTqvDO59AtCOfRt-ZJVbkfI5ZcA__"
+	  })
+	  
+      
+      var boundsTile = new L.TileBoundsLayer(
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(0, 0, 0, 0.5"})
+
+      
+      var trackTile = L.tileLayer(
+	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var maptilerSatelliteTile = L.tileLayer(
+	  'http://localhost:8085/tile/proxy/maptiler/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var osmWmsDeTile = L.tileLayer.wms(
+	  'http://maps.heigit.org/osm-wms/service?',
+	  {
+	      layers: 'europe_wms:hs_srtm_europa'
+	  })
+
+      var wmflabsHillshadeTile = L.tileLayer(
+	  'http://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      var baseMaps = {
+	  "open street map": osmTile,
+	  "mapbox outdoor": mapboxOutdoorTile,
+	  "mapbox basic": mapboxBasicTile,
+	  "mapbox satellite": mapboxSatelliteTile,
+	  "bing aerial": bingAerialTile,
+	  "ustopo 50": usTopoTile,
+	  "empty white tile": emptyWhiteTile,
+	  "maptiler satellite": maptilerSatelliteTile,
+	  "osm wms de hillshade" : osmWmsDeTile,
+	  "wmflabs hillshade": wmflabsHillshadeTile
+      }
+      
+      var overlayMaps = {
+	  "cycle path": mapboxBicycleTile,
+	  "osm gpx": osmGpxTile,
+	  "tile bounds": boundsTile,
+	  "strava heatmap": stravaHeatmapTile,
+	  "strava auth heatmap": stravaAuthHeatmapTile,
+	  "track": trackTile}
+
+      L.control.layers(baseMaps, overlayMaps).addTo(map)
+
+      L.Control.Button = L.Control.extend({
+	  options: {
+	      //position: 'bottomleft'
+	  },
+	  initialize: function (options) {
+	      this._button = options
+	      this._update();
+	  },
+	  onAdd: function (map) {
+	      this._map = map;
+	      this._container = L.DomUtil.create('div', 'leaflet-control-button');
+	      this._container.style["cursor"] = "pointer"
+	      this._update();
+	      return this._container;
+	  },
+	  onRemove: function (map) {},
+	  getText: function () {
+  	      return this._span.innerHTML;
+	  },
+	  setText: function(text) {
+	      this._span.innerHTML = text;
+	  },
+	  destroy: function () {
+  	      this._button = {};
+  	      this._update();
+	  },
+	  _update: function () {
+	      if (!this._map) {
+		  return;
+	      }
+
+	      this._container.innerHTML = '';
+	      this._makeButton(this._button);
+	      
+	  },
+	  _makeButton: function (button) {
+	      var newButton = L.DomUtil.create('div', 'leaflet-buttons-control-button', this._container);
+	      this._span = L.DomUtil.create('span', 'leaflet-buttons-control-text', newButton);
+	      this._span.innerHTML = button.text;
+	      
+	      L.DomEvent
+		  .addListener(newButton, 'click', L.DomEvent.stop)
+		  .addListener(newButton, 'click', button.onClick, this);
+	      L.DomEvent.disableClickPropagation(newButton);
+	      return newButton;
+	  },
+      });
+
+      
+      if (!Array.prototype.last){
+	  Array.prototype.last = function(){
+              return this[this.length - 1]
+	  }
+      }
+
+      var networkId = window.location.pathname.split("/").last()
+      var networkWays = L.featureGroup()
+      networkWays.addTo(map)
+      var availableWays = L.featureGroup()
+      availableWays.addTo(map)
+      
+      var reloadDataFn = function() {
+	  alert("not implemented")
+      }
+
+      var reloadAvailableDataFn = function() {
+	  availableWays.clearLayers()
+	  fetch("/planner/route/" + networkId + "/explore/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
+	      var networkWaySet = new Set()
+	      networkWays.eachLayer(function(feature) {
+		  if (feature.selected) {
+		      networkWaySet.add(feature.id)
+		  }
+	      })
+
+	      data.features.forEach(function(feature) {
+		  if (!networkWaySet.has(feature.properties.id)) {
+		      var layer = L
+			  .geoJSON(
+			      feature,
+			      {
+				  style: {
+				      color:"#0000ff"}})
+		      layer.selected = false
+		      layer.id = feature.properties.id
+		      layer.on("click", function() {
+			  if (layer.selected) {
+			      layer.setStyle({color: "#0000ff"})
+			      layer.selected = false
+			      networkWays.removeLayer(layer)
+			      availableWays.addLayer(layer)
+			      console.log("removed: " + layer.id)
+			  } else {
+			      layer.setStyle({color: "#ff0000"})
+			      layer.selected = true
+			      availableWays.removeLayer(layer)
+			      networkWays.addLayer(layer)
+			      console.log("added: " + layer.id)
+			  }
+		      })
+
+		      availableWays.addLayer(layer)
+		  }
+	      })
+	  })
+      }
+      
+      fetch("/network/edit/" + networkId + "/retrieve").then(response => response.json()).then(function(data) {
+	  data.features.forEach(function(feature) {
+	      var layer = L
+		  .geoJSON(
+		      feature,
+		      {
+			  style: {
+			      color:"#ff0000"}})
+	      layer.selected = true
+	      layer.id = feature.properties.id
+	      layer.on("click", function() {
+			  if (layer.selected) {
+			      layer.setStyle({color: "#0000ff"})
+			      layer.selected = false
+			      networkWays.removeLayer(layer)
+			      availableWays.addLayer(layer)
+			      console.log("removed: " + layer.id)
+			  } else {
+			      layer.setStyle({color: "#ff0000"})
+			      layer.selected = true
+			      availableWays.removeLayer(layer)
+			      networkWays.addLayer(layer)
+			      console.log("added: " + layer.id)
+			  }
+		      })
+	      networkWays.addLayer(layer)
+	  })
+
+	  map.fitBounds(networkWays.getBounds())
+      })
+
+      new L.Control.Geocoder({
+	  geocoder: L.Control.Geocoder.nominatim(),
+	  defaultMarkGeocode: false}).on(
+	      'markgeocode',
+	      function(e) {
+		  var bbox = e.geocode.bbox;
+		  var poly = L.polygon([
+		      bbox.getSouthEast(),
+		      bbox.getNorthEast(),
+		      bbox.getNorthWest(),
+		      bbox.getSouthWest()
+		  ])
+		  map.fitBounds(poly.getBounds());
+	      }).addTo(map)
+
+      new L.Control.Button({
+	  'text': 'refresh',
+	  'onClick': reloadAvailableDataFn,
+      }).addTo(map);
+
+      var clearFn = function() {
+	  availableWays.clearLayers()
+      }
+      new L.Control.Button({
+	  'text': 'clear',
+	  'onClick': clearFn,
+      }).addTo(map);
+      
+      var saveFn = function() {
+	  var ids = []
+	  networkWays.eachLayer(function(layer) {
+	      ids.push(layer.id)
+	  })
+	  fetch(
+	      "/network/edit/" + networkId + "/update",
+	      {
+		  method: "POST",
+		  body: JSON.stringify(ids)})
+      }
+      new L.Control.Button({
+	  'text': 'save',
+	  'onClick': saveFn,
+      }).addTo(map);
+      
+      var mousedownInterval;      
+      map.on (
+	  "mousedown",
+	  function (e) {
+	      mousedownInterval = setInterval(
+		  function() {
+		      L
+			  .popup({
+			      closeOnClick: false})
+			  .setLatLng(e.latlng)
+			  .setContent(
+			      Number (e.latlng.lng).toFixed (5) + ", "  + Number (e.latlng.lat).toFixed (5)  + "</br>" +
+				  "<a href='http://openstreetmap.org/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>osm</a>" + "</br>" +
+				  "<a href='https://preview.ideditor.com/master/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD</a>" + "</br>" +
+				  "<a href='http://localhost:8080/#map=16/" + e.latlng.lat + "/" + e.latlng.lng + "' target='_blank'>iD (localhost)</a>" + "</br>" +
+				  "<a href='https://www.mapillary.com/app/?focus=map&lat=" + e.latlng.lat + "&lng=" + e.latlng.lng + "&z=16' target='_blank'>mapillary</a>" + "</br>" +
+				  "<a href='http://level0.osmz.ru/?center=" + e.latlng.lat + "," + e.latlng.lng + "' target='_blank'>level0</a></br>" +
+				  "<a href='https://overpass-turbo.eu/?Q=%5Bout%3Ajson%5D%3B%0A%28%0A%20%20way%5Bhighway%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%20%20node%5Btourism%3Dinformation%5D%5Binformation%3Dguidepost%5D%28%7B%7Bbbox%7D%7D%29%3B%0A%29%3B%0Aout%20geom%3B&C=" + e.latlng.lat + ";" + e.latlng.lng + ";16' target='_blank'>overpass path</a></br>")
+			  .openOn(map)},
+		  500)})
+      map.on(
+	  "mousemove",
+	  function (e) {
+	      clearInterval(mousedownInterval)})
+      map.on(
+	  "mouseup",
+	  function (e) {
+	      clearInterval(mousedownInterval)})
+    </script>
+  </body>
+</html>

@@ -829,7 +829,30 @@
 
 #_(split-on 7 [{:id 1} {:id 7} {:id 5} {:id 7}])
 
+(defn print-element
+  "Used for debugging of compare-element"
+  [element]
+  (println "type" (:type element))
+  (println "id" (:id element))
+  (println "version" (:version element))
+  (println (str "coordinates " (:lon element) ", " (:lat element)))
+  (println "tags")
+  (run!
+   #(println (str "\t" (name (first %)) "=" (second %)))
+   (:tags element))
+  (println "nodes")
+  (run!
+   #(println (str "\t" %))
+   (:nodes element))
+  (println "members")
+  (run!
+   #(println (str "\t" (:type %) " " (:ref %) " as " (:role %)))
+   (:members element)))
+
+#_(print-element (last (:elements (way-history 827371796))))
+
 (defn compare-element
+  "Note use print-element for debugging"
   [old new]
   (if (nil? old)
     ;; creation
@@ -855,93 +878,101 @@
       (:user new) (:timestamp new) (:version new) (:changeset new)
       '() (:members new)))
     ;; both exists
-    (filter
-     some?
-     (concat
-      ;; test location, nodes and members
-      ;; switch depending on type
-      (cond
-        (= (:type new) "node")
-        (when (or
-               (not (= (:lon old) (:lon new)))
-               (not (= (:lat old) (:lat new))))
-          [{
-            :change :location
-            :user (:user new)
-            :timestamp (:timestamp new)
-            :version (:version new)
-            :changeset (:changeset new)
-            :old (select-keys old [:lon :lat])
-            :new (select-keys new [:lon :lat])}])
+    (let [change-seq (filter
+                      some?
+                      (concat
+                       ;; test location, nodes and members
+                       ;; switch depending on type
+                       (cond
+                         (= (:type new) "node")
+                         (when (or
+                                (not (= (:lon old) (:lon new)))
+                                (not (= (:lat old) (:lat new))))
+                           [{
+                             :change :location
+                             :user (:user new)
+                             :timestamp (:timestamp new)
+                             :version (:version new)
+                             :changeset (:changeset new)
+                             :old (select-keys old [:lon :lat])
+                             :new (select-keys new [:lon :lat])}])
 
-        (= (:type new) "way")
-        (when (not (= (:nodes old) (:nodes new)))
-          [{
-            :change :nodes
-            :user (:user new)
-            :timestamp (:timestamp new)
-            :version (:version new)
-            :changeset (:changeset new)
-            :old (:nodes old)
-            :new (:nodes new)}])
+                         (= (:type new) "way")
+                         (when (not (= (:nodes old) (:nodes new)))
+                           [{
+                             :change :nodes
+                             :user (:user new)
+                             :timestamp (:timestamp new)
+                             :version (:version new)
+                             :changeset (:changeset new)
+                             :old (:nodes old)
+                             :new (:nodes new)}])
 
-        (= (:type new) "relation")
-        (when (not (= (:members old) (:members new)))
-          (calculate-member-change
-           (:user new) (:timestamp new) (:version new) (:changeset new)
-           (:members old) (:members new))
-          #_[{
-              :change :members
-              :user (:user new)
-              :timestamp (:timestamp new)
-              :version (:version new)
-              :changeset (:changeset new)
-              :members (:members new)}]))
-      ;; test new tags
-      (map
-       (fn [[tag value]]
-         {
-          :change :tag-add
+                         (= (:type new) "relation")
+                         (when (not (= (:members old) (:members new)))
+                           (calculate-member-change
+                            (:user new) (:timestamp new) (:version new) (:changeset new)
+                            (:members old) (:members new))
+                           #_[{
+                               :change :members
+                               :user (:user new)
+                               :timestamp (:timestamp new)
+                               :version (:version new)
+                               :changeset (:changeset new)
+                               :members (:members new)}]))
+                       ;; test new tags
+                       (map
+                        (fn [[tag value]]
+                          {
+                           :change :tag-add
+                           :user (:user new)
+                           :timestamp (:timestamp new)
+                           :version (:version new)
+                           :changeset (:changeset new)
+                           :tag tag
+                           :value value})
+                        (filter
+                         #(not (contains? (:tags old) (first %)))
+                         (:tags new)))
+                       ;; test changed tags
+                       (map
+                        (fn [[tag value]]
+                          {
+                           :change :tag-change
+                           :user (:user new)
+                           :timestamp (:timestamp new)
+                           :version (:version new)
+                           :changeset (:changeset new)
+                           :tag tag
+                           :new-value value
+                           :old-value (get-in old [:tags tag])})
+                        (filter
+                         #(and
+                           (contains? (:tags old) (first %))
+                           (not (= (get-in old [:tags (first %)]) (second %))))
+                         (:tags new)))
+                       ;; test removed tags
+                       (map
+                        (fn [[tag value]]
+                          {
+                           :change :tag-remove
+                           :user (:user new)
+                           :timestamp (:timestamp new)
+                           :version (:version new)
+                           :changeset (:changeset new)
+                           :tag tag
+                           :value value})
+                        (filter
+                         #(not (contains? (:tags new) (first %)))
+                         (:tags old)))))]
+      (if (> (count change-seq) 0)
+        change-seq
+        [{
+          :change :no-change
           :user (:user new)
           :timestamp (:timestamp new)
           :version (:version new)
-          :changeset (:changeset new)
-          :tag tag
-          :value value})
-       (filter
-        #(not (contains? (:tags old) (first %)))
-        (:tags new)))
-      ;; test changed tags
-      (map
-       (fn [[tag value]]
-         {
-          :change :tag-change
-          :user (:user new)
-          :timestamp (:timestamp new)
-          :version (:version new)
-          :changeset (:changeset new)
-          :tag tag
-          :new-value value
-          :old-value (get-in old [:tags tag])})
-       (filter
-        #(and
-          (contains? (:tags old) (first %))
-          (not (= (get-in old [:tags (first %)]) (second %))))
-        (:tags new)))
-      ;; test removed tags
-      (map
-       (fn [[tag value]]
-         {
-          :change :tag-remove
-          :user (:user new)
-          :timestamp (:timestamp new)
-          :version (:version new)
-          :changeset (:changeset new)
-          :tag tag
-          :value value})
-       (filter
-        #(not (contains? (:tags new) (first %)))
-        (:tags old)))))))
+          :changeset (:changeset new)}]))))
 
 (defn calculate-node-change 
   "Support two modes, retrieve entire history or just at given version"

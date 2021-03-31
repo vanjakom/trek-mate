@@ -242,28 +242,6 @@
   (type (aget a 0))
   )
 
-(web/register-dotstore
- "my-dot"
- (fn [zoom x y]
-   (try
-     (let [zoom (as/as-long zoom)
-           x (as/as-long x)
-           y (as/as-long y)
-           path (tile->path ["tmp" "dotstore"] [zoom x y])]
-       (if (fs/exists? path)
-         (let [tile (bitset-read-tile path)
-               buffer-output-stream (io/create-buffer-output-stream)]
-           (draw/write-png-to-stream
-            (bitset-render-tile tile draw/color-transparent draw/color-red 2) buffer-output-stream)
-           {
-            :status 200
-            :body (io/buffer-output-stream->input-stream buffer-output-stream)})
-         {:status 404}))
-     (catch Exception e
-       (.printStackTrace e)
-       {
-        :status 500}))))
-
 (defn bitset-downscale-tile
   [[zoom tile-x tile-y] tile]
   (let [fresh (bitset-create-tile)
@@ -379,17 +357,102 @@
           (context/counter context "write")
           (context/set-state context "completion"))))))
 
+(def my-dot-root-path ["Users" "vanja" "my-dataset-local" "dotstore" "my-dot"])
+(def markacija-root-path ["Users" "vanja" "my-dataset-local" "dotstore" "markacija"])
+(def e7-root-path ["Users" "vanja" "my-dataset-local" "dotstore" "e7"])
 
-;; import all garmin tracks
-#_(let [context (context/create-state-context)
+;; register tile set
+(web/register-dotstore
+ "my-dot"
+ (fn [zoom x y]
+   (try
+     (let [zoom (as/as-long zoom)
+           x (as/as-long x)
+           y (as/as-long y)
+           path (tile->path my-dot-root-path [zoom x y])]
+       (if (fs/exists? path)
+         (let [tile (bitset-read-tile path)
+               buffer-output-stream (io/create-buffer-output-stream)]
+           (draw/write-png-to-stream
+            (bitset-render-tile tile draw/color-transparent draw/color-red 2) buffer-output-stream)
+           {
+            :status 200
+            :body (io/buffer-output-stream->input-stream buffer-output-stream)})
+         {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500}))))
+
+(web/register-dotstore
+ "markacija"
+ (fn [zoom x y]
+   (try
+     (let [zoom (as/as-long zoom)
+           x (as/as-long x)
+           y (as/as-long y)
+           path (tile->path markacija-root-path [zoom x y])]
+       (if (fs/exists? path)
+         (let [tile (bitset-read-tile path)
+               buffer-output-stream (io/create-buffer-output-stream)]
+           (draw/write-png-to-stream
+            (bitset-render-tile tile draw/color-transparent draw/color-red 2) buffer-output-stream)
+           {
+            :status 200
+            :body (io/buffer-output-stream->input-stream buffer-output-stream)})
+         {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500}))))
+
+(web/register-dotstore
+ "e7"
+ (fn [zoom x y]
+   (try
+     (let [zoom (as/as-long zoom)
+           x (as/as-long x)
+           y (as/as-long y)
+           path (tile->path e7-root-path [zoom x y])]
+       (if (fs/exists? path)
+         (let [tile (bitset-read-tile path)
+               buffer-output-stream (io/create-buffer-output-stream)]
+           (draw/write-png-to-stream
+            (bitset-render-tile tile draw/color-transparent draw/color-blue 4) buffer-output-stream)
+           {
+            :status 200
+            :body (io/buffer-output-stream->input-stream buffer-output-stream)})
+         {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500}))))
+
+;; incremental import of garmin tracks
+;; in case fresh import is needed modify last-track to show minimal date
+;; todo prepare last-track for next iteration
+#_(let [last-track "Track_2021-02-28 184205.gpx"
+      time-formatter-fn (let [formatter (new java.text.SimpleDateFormat "yyyy-MM-dd HHmmss")]
+                          (.setTimeZone
+                           formatter
+                           (java.util.TimeZone/getTimeZone "Europe/Belgrade"))
+                          (fn [track-name]
+                            (.getTime
+                             (.parse
+                              formatter
+                              (.replace (.replace track-name "Track_" "") ".gpx" "")))))
+      last-timestamp (time-formatter-fn last-track)
+      context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
   (pipeline/emit-seq-go
    (context/wrap-scope context "emit")
    (filter
-    #(.endsWith ^String (last %) ".gpx")
-    (fs/list trek-mate.dataset.mine/garmin-track-path))
+    #(> (time-formatter-fn (last %)) last-timestamp)
+    (filter
+     #(.endsWith ^String (last %) ".gpx")
+     (fs/list trek-mate.dataset.mine/garmin-track-path)))
    (channel-provider :gpx-in))
   (pipeline/transducer-stream-list-go
    (context/wrap-scope context "read-gpx")
@@ -400,36 +463,148 @@
         (println gpx-path)
         (apply concat (:track-seq (gpx/read-track-gpx is))))))
    (channel-provider :in))
-  #_(pipeline/take-go
-   (context/wrap-scope context "take")
-   10
-   (channel-provider :in)
-   (channel-provider :out))
-  #_(pipeline/for-each-go
-   (context/wrap-scope context "for-each")
-   (channel-provider :out)
-   println)
   (bitset-write-go
    (context/wrap-scope context "bitset-write")
    resource-controller
    (channel-provider :in)
-   ["tmp" "dotstore"]
+   my-dot-root-path
    1000))
 
-;; import all trek-mate tracks
-;; todo
-;; run for hours, problem were
-;; not sorted tracks, sort by time
-;; low number of buffered tiles, increase to 10k
-#_(let [context (context/create-state-context)
+;; incremental import of garmin waypoints to markacija dotstore
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; todo prepare last-waypoint for next iteration
+#_(let [last-waypoint "Waypoints_27-MAR-21.gpx"
+      time-formatter-fn (let [formatter (new java.text.SimpleDateFormat "dd-MMM-yy")]
+                          (.setTimeZone
+                           formatter
+                           (java.util.TimeZone/getTimeZone "Europe/Belgrade"))
+                          (fn [track-name]
+                            (.getTime
+                             (.parse
+                              formatter
+                              (.replace (.replace track-name "Waypoints_" "") ".gpx" "")))))
+      last-timestamp (time-formatter-fn last-waypoint)
+      context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
   (pipeline/emit-seq-go
    (context/wrap-scope context "emit")
+   (sort-by
+    #(time-formatter-fn (last %))
+    (filter
+     #(> (time-formatter-fn (last %)) last-timestamp)
+     (filter
+      #(.endsWith ^String (last %) ".gpx")
+      (fs/list trek-mate.dataset.mine/garmin-waypoints-path))))
+   (channel-provider :waypoint-path-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-waypoints")
+   (channel-provider :waypoint-path-in)
+   (map
+    (fn [waypoint-path]
+      (println waypoint-path)
+      (trek-mate.dataset.mine/garmin-waypoint-file->location-seq waypoint-path)))
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-waypoints")
+   (channel-provider :filter-in)
    (filter
-    #(.endsWith ^String (last %) ".json")
-    (fs/list trek-mate.dataset.mine/trek-mate-track-path))
+    (fn [location]
+      (contains? (:tags location) "#markacija")))
+   (channel-provider :write-in))
+  #_(pipeline/for-each-go
+   (context/wrap-scope context "for-each")
+   (channel-provider :write-in)
+   println)
+  (bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
+   (channel-provider :write-in)
+   markacija-root-path
+   1000))
+
+;; incremental import of garmin waypoints to e7 dotstore
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; todo prepare last-waypoint for next iteration
+#_(let [last-waypoint "Waypoints_27-MAR-21.gpx"
+      time-formatter-fn (let [formatter (new java.text.SimpleDateFormat "dd-MMM-yy")]
+                          (.setTimeZone
+                           formatter
+                           (java.util.TimeZone/getTimeZone "Europe/Belgrade"))
+                          (fn [track-name]
+                            (.getTime
+                             (.parse
+                              formatter
+                              (.replace (.replace track-name "Waypoints_" "") ".gpx" "")))))
+      last-timestamp (time-formatter-fn last-waypoint)
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit")
+   (sort-by
+    #(time-formatter-fn (last %))
+    (filter
+     #(> (time-formatter-fn (last %)) last-timestamp)
+     (filter
+      #(.endsWith ^String (last %) ".gpx")
+      (fs/list trek-mate.dataset.mine/garmin-waypoints-path))))
+   (channel-provider :waypoint-path-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-waypoints")
+   (channel-provider :waypoint-path-in)
+   (map
+    (fn [waypoint-path]
+      (println waypoint-path)
+      (trek-mate.dataset.mine/garmin-waypoint-file->location-seq waypoint-path)))
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-waypoints")
+   (channel-provider :filter-in)
+   (filter
+    (fn [location]
+      (contains? (:tags location) "#e7")))
+   (channel-provider :write-in))
+  #_(pipeline/for-each-go
+   (context/wrap-scope context "for-each")
+   (channel-provider :write-in)
+   println)
+  (bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
+   (channel-provider :write-in)
+   e7-root-path
+   1000))
+
+;; data from full import that was done with "full import" code, took hours to finish
+;; 20210324
+;; counters:
+;; 	 bitset-write write = 182
+;; 	 emit emit = 1598
+;; 	 read-track in = 1598
+;; 	 read-track out = 2072011
+
+;; trek-mate incremental run
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; low number of buffered tiles, increase to 10k when doing fresh import
+;; update timestamp with latest track processed for next time
+#_(let [last-timestamp 1617089278
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit")
+   (sort-by
+    #(as/as-long (.replace (last %) ".json" ""))
+    (filter
+     #(let [timestamp (as/as-long (.replace (last %) ".json" ""))]
+        (> timestamp last-timestamp))
+     (filter
+      #(.endsWith ^String (last %) ".json")
+      (fs/list trek-mate.dataset.mine/trek-mate-track-path))))
    (channel-provider :track-in))
   (pipeline/transducer-stream-list-go
    (context/wrap-scope context "read-track")
@@ -440,139 +615,101 @@
         (println track-path)
         (:locations (json/read-keyworded is)))))
    (channel-provider :in))
-  #_(pipeline/take-go
-   (context/wrap-scope context "take")
-   10
+  (bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
    (channel-provider :in)
-   (channel-provider :out))
+   my-dot-root-path
+   1000))
+
+;; incremental import of trek-mate locations to e7 dotstore
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; todo prepare last-waypoint for next iteration
+#_(let [last-timestamp 1608498559774
+      timestamp-extract-fn (fn [path] (as/as-long (last path)))
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit-path")
+   (sort-by
+    timestamp-extract-fn
+    (filter
+     #(> (timestamp-extract-fn %) last-timestamp)
+     (fs/list trek-mate.dataset.mine/trek-mate-location-path)))
+   (channel-provider :location-path-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-location")
+   (channel-provider :location-path-in)
+   (map
+    (fn [location-path]
+      (println location-path)
+      (trek-mate.dataset.mine/trek-mate-location-request-file->location-seq location-path)))
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-location")
+   (channel-provider :filter-in)
+   (filter
+    (fn [location]
+      (contains? (:tags location) "#e7")))
+   (channel-provider :write-in))
   #_(pipeline/for-each-go
    (context/wrap-scope context "for-each")
-   (channel-provider :out)
+   (channel-provider :write-in)
    println)
   (bitset-write-go
    (context/wrap-scope context "bitset-write")
    resource-controller
-   (channel-provider :in)
-   ["tmp" "dotstore"]
+   (channel-provider :write-in)
+   e7-root-path
    1000))
 
-;; 20210324
-;; counters:
-;; 	 bitset-write write = 182
-;; 	 emit emit = 1598
-;; 	 read-track in = 1598
-;; 	 read-track out = 2072011
-
-
-;; test for track reading
-#_(take 5
- (mapcat
-  (fn [track-path]
-    (with-open [is (fs/input-stream track-path)]
-      (println track-path)
-      (:locations (json/read-keyworded is))))
-  ))
-
-#_(let [context (context/create-state-context)
+;; incremental import of trek-mate locations to markacija dotstore
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; todo prepare last-waypoint for next iteration
+#_(let [last-timestamp 1608498559774
+      timestamp-extract-fn (fn [path] (as/as-long (last path)))
+      context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
-      resource-controller (pipeline/create-trace-resource-controller context)
-      location-seq [
-                    {:longitude 20.42502 :latitude 44.80099}
-                    {:longitude 20.42511 :latitude 44.80044}
-                    {:longitude 20.42534 :latitude 44.79983}
-                    {:longitude 20.42545 :latitude 44.79916}
-                    {:longitude 20.42567 :latitude 44.79816}
-                    #_{:longitude 20.42605 :latitude 44.79670}
-                    #_{:longitude 20.42618 :latitude 44.79519}]]
+      resource-controller (pipeline/create-trace-resource-controller context)]
   (pipeline/emit-seq-go
-   (context/wrap-scope context "emit")
-   location-seq
-   (channel-provider :in))
+   (context/wrap-scope context "emit-path")
+   (sort-by
+    timestamp-extract-fn
+    (filter
+     #(> (timestamp-extract-fn %) last-timestamp)
+     (fs/list trek-mate.dataset.mine/trek-mate-location-path)))
+   (channel-provider :location-path-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-location")
+   (channel-provider :location-path-in)
+   (map
+    (fn [location-path]
+      (println location-path)
+      (trek-mate.dataset.mine/trek-mate-location-request-file->location-seq location-path)))
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-location")
+   (channel-provider :filter-in)
+   (filter
+    (fn [location]
+      (or
+       (contains? (:tags location) "#markacija")
+       ;; deprecated
+       (contains? (:tags location) "#planinarska-markacija"))))
+   (channel-provider :write-in))
+  #_(pipeline/for-each-go
+   (context/wrap-scope context "for-each")
+   (channel-provider :write-in)
+   println)
   (bitset-write-go
    (context/wrap-scope context "bitset-write")
    resource-controller
-   (channel-provider :in)
-   ["tmp" "dotstore"]
-   100))
+   (channel-provider :write-in)
+   markacija-root-path
+   1000))
 
-
-#_(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
-      channel-provider (pipeline/create-channels-provider)
-      resource-controller (pipeline/create-trace-resource-controller context)
-      location-seq (with-open [is (fs/input-stream
-                                   (path/child
-                                    trek-mate.dataset.mine/garmin-track-path
-                                    "Track_2021-02-15 180407.gpx"))]
-                     (apply concat (:track-seq (clj-geo.import.gpx/read-track-gpx is))))]
-  (pipeline/emit-seq-go
-   (context/wrap-scope context "emit")
-   location-seq
-   (channel-provider :in))
-  (bitset-write-go
-   (context/wrap-scope context "bitset-write")
-   resource-controller
-   (channel-provider :in)
-   ["tmp" "dotstore"]
-   100))
-
-#_(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
-      channel-provider (pipeline/create-channels-provider)
-      resource-controller (pipeline/create-trace-resource-controller context)
-      location-seq (with-open [is (fs/input-stream
-                                   (path/child
-                                    trek-mate.dataset.mine/garmin-track-path
-                                    "Track_2021-03-06 163244.gpx"))]
-                     (apply concat (:track-seq (clj-geo.import.gpx/read-track-gpx is))))]
-  (pipeline/emit-seq-go
-   (context/wrap-scope context "emit")
-   location-seq
-   (channel-provider :in))
-  (bitset-write-go
-   (context/wrap-scope context "bitset-write")
-   resource-controller
-   (channel-provider :in)
-   ["tmp" "dotstore"]
-   100))
 
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
-
-;; one more iteration on dot concept
-;; dot = (coords, payload)
-;;   coords - (longitude, latitude), (x, y) or something else
-;;   payload - bit, number, map ...
-
-;; dotstore represents grouped dots
-;; stored on filesystem, using directory and file
-
-;; paper notes, 2021012
-
-
-;; types
-;; sequence - string, array of 0 or 1, representing x,y coordinates at each layer
-
-#_(let [min-zoom 0
-      max-zoom 18
-      data-resolution 256
-      buffer {}]
-  ;; create-dataset
-  (doseq [track ()]
-    (let [location-seq ()]
-      (doseq [location location-seq]
-        (for [zoom (range min-zoom (inc max-zoom))]
-          (let [sequence (zoom-x-)] (update-in
-            buffer
-            (fn [old]
-              (if (nil? old)
-                (let [data (make-array Boolean/TYPE data-size)]))))))))))
-
-
-;; read track point by point
-;; buffer N max level tiles
-;; when buffer full merge fr
-
-;; check out result
-;; http://localhost:9999/0/0/0
-

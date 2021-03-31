@@ -238,6 +238,9 @@
 
 (defn render-change [change]
   (cond
+    (= (:change change) :no-change)
+    [:div "no change"]
+    
     (= (:change change) :create)
     [:div "created"]
 

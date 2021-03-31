@@ -689,6 +689,24 @@
 	      noWrap: true
 	  })
 
+      var markacijaDot = L.tileLayer(
+	  '/tile/raster/markacija/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      var e7Dot = L.tileLayer(
+	  '/tile/raster/e7/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
       var geocacheNotFound = new L.GridLayer.MarkerLoader(
 	      "/tile/vector/geocache-not-found/{z}/{x}/{y}",
 	      {
@@ -716,7 +734,9 @@
 	  "slot-a": slotATile,
 	  "slot-b": slotBTile,
 	  "slot-c": slotCTile,
-	  "my-dot": myDot}
+	  "my-dot": myDot,
+	  "e7": e7Dot,
+	  "markacija": markacijaDot}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       
