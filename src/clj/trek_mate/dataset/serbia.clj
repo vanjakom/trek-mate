@@ -116,7 +116,8 @@
     (io/copy-input-to-output-stream is os)
     (when (fs/exists? osm-pbf-path)
       (fs/delete osm-pbf-path))
-    (fs/link download-path osm-pbf-path)))
+    (fs/link download-path osm-pbf-path))
+  (println "latest downloaded"))
 
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
@@ -881,42 +882,6 @@
   (with-open [os (fs/output-stream ["tmp" (str track-id ".gpx")])]
      (gpx/write-track-gpx os [] location-seq)))
 
-;; set last location requests for mapping
-#_(let [location-seq (map
-                    (fn [location]
-                      (update-in
-                       location
-                       [:tags]
-                       (fn [tags]
-                         (into
-                          #{}
-                          (filter #(not (or (.startsWith % "|+") (.startsWith % "|-"))) tags)))))
-                    (map
-                     storage/location-request->dot
-                     (storage/location-request-seq-last-from-backup env/*trek-mate-user*)))
-      ;; todo, see ovcar i kablar ...
-      photo-seq '() ]
-  (web/register-map
-   "mapping"
-   {
-    :configuration {
-                    :longitude (:longitude beograd) 
-                    :latitude (:latitude beograd)
-                    :zoom 12}
-    :vector-tile-fn (web/tile-vector-dotstore-fn
-                     [(fn [_ _ _ _]
-                        (concat
-                         location-seq
-                         (map
-                          (fn [feature]
-                            {
-                             :longitude (get-in feature [:geometry :coordinates 0])
-                             :latitude (get-in feature [:geometry :coordinates 1])
-                             :tags #{
-                                     tag/tag-photo
-                                     (tag/url-tag "url" (get-in feature [:properties :url]))}})
-                          photo-seq))
-                        )])}))
 
 
 

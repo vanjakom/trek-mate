@@ -199,6 +199,7 @@
    "node[natural=tree][religion=christian][denomination=serbian_orthodox](area:3601741311);"))
 
 #_(count osm-seq)
+;; 193 20210406
 ;; 186 20210325
 ;; 170 20210315
 ;; 164 20210312
@@ -480,9 +481,15 @@
      str
      (map
       (fn [c]
-        (if-let [t (get translate-map (Character/toLowerCase c))]
-          (if (Character/isUpperCase c)
-            (.toUpperCase (str t))
+        (if-let [t (get translate-map (Character/toLowerCase ^char c))]
+          (if (Character/isUpperCase ^char c)
+            (cond
+              (= c \Љ)
+              "Lj"
+              (= c \Њ)
+              "Nj"
+              :else
+              (.toUpperCase (str t)))
             t)
           c))
       name))))
@@ -554,7 +561,8 @@
    "0550" "zanimljiv jasen na privatnoj parceli"
    "0555" "zapis u restoranu Novi zapis"
    "0556" "zapis sa uredjenom okolinom"
-   "0565" "zapis ima zakacenu kucicu"})
+   "0565" "zapis ima zakacenu kucicu"
+   "0584" "lepo uredjen prostor oko zapisa"})
 
 ;; private, skip in first iteration
 ;; 20210302 - started tracking private on 421
@@ -579,7 +587,10 @@
    "0540" "krst"
    "0554" "ostaci zapisa"
    "0560" "ostaci zapisa"
-   "0568" "ostaci zapisa"})
+   "0568" "ostaci zapisa"
+   "0585" "krst"
+   "0589" "ostaci zapisa"
+   "0590" "ostaci zapisa"})
 
 ;; started tracking in church and looks public at 0361 on 20210222 
 ;; in church assumes looks public
@@ -590,7 +601,7 @@
 
 (def looks-public
   ["0386" "0387" "0389" "0390" "0395" "0400" "0405" "0407" "0417" "0421"
-   "0425" "0429" "0430" "0434" "0438" "0452" "0544" "0546"])
+   "0425" "0429n" "0430" "0434" "0438" "0452" "0544" "0546"])
 
 ;; started tracking at 0391 on 20210223
 (def close-to-road
@@ -605,11 +616,14 @@
 ;; 20210310, од 0510
 ;; одлучио се за две итерације уноса, прва ”знаменита стабла”, доста субјективно
 ;; фактори: старост, видљивост ознаке, колико је јаван приступ, прича која прати запис
-;; стабла која не буду унешена иду на лист second-iteration
+;; стабла која не буду унешена иду у листу second-iteration
+
+;; 20210406, од 0581
+;; почео да додајем amenity=place_of_worship
 
 (def second-iteration
   #{"0520" "0529" "0531" "0537" "0545" "0551" "0561" "0563" "0564" "0566"
-    "0569" "0570" "0572" "0574" "0575" "0579" "0580" "0580" })
+    "0569" "0570" "0572" "0574" "0575" "0579" "0580" "0581"})
 
 ;; 0361 - kesten u staroj porti
 
@@ -644,7 +658,7 @@
                          "["
                          (osmeditor/link-wikipedia-sr wikipedia)
                          "  "
-                         (.substring wikipedia 3) "]")
+                         (.substring ^String wikipedia 3) "]")
                         ""))
          (println "|" (if-let [wikidata (get-in zapis [:osm "wikidata"])]
                         (str "[" (osmeditor/link-wikidata wikidata) " " wikidata "]")
@@ -749,6 +763,7 @@
                                         #(some? (second %))
                                         [
                                          ["natural" "tree"]
+                                         ["amenity" "place_of_worship"]
                                          ["religion" "christian"]
                                          ["denomination" "serbian_orthodox"]
                                          ["genus" genus]

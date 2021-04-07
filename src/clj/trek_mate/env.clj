@@ -7,13 +7,17 @@
   (path/string->path
    (or (jvm/environment-variable "TREK_MATE_DATA") "/tmp/trek-mate")))
 
-(def ^:dynamic *global-dataset-path*
+(def ^:dynamic *dataset-local-path*
   (path/string->path
-   (or (jvm/environment-variable "GLOBAL_DATASET") "/tmp/dataset")))
+   (or (jvm/environment-variable "DATASET_LOCAL") "/Users/vanja/dataset-local")))
+;; deprecated
+(def *global-dataset-path* *dataset-local-path*)
 
-(def ^:dynamic *global-my-dataset-path*
+(def ^:dynamic *dataset-cloud-path*
   (path/string->path
-   (or (jvm/environment-variable "GLOBAL_MY_DATASET") "/my-dataset/")))
+   (or (jvm/environment-variable "DATASET_CLOUD") "/Users/vanja/dataset-cloud")))
+;; deprecated
+(def *global-my-dataset-path* *dataset-cloud-path*)
 
 (def ^:dynamic *trek-mate-user*
   (jvm/environment-variable "TREK_MATE_CK_USER"))

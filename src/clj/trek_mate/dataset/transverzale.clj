@@ -25,6 +25,7 @@
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
    [clj-cloudkit.sort :as ck-sort]
@@ -142,7 +143,7 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
-;; cika duskove rajacke staze
+;; CIKA DUSKOVE RAJACKE STAZE
 
 (q 61125363 "KT1") ;; "!Planinarski dom „Čika Duško Jovanović“"
 (q 3417956 "KT2") ;; "!Rajac"
@@ -159,35 +160,37 @@
 (l 20.24630, 44.12880 "KT13" "!Рајац, Црвено врело")
 (l 20.26707, 44.13889 "KT14" "!Рајац, Чанак (извор)")
 
-;; fruskogorska transverzala
-#_(let [location-seq (with-open [is (fs/input-stream (path/child
+
+;; FURSKOGORSKA TRANSVERZALA
+
+;; fruskogorska transverzala recommended track to slot-a
+(let [location-seq (with-open [is (fs/input-stream (path/child
                                                     env/*global-my-dataset-path*
                                                     "transverzale"
                                                     "fruskogorska"
                                                     "FG-Transverzala-2020-kompromisni-trek.gpx"))]
-                     (let [track (gpx/read-track-gpx is)]
-                       (apply concat (:track-seq track))))]
-  
+                       (let [track (gpx/read-track-gpx is)]
+                         (apply concat (:track-seq track))))]  
   (web/register-dotstore
-   :slot-a
-   (dot/location-seq->dotstore location-seq))
-
-  (web/register-map
    "slot-a"
-   {
-    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
-                     (web/create-transparent-raster-tile-fn)
-                     :slot-a
-                     [(constantly [draw/color-blue 2])])}))
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-blue [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
 
-;; transverzala
+;; prepare fruskogorska transverzala data 
 ;; https://www.openstreetmap.org/relation/11510161
-
 (def fruskogorska-kt-seq
   (let [dataset (osmapi/relation-full 11510161)]
     (map
      (fn [member]
-       (let [node (get-in dataset [(keyword (str (name (:type member)) "s")) (:id member)])]
+       (let [node (get-in
+                   dataset
+                   [(keyword (str (name (:type member)) "s")) (:id member)])]
          {
           :longitude (as/as-double (:longitude node))
           :latitude (as/as-double (:latitude node))
@@ -199,30 +202,29 @@
                   [
                    (when-let [name (get-in node [:tags "name"])]
                      (str "!" name))]))}                      ))
-     (filter #(= (:type %) :node) (get-in dataset [:relations 11510161 :members])))))
+     (filter
+      #(= (:type %) :node)
+      (get-in dataset [:relations 11510161 :members])))))
 
-
-
-
-
-;; write points to trek-mate
+;; write fruskogorska transverzala KT to trek-mate
 #_(let [add-tag (fn [location & tag-seq]
-                (update-in
-                 location
-                 [:tags]
-                 clojure.set/union
-                 (into #{} (map as/as-string tag-seq))))]
-  (storage/import-location-v2-seq-handler
-   (map
-    #(add-tag % "#fruskogorska-transverzala-kt")
-    fruskogorska-kt-seq)))
+                  (update-in
+                   location
+                   [:tags]
+                   clojure.set/union
+                   (into #{} (map as/as-string tag-seq))))]
+    (storage/import-location-v2-seq-handler
+     (map
+      #(add-tag % "#fruskogorska-transverzala-kt")
+      fruskogorska-kt-seq))
+    (with-open [os (fs/output-stream (path/child
+                                      env/*global-my-dataset-path*
+                                      "transverzale"
+                                      "fruskogorska"
+                                      "kt.gpx"))]))
 
-(with-open [os (fs/output-stream (path/child
-                                  env/*global-my-dataset-path*
-                                  "transverzale"
-                                  "fruskogorska"
-                                  "kt.gpx"))]
-  (gpx/write-gpx
+;; prepare fruskogorska transverzala KT garmin waypoints
+#_(gpx/write-gpx
    os
    (map
     (fn [location]
@@ -236,16 +238,10 @@
          "!unknown")
         1)
        nil))
-    fruskogorska-kt-seq)))
+    fruskogorska-kt-seq))
 
-
-(filter (:members ))
-
-(def a )
-
-
-
-(doseq [location ]
+;; write fruskogorska transverzala KT to dataset
+(doseq [location fruskogorska-kt-seq]
   (dataset-add location))
 
 ;; track 20210327
@@ -259,11 +255,7 @@
 ;; https://trailrouter.com/#wps=45.11830,19.85260|45.12650,19.84672|45.12381,19.85843|45.12311,19.85860|45.12762,19.86504|45.13144,19.87272|45.13740,19.87650|45.13592,19.87869|45.14373,19.87586|45.14585,19.88319|45.13810,19.90105|45.13879,19.90465|45.14624,19.90379|45.15329,19.89525|45.15552,19.89452|45.16685,19.91405|45.16960,19.91864|45.17408,19.92838|45.18055,19.93564&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false
 
 
-(first (map
-  (fn [member]
-    (get-in a [(keyword (str (name (:type member)) "s")) (:id member)]))
-  (filter #(= (:type %) :node) (get-in a [:relations 11510161 :members]))))
-{:id 3380199283, :type :node, :version 3, :changeset 99984411, :longitude "19.9125061", :latitude "45.1724802", :tags {"name" "FGT KT01", "ref" "FGM KT04"}}
+;; todo work on route planner
 
 (defn prepare-planner-route-ways
   [min-longitude max-longitude min-latitude max-latitude]
@@ -306,18 +298,15 @@
                  "Content-Type" "application/json; charset=utf-8"}
        :body (json/write-to-string data)}))))
 
-
-
-(web/register-map
+(web/register-dotstore
  "transverzale"
- {
-  :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
-                  :zoom 10}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (vals (deref dataset)))])})
-
-(web/create-server)
-
+ (fn [zoom x y]
+   (let [[min-longitude max-longitude min-latitude max-latitude]
+         (tile-math/tile->location-bounds [zoom x y])]
+     (filter
+      #(and
+        (>= (:longitude %) min-longitude)
+        (<= (:longitude %) max-longitude)
+        (>= (:latitude %) min-latitude)
+        (<= (:latitude %) max-latitude))
+      (vals (deref dataset))))))

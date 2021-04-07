@@ -407,7 +407,8 @@
         (json/read-lines-keyworded is))))
    (fs/list (path/child location-request-backup-path user))))
 
-(defn location-request-seq-last-from-backup
+;; DEPRECATED
+#_(defn location-request-seq-last-from-backup
   [user]
   (with-open [is (fs/input-stream
                   (last
@@ -418,7 +419,35 @@
     (doall
      (json/read-lines-keyworded is))))
 
-(defn location-request->dot
+(defn location-request-last-file [user]
+  (last
+   (sort-by
+    last
+    (fs/list
+     (path/child location-request-backup-path user)))))
+
+(defn location-request-file->location-seq
+  [path]
+  (with-open [is (fs/input-stream path)]
+    (doall
+     (map
+      (fn [location-request]
+        {
+         :longitude (:longitude (:location location-request))
+         :latitude (:latitude (:location location-request))
+         :tags (into
+                #{}
+                (filter
+                 #(and
+                   (not (= % "#pending"))
+                   (not (.startsWith ^String % "|+"))
+                   (not (.startsWith ^String % "|-")))
+                 (:tags location-request)))})
+      (json/read-lines-keyworded is)))))
+
+
+;; DEPRECATED
+#_(defn location-request->dot
   [location-request]
   {
    :longitude (:longitude (:location location-request))
@@ -429,6 +458,7 @@
 ;; call to backup latest location requests, once backup is done prepare
 ;; write down next timestamp
 ;; run next
+#_(backup-location-requests 1617470652663)
 #_(backup-location-requests 1617137449024)
 #_(backup-location-requests 1608498559774)
 #_(backup-location-requests 1600164824151)
@@ -451,6 +481,8 @@
 ;; run latest prepared command, once finished prepare new command by using
 ;; latest timestamp reported to stdout
 ;; run next
+#_(backup-tracks 1617533962)
+#_(backup-tracks 1617463265)
 #_(backup-tracks 1617089278)
 #_(backup-tracks 1612620540)
 #_(backup-tracks 1609658172)

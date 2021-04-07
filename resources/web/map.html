@@ -198,6 +198,9 @@
 	      return L.DomUtil.create('div')
 	  },
       })
+
+      // static vector data overlay
+      // loads data on show
       
       L.TileBoundsLayer = L.GridLayer.extend({
 	  initialize: function(options) {
@@ -566,13 +569,21 @@
 
       
       var trackTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
+	  'http://localhost:8085/tile/raster/track/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
 	      bounds: [[-90,-180],[90,180]],
 	      noWrap: true
 	  })
+
+      var trackNoteTile = new L.GridLayer.MarkerLoader(
+	      "/tile/vector/track-note/{z}/{x}/{y}",
+	      {
+		  maxZoom: 21,
+		  bounds: [[-90,-180], [90, 180]],
+		  noWrap: true
+	      }) 
 
       var slotATile = L.tileLayer(
 	  'http://localhost:8085/tile/raster/slot-a/{z}/{x}/{y}',
@@ -672,13 +683,20 @@
       
       
       var goProEvidence = new L.GridLayer.MarkerLoader(
-	  "/proxy/photo-map/gopro/{z}/{x}/{y}",
+	  "/tile/proxy/photo-map/gopro/{z}/{x}/{y}",
 	  {
 	      maxZoom: 21,
 	      bounds: [[-90,-180], [90, 180]],
 	      noWrap: true
 	  })
 
+      var iphoneEvidence = new L.GridLayer.MarkerLoader(
+	  "/tile/proxy/photo-map/iphone/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
       
       var myDot = L.tileLayer(
 	  '/tile/raster/my-dot/{z}/{x}/{y}',
@@ -698,12 +716,36 @@
 	      noWrap: true
 	  })
       
-      var e7Dot = L.tileLayer(
-	  '/tile/raster/e7/{z}/{x}/{y}',
+      var e7Markacija = L.tileLayer(
+	  '/tile/raster/e7-markacija/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
 	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var e7Layer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/e7/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      
+      var mineLayer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/mine/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+
+      var transverzaleLayer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/transverzale/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
 	      noWrap: true
 	  })
       
@@ -727,15 +769,20 @@
 	  "waymakred hike": waymarkedHikeTile,
 	  "waymakred cycle": waymarkedCycleTile,
 	  "my-serbia": mySerbiaTile,
+	  "mine": mineLayer,
+	  "transverzale": transverzaleLayer,
 	  "track": trackTile,
+	  "track-note": trackNoteTile,
 	  "gopro evidence": goProEvidence,
+	  "iphone evidence": iphoneEvidence,
 	  "DPM": mapboxDPMTile,
 	  "geocache-not-found": geocacheNotFound,
 	  "slot-a": slotATile,
 	  "slot-b": slotBTile,
 	  "slot-c": slotCTile,
 	  "my-dot": myDot,
-	  "e7": e7Dot,
+	  "e7": e7Layer,
+	  "e7-markacija": e7Markacija,
 	  "markacija": markacijaDot}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)

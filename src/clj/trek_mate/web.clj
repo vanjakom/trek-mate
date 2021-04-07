@@ -320,6 +320,15 @@
    way-split-path
    split-zoom))
 
+;; not dotstore anymore, currently stores fn to retrieve all data
+;; no check if type of dotstore is right, it's on client to do so
+;; for tiled data
+;; (zoom x y) -> ring http response containing png for /tile/raster/
+;; (zoom x y) -> location-seq for /tile/vector/
+;; (zoom x y) -> geojson for /tile/geojson/ containing styling as object
+;; (min-longitude max-longitude min-latitude max-latitude) -> geojson for /geojson/ as object
+;; geojson styling
+;; each Feature can have different properties
 
 (defonce active-dotstore (atom {}))
 #_(alter-var-root (var active-dotstore) (constantly (atom {})))
@@ -359,7 +368,7 @@
           (draw/write-png-to-stream image-context buffer-output-stream)
           (io/buffer-output-stream->input-stream buffer-output-stream))))))
 
-(defn tile-overlay-tagstore-fn
+#_(defn tile-overlay-tagstore-fn
   [original-tile-fn tagstore color]
   (fn [zoom x y]
     (if-let [tile-is (original-tile-fn zoom x y)]
@@ -708,17 +717,6 @@
       {
        :status 404}))
    (compojure.core/GET
-    "/tile/proxy/maptiler/:zoom/:x/:y"
-    [zoom x y]
-    (if-let [input-stream (http/get-as-stream
-                           (str
-                            "https://api.maptiler.com/tiles/satellite/"
-                            zoom "/" x "/" y ".jpg"
-                            "?key=" (jvm/environment-variable "MAPTILER_CLOUD_KEY")))]
-      {
-       :status 200
-       :body input-stream}))
-   (compojure.core/GET
     "/tile/raster/:name/:zoom/:x/:y"
     [name zoom x y]
     (try
@@ -733,6 +731,8 @@
                      "Content-Type" "image/png"}
            :body input-stream}
           {:status 404})
+        ;; support for dotstore, maps should be deprecated
+        ;; assuming dotstore is bitset
         (if-let [dotstore (lookup-dotstore name)]
           (dotstore (as/as-long zoom) (as/as-long x) (as/as-long y))
           {:status 404}))
@@ -743,11 +743,11 @@
     "/tile/vector/:name/:zoom/:x/:y"
     [name zoom x y]
     (try
-      (if-let [map (get (deref configuration) name)]
-        (if-let [location-seq ((:vector-tile-fn map)
-                               (as/as-long zoom)
-                               (as/as-long x)
-                               (as/as-long y))]
+      (if-let [vector-tile-fn (get-in (deref configuration) [name :vector-tile-fn])]
+        (let [location-seq (vector-tile-fn
+                            (as/as-long zoom)
+                            (as/as-long x)
+                            (as/as-long y))]
           {
            :status 200
            :headers {
@@ -755,8 +755,48 @@
            :body (json/write-to-string
                   (enrich-locations
                    (geojson/location-seq->geojson
-                    location-seq)))}
-          {:status 404})
+                    location-seq)))})
+        ;; support for dotstore, maps should be deprecated
+        ;; assuming dotstore is tagset
+        (if-let [dotstore (lookup-dotstore name)]
+          {
+           :status 200
+           :headers {
+                     "Content-Type" "application/json"}
+           :body (json/write-to-string
+                  (enrich-locations
+                   (geojson/location-seq->geojson
+                    (dotstore (as/as-long zoom) (as/as-long x) (as/as-long y)))))}
+          {:status 404}))
+      (catch Throwable e
+        (.printStackTrace e)
+        {:status 500})))
+   (compojure.core/GET
+    "/tile/geojson/:name/:zoom/:x/:y"
+    [name zoom x y]
+    (try
+      (if-let [dotstore (lookup-dotstore name)]
+        {
+         :status 200
+         :headers {
+                   "Content-Type" "application/json"}
+         :body (json/write-to-string
+                (dotstore (as/as-long zoom) (as/as-long x) (as/as-long y)))}
+        {:status 404})
+      (catch Throwable e
+        (.printStackTrace e)
+        {:status 500})))
+   (compojure.core/GET
+    "/geojson/:name/:min-longitude/:max-longitude/:min-latitude/:max-latitude"
+    [name zoom x y]
+    (try
+      (if-let [dotstore (lookup-dotstore name)]
+        {
+         :status 200
+         :headers {
+                   "Content-Type" "application/json"}
+         :body (json/write-to-string
+                (dotstore (as/as-long zoom) (as/as-long x) (as/as-long y)))}
         {:status 404})
       (catch Throwable e
         (.printStackTrace e)
@@ -817,10 +857,21 @@
       {
        :status 404}))
    (compojure.core/GET
-    "/proxy/photo-map/gopro/:zoom/:x/:y"
+    "/tile/proxy/maptiler/:zoom/:x/:y"
     [zoom x y]
+    (if-let [input-stream (http/get-as-stream
+                           (str
+                            "https://api.maptiler.com/tiles/satellite/"
+                            zoom "/" x "/" y ".jpg"
+                            "?key=" (jvm/environment-variable "MAPTILER_CLOUD_KEY")))]
+      {
+       :status 200
+       :body input-stream}))
+   (compojure.core/GET
+    "/tile/proxy/photo-map/:tag/:zoom/:x/:y"
+    [tag zoom x y]
     (let [response (json/read-keyworded
-                    (http/get-as-stream (str "http://localhost:7076/tile/all/" zoom "/" x "/" y)))]
+                    (http/get-as-stream (str "http://localhost:7076/tile/" tag "/" zoom "/" x "/" y)))]
       {
        :status 200
        :body (json/write-to-string
@@ -845,7 +896,6 @@
                              "@"
                              (get-in feature [:geometry :coordinates 0]))))))
                   features))))}))
-
    (compojure.core/POST
     "/edit"
     _
@@ -869,4 +919,4 @@
   []
   (server/stop-server *port*))
 
-#_(create-server)
+(create-server)

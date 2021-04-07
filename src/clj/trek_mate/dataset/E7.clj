@@ -23,10 +23,13 @@
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
    [clj-cloudkit.sort :as ck-sort]
+   ;; deprecated
    [trek-mate.dot :as dot]
+   [trek-mate.dotstore :as dotstore]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -266,30 +269,143 @@
 ;; E7-16
 (q 879935) ;; "!Blace"
 
-
-
 ;; toponimi van brosure
 (q 693449 "PSK pobeda planira da obelezi deonicu Divcibare - Boljkovci") ;; "!Boljkovci", 
 
+(web/register-dotstore
+ "e7"
+ (fn [zoom x y]
+   (let [[min-longitude max-longitude min-latitude max-latitude]
+         (tile-math/tile->location-bounds [zoom x y])]
+     (filter
+      #(and
+        (>= (:longitude %) min-longitude)
+        (<= (:longitude %) max-longitude)
+        (>= (:latitude %) min-latitude)
+        (<= (:latitude %) max-latitude))
+      (vals (deref dataset))))))
 
+(def e7-root-path (path/child env/*dataset-local-path* "dotstore" "e7-markacija"))
 
+(web/register-dotstore
+ "e7-markacija"
+ (fn [zoom x y]
+   (try
+     (let [zoom (as/as-long zoom)
+           x (as/as-long x)
+           y (as/as-long y)
+           path (dotstore/tile->path e7-root-path [zoom x y])]
+       (if (fs/exists? path)
+         (let [tile (dotstore/bitset-read-tile path)]
+           {
+            :status 200
+            :body (draw/image-context->input-stream
+                   (dotstore/bitset-render-tile tile draw/color-transparent draw/color-blue 4))})
+         {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500}))))
 
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
+;; incremental import of garmin waypoints to e7 dotstore
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; todo prepare last-waypoint for next iteration
+#_(let [last-waypoint "Waypoints_27-MAR-21.gpx"
+      time-formatter-fn (let [formatter (new java.text.SimpleDateFormat "dd-MMM-yy")]
+                          (.setTimeZone
+                           formatter
+                           (java.util.TimeZone/getTimeZone "Europe/Belgrade"))
+                          (fn [track-name]
+                            (.getTime
+                             (.parse
+                              formatter
+                              (.replace (.replace track-name "Waypoints_" "") ".gpx" "")))))
+      last-timestamp (time-formatter-fn last-waypoint)
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit")
+   (sort-by
+    #(time-formatter-fn (last %))
+    (filter
+     #(> (time-formatter-fn (last %)) last-timestamp)
+     (filter
+      #(.endsWith ^String (last %) ".gpx")
+      (fs/list trek-mate.dataset.mine/garmin-waypoints-path))))
+   (channel-provider :waypoint-path-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-waypoints")
+   (channel-provider :waypoint-path-in)
+   (map
+    (fn [waypoint-path]
+      (println waypoint-path)
+      (trek-mate.dataset.mine/garmin-waypoint-file->location-seq waypoint-path)))
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-waypoints")
+   (channel-provider :filter-in)
+   (filter
+    (fn [location]
+      (contains? (:tags location) "#e7")))
+   (channel-provider :write-in))
+  #_(pipeline/for-each-go
+   (context/wrap-scope context "for-each")
+   (channel-provider :write-in)
+   println)
+  (dotstore/bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
+   (channel-provider :write-in)
+   e7-root-path
+   1000)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
+;; incremental import of trek-mate locations to e7 dotstore
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; todo prepare last-waypoint for next iteration
+#_(let [last-timestamp 1608498559774
+      timestamp-extract-fn (fn [path] (as/as-long (last path)))
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit-path")
+   (sort-by
+    timestamp-extract-fn
+    (filter
+     #(> (timestamp-extract-fn %) last-timestamp)
+     (fs/list trek-mate.dataset.mine/trek-mate-location-path)))
+   (channel-provider :location-path-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-location")
+   (channel-provider :location-path-in)
+   (map
+    (fn [location-path]
+      (println location-path)
+      (storage/location-request-file->location-seq location-path)))
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-location")
+   (channel-provider :filter-in)
+   (filter
+    (fn [location]
+      (contains? (:tags location) "#e7")))
+   (channel-provider :write-in))
+  #_(pipeline/for-each-go
+   (context/wrap-scope context "for-each")
+   (channel-provider :write-in)
+   println)
+  (dotstore/bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
+   (channel-provider :write-in)
+   e7-root-path
+   1000)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-
-
-
-
-(web/register-map
- "E7"
- {
-  :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
-                  :zoom 10}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (vals (deref dataset)))])})
-
-(web/create-server)

@@ -31,7 +31,9 @@
    [trek-mate.util :as util]
    [trek-mate.web :as web]
    ;; temporary to be able to do fast name mapping
-   [trek-mate.dataset.zapis :as zapis]))
+   [trek-mate.dataset.zapis :as zapis]
+   ;; fix this
+   [trek-mate.dataset.mine :as mine]))
 
 ;; to be used after activity to update survey data to OSM
 
@@ -49,6 +51,7 @@
 
 ;; set track as overlay and extract gpx for osm upload
 ;; use GeoJSON creation bellow for iD mapping
+;; DEPRECATED
 #_(let [track-id 1598028459
       location-seq
       (with-open [is (fs/input-stream
@@ -80,6 +83,7 @@
 
 ;; set last location requests for mapping
 ;; creates tile overlay also of pending locations
+;; DEPRECATED
 #_(let [location-seq (map
                     (fn [location]
                       (update-in
@@ -124,96 +128,122 @@
                      [(constantly [draw/color-red 2])])}))
 
 
-;; #mapping #track #location #trek-mate
+;; #mapping #track #location #trek-mate #garmin #garmin-connect
 ;; combined track and pending locations to be used with iD, produces GeoJSON
-#_(let [track-id 1612620540
-      track-location-seq (with-open [is (fs/input-stream
-                                         (path/child
-                                          env/*global-my-dataset-path*
-                                          "trek-mate" "cloudkit" "track"
-                                          env/*trek-mate-user* (str track-id ".json")))]
-                           (:locations (json/read-keyworded is)))
-      location-seq [] #_(map
-                    (fn [location]
-                      (update-in
-                       location
-                       [:tags]
-                       (fn [tags]
-                         (into
-                          #{}
-                          (filter
-                           #(not (or (.startsWith % "|+") (.startsWith % "|-")))
-                           tags)))))
-                    (map
-                     storage/location-request->dot
-                     (storage/location-request-seq-last-from-backup env/*trek-mate-user*)))]
+;; used for all track types
+(let [track-seq
+      (or
+       ;; trek-mate
+       #_(let [track-id 1617451509]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "trek-mate" "cloudkit" "track"
+                          env/*trek-mate-user*
+                          (str track-id ".json")))]
+           [(:locations (json/read-keyworded is))]))
+       ;; garmin
+       (let [track-id "Track_2021-04-04 204925"]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "garmin"
+                          "gpx"
+                          (str track-id ".gpx")))]
+           (:track-seq (gpx/read-track-gpx is))))
+       ;; garmin connect (watch)
+       #_(let [track-id "2021-03-07T09:14:06+00:00_6390754145"]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "garmin-connect"
+                          (str track-id ".gpx")))]
+           (:track-seq (gpx/read-track-gpx is)))))
+      location-seq
+      (or
+       ;; trek-mate
+       #_(storage/location-request-file->location-seq
+        (storage/location-request-last-file env/*trek-mate-user*))
+       ;; garmin
+       (let [waypoint-file-name "Waypoints_04-APR-21.gpx"]
+         (mine/garmin-waypoint-file->location-seq
+          (path/child
+           env/*global-my-dataset-path*
+           "garmin"
+           "waypoints"
+           waypoint-file-name)))
+       ;; nothing
+       [])]
   (with-open [os (fs/output-stream ["tmp" (str "iD-dot-only.geojson")])]
     (json/write-to-stream
      (geojson/geojson
       (map
-        (comp
-         geojson/location->point
-         (fn [location]
-           (let [tags (:tags location)]
-             (into
-              (dissoc
-               location
-               :tags)
-              (map
-               (fn [tag]
-                 [tag "yes"])
-               tags)))))
-        location-seq))
+       (comp
+        geojson/location->point
+        (fn [location]
+          (let [tags (:tags location)]
+            (into
+             (dissoc
+              location
+              :tags)
+             (map
+              (fn [tag]
+                [tag "yes"])
+              tags)))))
+       location-seq))
      os))
   (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
     (json/write-to-stream
      (geojson/geojson
-      (conj
+      (concat
        (map
-        (comp
-         geojson/location->point
-         (fn [location]
-           (let [tags (:tags location)]
-             (into
-              (dissoc
-               location
-               :tags)
-              (map
-               (fn [tag]
-                 [tag "yes"])
-               tags)))))
-        location-seq)
-       (geojson/location-seq->line-string
-        track-location-seq)))
+        geojson/location->point
+        (filter
+         ;; filter out hiking trail marks
+         #_(not (= (:symbol %) "Civil"))
+         (constantly true)
+         location-seq))
+       (map
+        geojson/location-seq->line-string
+        track-seq)))
      os))
-  (web/register-map
-   "mapping"
-   {
-    :configuration {
-                    :longitude (:longitude beograd) 
-                    :latitude (:latitude beograd)
-                    :zoom 12}
-    :vector-tile-fn (web/tile-vector-dotstore-fn
-                     [(fn [_ _ _ _] location-seq)])})
+
+  (with-open [os (fs/output-stream ["tmp" "track.gpx"])]
+    (gpx/write-gpx
+     os
+     [
+      (gpx/track
+       (map
+        gpx/track-segment
+        track-seq))]))
+  
   (web/register-dotstore
-   :track
-   (dot/location-seq->dotstore track-location-seq))
-  (web/register-map
-   "track-transparent"
-   {
-    :configuration {
-                    :longitude (:longitude beograd)
-                    :latitude (:latitude beograd)
-                    :zoom 7}
-    :raster-tile-fn (web/tile-overlay-dotstore-render-fn
-                     (web/create-transparent-raster-tile-fn)
-                     :track
-                     [(constantly [draw/color-blue 2])])})
-  (with-open [os (fs/output-stream ["tmp" (str track-id ".gpx")])]
-     (gpx/write-track-gpx os [] track-location-seq)))
+   "track"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-blue [zoom x y] (apply concat track-seq))
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)})))
+
+  (web/register-dotstore
+   "track-note"
+   (fn [zoom x y]
+     (let [[min-longitude max-longitude min-latitude max-latitude]
+           (tile-math/tile->location-bounds [zoom x y])]
+       (filter
+        #(and
+          (>= (:longitude %) min-longitude)
+          (<= (:longitude %) max-longitude)
+          (>= (:latitude %) min-latitude)
+          (<= (:latitude %) max-latitude))
+        location-seq)))))
 
 
 ;; #garmin #connect #mapping #track
+;; DEPRECATED
 #_(let [track-id "2021-03-07T09:14:06+00:00_6390754145"
       waypoint-file-name "Waypoints_07-MAR-21.gpx"
       
@@ -248,6 +278,7 @@
 
 
 ;; #garmin #mapping #track #waypoint #id
+;; DEPRECATED
 #_(let [track-id "Track_2021-03-14 151429"
       waypoint-file-name "Waypoints_14-MAR-21.gpx"
       
@@ -283,6 +314,7 @@
 
 ;; set track as background
 ;; #track #slot-a #background
+;; DEPRECATED
 #_(do
   ;; data in osm, over osm api
   (let [track-id "Track_2021-02-06 145627"
@@ -318,8 +350,17 @@
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
 #_(prepare-name-tags "Црква Свете Петке")
-#_(prepare-name-tags "35249 Бусиловац")
-#_(prepare-name-tags "Чукаре")
+#_(prepare-name-tags "34240 Кнић")
+#_(prepare-name-tags "Уб")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
-#_(prepare-name-tags "Бробињак")
-#_(prepare-name-tags "Црква Светог Романа")
+#_(prepare-name-tags "Рајска долина")
+#_(prepare-name-tags "Месна заједница Каменица")
+#_(prepare-name-tags "Црква Св. пророка Илије")
+#_(prepare-name-tags "Дом здравља Ваљево")
+#_(prepare-name-tags "Здравствена станица Прањани")
+#_(prepare-name-tags "Амбуланта Каменица")
+
+
+
+
+

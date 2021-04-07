@@ -1,7 +1,22 @@
 # trek-mate project
 
+# web dotstore
+
+old naming, migrating from map to dotstore ( raster, vector, geojson )
+raster - png tile
+vector - location seq tile
+geojson - new, in development, support for styling
+
+mine, mapping, E7, transverzala, hike_and_bike use new dotstore approach
+
+# datasets
+
+switched from my-dataset and dataset to dataset-local and dataset-cloud
+
 # dotstore, try 2
 in trek-mate.dotstore
+
+mine, E7 and hike_and_bike use it, for both track and waypoints processing. both trek-mate and garmin are supported
 
 # prepare OsmChange ( osmc ) file for edits
 in trek-mate.dataset.zapis, 20210218, changing tags for zapis mapping  

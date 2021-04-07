@@ -132,6 +132,27 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210403
+;; divcibare voznja
+(storage/import-location-v2-seq-handler
+ (map
+  #(t % "@divcibare20210403")
+  [
+   (l 20.01280, 44.02553 tag/tag-crossroad)
+   (l 19.98070, 44.01911 tag/tag-crossroad)
+   (l 19.96628, 44.04047 tag/tag-crossroad)
+   (l 19.96345, 44.05040 tag/tag-crossroad)
+   (l 19.92414, 44.05873 tag/tag-crossroad)
+   (l 20.02447, 43.96626 tag/tag-crossroad)
+   (l 19.96576, 44.00084 tag/tag-crossroad)
+   (l 19.91684, 44.00455 tag/tag-crossroad)
+   (l 20.03082, 44.05478 tag/tag-crossroad)
+   
+   (l 19.95901 44.03925
+     tag/tag-todo
+     (tag/url-tag "halooglasi" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/na-prodaju-zemljiste-u-blizini-gostoljublja/5425634401177?kid=1&sid=1613743569785")
+     "5k, 064/264-4266")]))
+
 ;; 20210330 #rajac #e7 #moto #otvaranje
 #_(do
   (l 20.15596, 44.10907 "!Ravna gora")

@@ -16,7 +16,19 @@
 
 ;;; take 2, isolating code for tile rendering
 
-(defn render-location-seq
+(defn render-location-seq-as-dots
+  [image-context width color [zoom x y :as tile] location-seq]
+  (let [min-x (* 256 x)
+        max-x (* 256 (inc x))
+        min-y (* 256 y)
+        max-y (* 256 (inc y))
+        location-fn (tile-math/zoom-->location->point zoom)]
+    (doseq [[x-global y-global] (map location-fn location-seq)]
+      (let [x (- x-global min-x)
+            y (- y-global min-y)]
+        (draw/set-point-width-safe image-context color width x y)))))
+
+(defn render-location-seq-as-line
   [image-context width color [zoom x y :as tile] location-seq]
   (let [min-x (* 256 x)
         max-x (* 256 (inc x))
@@ -81,7 +93,7 @@
 (defn create-tile-fn-from-way
   [location-seq width color]
   (fn [image-context [zoom x y :as tile]]
-    (render-location-seq image-context width color tile location-seq)))
+    (render-location-seq-as-line image-context width color tile location-seq)))
 
 (defn create-transparent-tile-fn-from-way
   [location-seq width color]

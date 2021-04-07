@@ -125,7 +125,7 @@
 
 ;; filter captured locations
 
-(def location-seq
+#_(def location-seq
   (map
    (fn [location]
      (update-in
@@ -157,7 +157,7 @@
      (http/get-as-stream "http://localhost:7076/query")))))
 
 (count photo-seq)
-(count location-seq)
+#_(count location-seq)
 
 (def track-location-seq
     (concat
@@ -192,7 +192,7 @@
                        [(constantly [draw/color-blue 2])])}))
 
 ;; prepare file for id editor
-(with-open [os (fs/output-stream ["tmp" "ovcar-kablar.geojson"])]
+#_(with-open [os (fs/output-stream ["tmp" "ovcar-kablar.geojson"])]
   (json/write-to-stream
    {
     :type "FeatureCollection"
@@ -222,7 +222,7 @@
    os))
 
 
-(web/register-map
+#_(web/register-map
  "ovcar-kablar-after"
  {
   :configuration {
@@ -288,7 +288,7 @@
 
 ;; prepare slot-a and slot-b overlays on map to show gpx vs mapped
 
-(do
+#_(do
   ;; gpx tracks from tourist organization
   (let [location-seq (reduce
                      (fn [location-seq track-path]

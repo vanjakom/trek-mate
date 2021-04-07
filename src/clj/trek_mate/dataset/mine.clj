@@ -25,10 +25,13 @@
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
    [clj-cloudkit.sort :as ck-sort]
+   ;; deprecated
    [trek-mate.dot :as dot]
+   [trek-mate.dotstore :as dotstore]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -214,8 +217,10 @@
   (l 20.0018167 44.1311806 tag/tag-todo tag/tag-hike "znak za veliko brdo")
   (l 19.99069, 44.09845 tag/tag-todo "Charter #16104" "little free library")
   (l 19.97735, 44.11711 tag/tag-todo "istraziti gde vodi staza")
-  (l 19.94486, 44.08989 tag/tag-todo "Rosica jezero, PSK Balkan staza")
-  (l 19.94498, 44.08964 tag/tag-todo "Subjel, PSK Balkan")
+
+  (l 19.94486, 44.08989 tag/tag-todo "Rosica jezero, PSK Balkan staza" "#pskbalkan")
+  (l 19.94498, 44.08964 tag/tag-todo "Subjel, PSK Balkan" "#pskbalkan")
+  
   (l 19.97236, 44.10132 tag/tag-todo "!Tulumirski podrum" "Divcibare knjiga, 53" "ostatci kuce")
   (l 19.98076, 44.10122 tag/tag-todo "cudno skretanje prema 175 putu")
   (l 19.99126, 44.10241 tag/tag-todo "izviditi da li postoji neki drugi put oko zujna")
@@ -227,6 +232,27 @@
   (l 20.01447, 44.12382 tag/tag-todo  "postoje dve markacije sa desne strane kada se ide prema divcibarama na putevima")
 
   (l 19.78655, 44.24440 "!Pakljanska prerast" "[pg:65:8] ima opis kako do")
+  (l 20.03892, 44.05561 tag/tag-todo "drvene table za staze")
+  (l 20.04350, 44.05702 tag/tag-todo "mapa drvenih tabli, TO Zapadna Srbija, pitati Pedju")
+
+  (l 19.98951, 44.01658 tag/tag-todo tag/tag-hike "staza za subjel, pise vrh subjel, 20210403")
+  (l 19.98031, 44.01874  tag/tag-todo tag/tag-hike "staza za subjel, pskbalkan, 20210403")
+  (l 19.96823, 44.05323 "dani planinara 2019")
+  (l 19.99568, 44.09190 tag/tag-todo tag/tag-hike "povezati deo staze koji nedostaje")
+
+  (l 19.96136, 44.06600 "Rosici jezero" "mapirati")
+  
+  ;; #pskbalkan table
+  (l 19.94486, 44.08989 tag/tag-todo "Rosica jezero, PSK Balkan staza" "#pskbalkan")
+  (l 19.94498, 44.08964 tag/tag-todo "Subjel, PSK Balkan" "#pskbalkan")
+  
+  (l 19.99439, 44.08765 "#pskbalkan" "tabla" "20210403")
+  (l 19.96553, 44.05293 "#pskbalkan" "tabla" "20210403")
+  (l 19.96600, 44.05395 "#pskbalkan" "tabla" "20210403")
+  (l 19.963222, 44.050391 "#pskbalkan" "tabla" "20210403")
+  (l 19.980962, 44.018985 "#pskbalkan" "tabla" "20210403")
+
+  (l 20.20701, 44.01205 "misija halijard ( halyard ), posacka staza, 20210405")
   
   (n
    6443059265
@@ -243,6 +269,7 @@
 
   ;; rajac
   (l 20.22482, 44.13628 tag/tag-todo "rajac, vrh, transverzala, e7")
+  (l 20.12129, 44.16127 tag/tag-todo "cudno, po mapi deluje da se skrece a nije tako, imam go pro, 20210330")
 
   (l 19.95901 44.03925
      tag/tag-todo
@@ -330,6 +357,9 @@
   (q 960839) ;; "!Medijana"
 
 
+  ;; herceg novi
+  (q 27566491) ;; "!Видов врх"
+
   ;; ovcar i kablar mapiranje planinarskih staza
   (l 20.22794, 43.90526 tag/tag-todo "proveriti raskrsnicu, staza 8, opisi mapa")
   (l 20.16781, 43.89802 tag/tag-todo "pocetak staze 5+")
@@ -352,6 +382,19 @@
   ;; kucaj
   (l 21.64787, 43.89749 tag/tag-hike "!Mali Javorak i Javoracki vrh, imamo pripremljenu stazu" "Grza")
 
+  (l 20.71971, 43.92656 tag/tag-todo "table za biciklisticku stazu")
+
+  ;; skole
+  ;;(l 22.181568	44.186742 "mladen")
+  ;;(l 22.18463, 44.16916 "moj predlog za skolu")
+  ;;(l 22.18459 44.16913 "geosrbija")
+
+  ;;(l 22.0976597 44.0661701 "osm sediste")
+  ;;(l 22.09741	44.06613 "mladen sediste")
+
+  ;;(l 22.205343	44.071985 "mladen 2")
+  
+  
   (q 12754445) ;; "!Lazareva pećina"
   (n 7129487944) ;; "!Kovej"
   (q 904128) ;; "!Gamzigrad"
@@ -365,7 +408,12 @@
   (r 11161806)
   (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
   (r 11144136)
+  (l 20.06305, 44.04608 "!ranc orlovo gnezdo")
+  (l 20.04275, 43.94822 (tag/url-tag "suma 200A, 15k" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/suma-na-prodaju/5425634557889?kid=1"))
+  (l 19.98614, 44.09825 "da li je ovo Vila Narcis, Upoznaj Divcibare 58")
+  (l 19.99470, 44.08590 tag/tag-bike "rastovac, survey putevi")
 
+  
   ;; zlatibor
   (q 83166) ;; "!Stari grad Užice"
   (w 656964585) ;; "!Zlatibor Mona"
@@ -601,28 +649,149 @@
   (q 927599) ;; "!Љуботен"
   )
 
+(web/register-dotstore
+ "mine"
+ (fn [zoom x y]
+   (let [[min-longitude max-longitude min-latitude max-latitude]
+         (tile-math/tile->location-bounds [zoom x y])]
+     (filter
+      #(and
+        (>= (:longitude %) min-longitude)
+        (<= (:longitude %) max-longitude)
+        (>= (:latitude %) min-latitude)
+        (<= (:latitude %) max-latitude))
+      (vals (deref dataset))))))
+
+;; legacy
 (web/register-map
  "mine"
  {
   :configuration {
                   :longitude (:longitude beograd) 
                   :latitude (:latitude beograd)
-                  :zoom 10}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (vals (deref dataset))
-                      #_(concat
-                       sleeps
-                       sleeps-recommend
-                       eats
-                       eats-recommend
-                       dones
-                       todos
-                       todos-bosna
-                       todos-world
-                       monuments))])})
+                  :zoom 10}})
 
-(web/create-server)
+(def my-dot-root-path (path/child env/*dataset-local-path* "dotstore" "my-dot"))
+
+;; register tile set
+(web/register-dotstore
+ "my-dot"
+ (fn [zoom x y]
+   (try
+     (let [zoom (as/as-long zoom)
+           x (as/as-long x)
+           y (as/as-long y)
+           path (dotstore/tile->path my-dot-root-path [zoom x y])]
+       (if (fs/exists? path)
+         (let [tile (dotstore/bitset-read-tile path)]
+           {
+            :status 200
+            :body (draw/image-context->input-stream
+                   (dotstore/bitset-render-tile tile draw/color-transparent draw/color-red 2))})
+         {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500}))))
+
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+
+
+;; incremental import of garmin tracks
+;; in case fresh import is needed modify last-track to show minimal date
+;; todo prepare last-track for next iteration
+#_(let [last-track "Track_2021-04-04 204925.gpx"
+      time-formatter-fn (let [formatter (new java.text.SimpleDateFormat "yyyy-MM-dd HHmmss")]
+                          (.setTimeZone
+                           formatter
+                           (java.util.TimeZone/getTimeZone "Europe/Belgrade"))
+                          (fn [track-name]
+                            (.getTime
+                             (.parse
+                              formatter
+                              (.replace (.replace track-name "Track_" "") ".gpx" "")))))
+      last-timestamp (time-formatter-fn last-track)
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit")
+   (sort-by
+    #(time-formatter-fn (last %))
+    (filter
+     #(> (time-formatter-fn (last %)) last-timestamp)
+     (filter
+      #(.endsWith ^String (last %) ".gpx")
+      (fs/list trek-mate.dataset.mine/garmin-track-path))))
+   (channel-provider :gpx-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-gpx")
+   (channel-provider :gpx-in)
+   (map
+    (fn [gpx-path]
+      (with-open [is (fs/input-stream gpx-path)]
+        (println gpx-path)
+        (apply concat (:track-seq (gpx/read-track-gpx is))))))
+   (channel-provider :in))
+  (dotstore/bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
+   (channel-provider :in)
+   my-dot-root-path
+   1000)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+;; data from full import that was done with "full import" code, took hours to finish
+;; 20210324
+;; counters:
+;; 	 bitset-write write = 182
+;; 	 emit emit = 1598
+;; 	 read-track in = 1598
+;; 	 read-track out = 2072011
+
+
+;; trek-mate incremental run
+;; in case fresh import is needed modify last-waypoint to show minimal date
+;; low number of buffered tiles, increase to 10k when doing fresh import
+;; update timestamp with latest track processed for next time
+#_(let [last-timestamp 1617533962
+      context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/emit-seq-go
+   (context/wrap-scope context "emit")
+   (sort-by
+    #(as/as-long (.replace (last %) ".json" ""))
+    (filter
+     #(let [timestamp (as/as-long (.replace (last %) ".json" ""))]
+        (> timestamp last-timestamp))
+     (filter
+      #(.endsWith ^String (last %) ".json")
+      (fs/list trek-mate.dataset.mine/trek-mate-track-path))))
+   (channel-provider :track-in))
+  (pipeline/transducer-stream-list-go
+   (context/wrap-scope context "read-track")
+   (channel-provider :track-in)
+   (map
+    (fn [track-path]
+      (with-open [is (fs/input-stream track-path)]
+        (println track-path)
+        (:locations (json/read-keyworded is)))))
+   (channel-provider :in))
+  (dotstore/bitset-write-go
+   (context/wrap-scope context "bitset-write")
+   resource-controller
+   (channel-provider :in)
+   my-dot-root-path
+   1000)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
+
 
 ;; support for tracks
 ;; register project
@@ -734,25 +903,6 @@
                       [])
                     (get garmin-symbol-map (:symbol waypoint)))))})
         (:wpt-seq (gpx/read-gpx is)))))))
-
-(defn trek-mate-location-request-file->location-seq
-  [path]
-  (with-open [is (fs/input-stream path)]
-    (doall
-     (map
-      (fn [location-request]
-        {
-         :longitude (:longitude (:location location-request))
-         :latitude (:latitude (:location location-request))
-         :tags (into
-                #{}
-                (filter
-                 #(and
-                   (not (= % "#pending"))
-                   (not (.startsWith % "|+"))
-                   (not (.startsWith % "|-")))
-                 (:tags location-request)))})
-      (json/read-lines-keyworded is)))))
 
 (osmeditor/project-report
  "tracks"
