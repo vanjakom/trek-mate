@@ -255,39 +255,149 @@
 ;; https://trailrouter.com/#wps=45.11830,19.85260|45.12650,19.84672|45.12381,19.85843|45.12311,19.85860|45.12762,19.86504|45.13144,19.87272|45.13740,19.87650|45.13592,19.87869|45.14373,19.87586|45.14585,19.88319|45.13810,19.90105|45.13879,19.90465|45.14624,19.90379|45.15329,19.89525|45.15552,19.89452|45.16685,19.91405|45.16960,19.91864|45.17408,19.92838|45.18055,19.93564&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false
 
 
+(defn trailrouter-link [location-seq]
+  (str
+   "https://trailrouter.com/#wps="
+   (clojure.string/join
+    "|"
+    (map
+     #(str (:latitude %) "," (:longitude %))
+     location-seq))
+   "&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"))
+
+(defn location [longitude latitude]
+  {:longitude longitude :latitude latitude})
+
+
+;; stari track
+;; https://trailrouter.com/#wps=45.14297,19.91680|45.14034,19.91941|45.13660,19.91519|45.13165,19.91553|45.13265,19.91701|45.11993,19.92401|45.12117,19.93126|45.11920,19.93371|45.12096,19.93877|45.12190,19.93909|45.12509,19.93519|45.12998,19.92933|45.13051,19.92954|45.13552,19.92699|45.13982,19.92010|45.14297,19.91680&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=true&pga=0.8&im=false
+
+(trailrouter-link
+ [
+  (location 19.836728, 45.1506103)
+  (location 19.8462785, 45.1279754)
+  (location 19.8581526, 45.1357459)
+  (location 19.86229, 45.13928)
+  (location 19.85225, 45.15435)
+  (location 19.836728, 45.1506103)])
+;; https://trailrouter.com/#wps=45.1506103,19.836728|45.1279754,19.8462785|45.1357459,19.8581526|45.13928,19.86229|45.15435,19.85225|45.1506103,19.836728&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false
+
+(trailrouter-link
+ [
+  (location 19.7807646, 45.1590014)
+  (location 19.77187, 45.15287)
+  (location 19.77672, 45.14417)
+  (location 19.77646, 45.14182)
+  (location 19.78749, 45.13763)
+  (location 19.78661, 45.12870)
+  (location 19.79648, 45.13047)
+  (location 19.80369, 45.14206)
+  (location 19.80901, 45.15346)
+  (location 19.80655, 45.15630)
+  (location 19.7807646, 45.1590014)])
+;; https://trailrouter.com/#wps=45.1590014,19.7807646|45.15287,19.77187|45.14417,19.77672|45.14182,19.77646|45.13763,19.78749|45.1287,19.78661|45.13047,19.79648|45.14206,19.80369|45.15346,19.80901|45.1563,19.80655|45.1590014,19.7807646&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false
+
+(trailrouter-link
+ [
+  (location 19.7739167, 45.1846786)
+  (location 19.7499169, 45.1676454)
+  (location 19.7214903, 45.1771161)
+  (location 19.7116187, 45.1505692)
+
+  (location 19.72818, 45.15299)
+
+  (location 19.7411874, 45.1580494)
+  (location 19.7807646, 45.1590014)
+
+  (location 19.77350, 45.17006)
+  (location 19.77565, 45.16122)
+  (location 19.77264, 45.17653)
+  
+  (location 19.7499169, 45.1676454)
+  ])
+;; modified
+;; https://trailrouter.com/#wps=45.18468,19.77392|45.16765,19.74992|45.17712,19.72149|45.15057,19.71162|45.15299,19.72818|45.15805,19.74119|45.15765,19.77882|45.16122,19.77565|45.16361,19.77625|45.16903,19.77402|45.16752,19.77479|45.17151,19.77333|45.17326,19.77299|45.17653,19.77264|45.17907,19.77187|45.17998,19.77101|45.16765,19.74992&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false
+
+
+(trailrouter-link
+ [
+  (location 19.7116187, 45.1505692)
+  (location 19.6921869, 45.135396)
+  (location 19.7071545, 45.1167355)
+  
+  (location 19.71067, 45.11212)
+  (location 19.71795, 45.11718)
+  (location 19.73260, 45.12057)
+  (location 19.7434041, 45.1104497)
+  (location 19.76505, 45.10482)
+  (location 19.7649686, 45.1187067)
+  (location 19.77088, 45.11857)
+
+  (location 19.76316, 45.13671)
+  (location 19.72784, 45.15323)
+  (location 19.7116187, 45.1505692)])
+;; https://trailrouter.com/#wps=45.1505692,19.7116187|45.135396,19.6921869|45.1167355,19.7071545|45.11212,19.71067|45.11718,19.71795|45.12057,19.7326|45.1104497,19.7434041|45.10482,19.76505|45.1187067,19.7649686|45.11857,19.77088|45.13671,19.76316|45.15323,19.72784|45.1505692,19.7116187&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false
+
+
 ;; todo work on route planner
 
 (defn prepare-planner-route-ways
   [min-longitude max-longitude min-latitude max-latitude]
-  (println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  (let [dataset (osmapi/map-bounding-box
+                 min-longitude min-latitude max-longitude max-latitude)]
+    (geojson/geojson
+     (map
+      (partial osmeditor/way->feature dataset)
+      (map
+       :id
+       (filter
+        #(contains? (:tags %) "highway")
+        (vals
+         (:ways
+          dataset))))))))
 
-  (geojson/geojson
-   (map
-    osmeditor/way->feature
-    (map
-     :id
-     (filter
-      #(contains? (:tags %) "highway")
-      (vals
-       (:ways (osmapi/map-bounding-box
-               min-longitude min-latitude max-longitude max-latitude))))))))
+(defn prepare-planner-route-nodes
+  [min-longitude max-longitude min-latitude max-latitude]
+  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  (let [dataset (osmapi/map-bounding-box
+                 min-longitude min-latitude max-longitude max-latitude)]
+    (geojson/geojson
+     (map
+      geojson/location->feature
+      (map
+       #(get-in dataset [:nodes %])
+       (into
+        #{}
+        (mapcat
+         :nodes
+         (filter
+          #(contains? (:tags %) "highway")
+          (vals
+           (:ways
+            dataset))))))))))
+
+#_(take
+ 2
+ (prepare-planner-route-nodes 19.542961120605472 19.604759216308597 45.05924433672223 45.08427849626321))
 
 ;; tools for route preparation
 ;; planner - to be used for planning
-(http-server/create-server
- 7056
+
+(osmeditor/project-report
+ "planner-route"
+ "route planner"
  (compojure.core/routes
   (compojure.core/GET
-   "/planner/route/:id"
+   "/projects/planner-route/:route-id"
    [id]
    {
     :status 200
     :body (jvm/resource-as-stream ["web" "planner-route.html"])})
   (compojure.core/GET
-    "/planner/route/:id/explore/:left/:top/:right/:bottom"
-    [id left top right bottom]
-    (let [id (as/as-long id)
-          left (as/as-double left)
+    "/projects/planner-route/:route-id/ways/:left/:top/:right/:bottom"
+    [route-id left top right bottom]
+    (let [left (as/as-double left)
           top (as/as-double top)
           right (as/as-double right)
           bottom (as/as-double bottom)
@@ -296,7 +406,56 @@
        :status 200
        :headers {
                  "Content-Type" "application/json; charset=utf-8"}
-       :body (json/write-to-string data)}))))
+       :body (json/write-to-string data)}))
+  (compojure.core/GET
+    "/projects/planner-route/:route-id/nodes/:left/:top/:right/:bottom"
+    [route-id left top right bottom]
+    (let [left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-planner-route-nodes left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+  (compojure.core/GET
+    "/projects/planner-route/:route-id/select/:type/:id"
+    [route-id type id]
+    (let [id (as/as-long id)]
+      (println type id)
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string {})}))))
+
+#_(defn way
+  ([id]
+   (way id nil nil))
+  ([id node-start]
+   (way id node-start nil))
+  ([id node-start node-end]
+   (let [dataset (osmapi/way-full id)
+         way (get-in dataset [:ways id])]
+     (loop [rest-of-nodes (:nodes way)
+            collect (some? node-start)
+            collected []]
+       (if-let [])))
+   ))
+
+
+#_[
+ (way 910874091 3378500544)
+ (way 837564664)
+ (way 837564665 nil 944566202)
+ (way 328440766)]
+
+
+;; http://localhost:7056/planner/route/1
+;; http://localhost:7056/planner/route/1/explore/19.542961120605472/19.604759216308597/45.05924433672223/45.08427849626321
+
 
 (web/register-dotstore
  "transverzale"

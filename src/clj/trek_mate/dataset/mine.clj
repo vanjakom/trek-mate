@@ -270,7 +270,8 @@
   ;; rajac
   (l 20.22482, 44.13628 tag/tag-todo "rajac, vrh, transverzala, e7")
   (l 20.12129, 44.16127 tag/tag-todo "cudno, po mapi deluje da se skrece a nije tako, imam go pro, 20210330")
-
+  (l 20.22171, 44.19187 tag/tag-todo "skretanje levo put doma, putokaz 3-20-1")
+  
   (l 19.95901 44.03925
      tag/tag-todo
      (tag/url-tag "halooglasi" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/na-prodaju-zemljiste-u-blizini-gostoljublja/5425634401177?kid=1&sid=1613743569785")

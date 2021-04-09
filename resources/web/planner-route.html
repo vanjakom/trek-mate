@@ -32,7 +32,122 @@
     <div id= "content" class= "content">
       <div id= "map" class= "map"></div>
     </div>
-    <script type= "text/javascript">            
+    <script type= "text/javascript">      
+      var projectX = function(longitude) {
+	  return Math.floor((longitude / 360 + 0.5) * Math.pow(2, 24))
+      }
+      
+      var projectY = function(latitude) {
+	  const sin = Math.sin(latitude * Math.PI / 180);
+	  const y2 = 0.5 - 0.25 * Math.log((1 + sin) / (1 - sin)) / Math.PI;
+	  const y3 = y2 < 0 ? 0 : y2 > 1 ? 1 : y2;
+	  return Math.floor(y3 * Math.pow(2, 24))
+      }
+
+      var projectedLocationToWord = function(x, y) {
+	  var key = ""
+	  for (var i = 24; i >= 2; i -= 2) {
+	      var xUpper = (x & (1 << (i - 1))) != 0 ? 2 : 0
+	      var xLower = (x & (1 << (i - 2))) != 0 ? 1 : 0
+	      var yUpper = (y & (1 << (i - 1))) != 0 ? 2 : 0
+	      var yLower = (y & (1 << (i - 2))) != 0 ? 1 : 0
+		  
+	      var index = xUpper + xLower + (yUpper  + yLower) * 4
+
+	      key = key + String.fromCharCode(97 + index).toUpperCase()
+	  }
+	  return key
+      }
+      
+      var tileCoordsToWord = function(z, x, y) {
+	  var key = ""
+	  for (var i = z; i >= 2; i -= 2) {
+	      var xUpper = (x & (1 << (i - 1))) != 0 ? 2 : 0
+	      var xLower = (x & (1 << (i - 2))) != 0 ? 1 : 0
+	      var yUpper = (y & (1 << (i - 1))) != 0 ? 2 : 0
+	      var yLower = (y & (1 << (i - 2))) != 0 ? 1 : 0
+		  
+	      var index = xUpper + xLower + (yUpper  + yLower) * 4
+	      
+	      key = key + String.fromCharCode(97 + index).toUpperCase()
+	  }
+	  return key
+      }
+
+      // stores currently active tiles and assigned markers ...
+      //      var tileStore = new Map()
+      L.GridLayer.MarkerLoader = L.GridLayer.extend({
+	  initialize: function(url, options) {
+	      var markerStore = new Map()
+              this._url = url
+	      this.markerStore = markerStore
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this.on("tileunload", function(tileEvent) {
+		  var key = tileEvent.coords.z + "/" + tileEvent.coords.x + "/" + tileEvent.coords.y
+		  var tile = markerStore.get(key)
+		  //		  tileStore.delete(key)
+		  if (tile != null) {
+		      tile.remove()
+		  }
+		  markerStore.delete(key)
+	      })
+	  },
+
+	  createTile: function(coords, done) {
+	      var key = coords.z + "/" + coords.x + "/" + coords.y
+              var tile = null // tileStore.get(key)
+	      var markerStore = this.markerStore
+
+	      if (tile == null) {
+		  var tileUrl = L.Util.template(this._url, L.extend(coords, this.options))
+		  fetch(tileUrl).then(function(response) {
+		      response.json().then(data => {
+			  //			  tileStore.set(key, data.features)
+			  var markers = data.features.map(function (location) {
+			      var id = location.properties.id
+			      var tags = location.properties.tags
+			      
+			      var icon = L.icon({
+				  iconUrl: location.properties.pin,
+				  iconSize: [25,25],
+				  iconAnchor: [12.5,12.5]})
+			      var marker = L.marker(
+				  [
+				      location.geometry.coordinates[1],
+				      location.geometry.coordinates[0]],
+				  {icon: icon})
+			      if (location.properties.photo != null) {
+				  marker.bindPopup(
+				      "<a href='" + location.properties.photo + "' target='blank'><img src='" + location.properties.photo + "' style='max-width: 300px;max-height: 300px'></img></a>",
+				      { maxWidth: "auto" })
+			      } else {				  
+				  marker.bindPopup(
+				      location.geometry.coordinates[0] + ", " + location.geometry.coordinates[1] + "</br>" +
+					  projectedLocationToWord(projectX(location.geometry.coordinates[0]), projectY(location.geometry.coordinates[1])) + "</br>" +
+					  location.properties.description + "</br>" +
+					  "<a href='javascript:markDoneFn(\"" + id + "\")'>mark done</a>",
+				      {
+					  maxWidth: "auto"})
+			      }
+
+			      return marker
+			  })
+
+			  var group = L.layerGroup(markers)
+			  group.addTo(map)
+			  markerStore.set(key, group)
+			  
+			  done()
+		      })})
+	      }
+
+	      return L.DomUtil.create('div')
+	  },
+      })
+
+      // static vector data overlay
+      // loads data on show
+      
       L.TileBoundsLayer = L.GridLayer.extend({
 	  initialize: function(options) {
               L.GridLayer.prototype.initialize.call(this, options)
@@ -59,12 +174,104 @@
 	      
 	      return tile
 	  },
+      })
+
+
+      L.LocationBoundsLayer = L.GridLayer.extend({
+	  initialize: function(options) {
+              L.GridLayer.prototype.initialize.call(this, options)
+	      this._color = options.color
+	  },
+
+	  createTile: function(coords) {
+	      var tile = L.DomUtil.create("canvas", "leaflet-tile")
+	      var size = this.getTileSize()
+	      tile.width = size.x
+	      tile.height = size.y
+	      var ctx = tile.getContext("2d")
+
+	      ctx.strokeStyle = this._color
+	      ctx.fillStyle = this._color
+	      ctx.font = "15px Arial"
+	      ctx.lineWidth = 1
+	      ctx.beginPath()
+
+	      key = tileCoordsToWord(coords.z, coords.x, coords.y)
+
+	      var quadKey = []
+	      if (coords.z % 2 == 0) {
+		  //var key = key +  " (" + quadKeyCopy + ")"
+		  ctx.fillText(key, 5, 20)
+		  ctx.rect(0, 0, 255, 255)
+	      } else {
+		  if (coords.x % 2 == 0 && coords.y % 2 == 0) {
+		      ctx.fillText(key, 5, 20)
+		      ctx.moveTo(0, 255)
+		      ctx.lineTo(0, 0)
+		      ctx.lineTo(255, 0)
+		  } else if (coords.x % 2 == 1 && coords.y % 2 == 0) {
+		      ctx.moveTo(0, 0)
+		      ctx.lineTo(255, 0)
+		      ctx.lineTo(255, 255)
+		  } else if (coords.x % 2 == 0 && coords.y % 2 == 1) {
+		      ctx.moveTo(0, 0)
+		      ctx.lineTo(0, 255)
+		      ctx.lineTo(255, 255)
+		  } else {
+		      ctx.moveTo(255, 0)
+		      ctx.lineTo(255, 255)
+		      ctx.lineTo(0, 255)
+		  }
+	      }
+
+	      ctx.stroke()
+	      
+	      return tile
+	  },
       });
 
+      if (!Array.prototype.last){
+	  Array.prototype.last = function(){
+              return this[this.length - 1]
+	  }
+      }
+      
+      // setup
       var map = L.map("map", {maxBoundsViscosity: 1.0})
-      map.setMaxBounds([[-90,-180],[90,180]])
-      map.setView([44.81667, 20.46667], 10)
+      map.setMaxBounds ([[-90,-180],[90,180]])
+      L.control.scale({imperial: false}).addTo(map)
 
+
+      if (window.location.hash) {
+	  var splits = window.location.hash.substring(5).split("/")
+	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
+      } else {
+	  map.setView([44.82763029742812, 20.50529479980469], 10)
+      }
+
+      window.onhashchange = function() {
+	  var splits = window.location.hash.substring(5).split("/")
+	  map.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))
+      }
+      
+      map.on(
+	  "moveend",
+	  function() {
+	      window.location.hash = "#map=" + map.getZoom() + "/" + map.getCenter().lat + "/" + map.getCenter().lng
+	  })
+
+      
+      // specific
+      var markDoneFn = function(id) {
+	  fetch(
+	      "/edit",
+	      {
+		  method: "POST",
+		  body: "{\"test\":\"" + id + "\"}"
+	      })
+	      .then(trekMateDot.redraw())
+      }
+      
       var osmTile = L.tileLayer(
 	  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 	  {
@@ -102,6 +309,15 @@
 	      noWrap: true
 	  })
 
+      var mapboxDPMTile = L.tileLayer(
+	  'https://api.mapbox.com/styles/v1/vanjakom/ckjng7rsq2qaw19li02anmwes/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
       var mapboxSatelliteTile = L.tileLayer(
 	  'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
 	  {
@@ -146,6 +362,24 @@
 	      noWrap: true
 	  })
 
+      var waymarkedHikeTile = L.tileLayer(
+	  'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+
+      var waymarkedCycleTile = L.tileLayer(
+	  'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
       
       L.EmptyLayer = L.GridLayer.extend({
 	  initialize: function(options) {
@@ -216,10 +450,10 @@
       var stravaAuthHeatmapTile = new L.StravaAuthLayer(
 	  {
 	      keyPairId: "APKAIDPUN4QMG7VUQPSA",
-	      policy: "eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vaGVhdG1hcC1leHRlcm5hbC0qLnN0cmF2YS5jb20vKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTU4OTE4NTQxNX0sIkRhdGVHcmVhdGVyVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNTg3OTYxNDE1fX19XX0_",
-	      signature: "Qaag1KPUHuCKSD1LNxI8eXNJwDxSyhK9afhkB3Q6fTmwF9xgVRNOJo~X~7LvKNtKje4har2kCugOjh9h~3em-IultLRWMXQOiFx-eb7Dk5RiYPfuESZ3GbDg6B8RtGsrPN5osaZSHHWi3qIZ5T97qH5hlcLG5GfIBaJ~brUh~R651EJYFgtFbAPLE9xIJiYkpoWKL6f5RKXfmUFDXzVNAwR4Zh62U0exUri-JMl2mY~tDjdN5fX1e-Ybiz2mjmQ3~4WrW3XhpfzdrYytlAFnQkHYzqtH2oLMCMeIgDzf3STKJsbPSIo8zheMTe6sTqvDO59AtCOfRt-ZJVbkfI5ZcA__"
+	      policy: "eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vaGVhdG1hcC1leHRlcm5hbC0qLnN0cmF2YS5jb20vKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTU5MzY5NTQzMH0sIkRhdGVHcmVhdGVyVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNTkyNDcxNDMwfX19XX0_",
+	      signature: "R6a~NwbZ4-P4dVIyOuQvLpacJPRk0qzWBWl4O-WowGA7wuydNtaLJT2jK6ohz5A~nrXAPMtqtKULCRxO15V00rYicTCbs-~ikDCZEwj-Q1qOAK-7eYN4rd~TuDJTektz6x4l-KKQcwBX-GeOrzqqYT2hobbKB~S7aiNANqlYqfuFXYrLAnM2gOQj-nX-whm8SdgaK92dQBvBjCYcW8rDopTm1hvhaRLKBJ2m40z2S2eOTRZoWyEGqsoKpTY8E8KRXcmPBU5Z1w3OQalv44FJ2cuV3xzGUXZrug0POlif8OJ2JvBiH6q6VvjYOuehT5SpRcuVsiITK5qN~oSp-KmJAA__"
 	  })
-	  
+      
       
       var boundsTile = new L.TileBoundsLayer(
 	  {
@@ -228,9 +462,16 @@
 	      noWrap: true,
 	      color: "rgba(0, 0, 0, 0.5"})
 
+      var boundsLocation = new L.LocationBoundsLayer(
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true,
+	      color: "rgba(0, 0, 0, 0.5"})
+
       
       var trackTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
+	  '/tile/raster/track/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -238,8 +479,45 @@
 	      noWrap: true
 	  })
 
+      var trackNoteTile = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/track-note/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  }) 
+
+      var slotATile = L.tileLayer(
+	  '/tile/raster/slot-a/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var slotBTile = L.tileLayer(
+	  '/tile/raster/slot-b/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var slotCTile = L.tileLayer(
+	  '/tile/raster/slot-c/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      
+
       var maptilerSatelliteTile = L.tileLayer(
-	  'http://localhost:8085/tile/proxy/maptiler/{z}/{x}/{y}',
+	  '/tile/proxy/maptiler/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -261,6 +539,25 @@
 	      bounds: [[-90,-180],[90,180]],
 	      noWrap: true
 	  })
+
+      var cyclOSMTile = L.tileLayer(
+	  'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm-lite/{z}/{x}/{y}.png',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      
+      var freeMapSkTile = L.tileLayer(
+	  'https://outdoor.tiles.freemap.sk/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
       
       var baseMaps = {
 	  "open street map": osmTile,
@@ -272,18 +569,139 @@
 	  "empty white tile": emptyWhiteTile,
 	  "maptiler satellite": maptilerSatelliteTile,
 	  "osm wms de hillshade" : osmWmsDeTile,
-	  "wmflabs hillshade": wmflabsHillshadeTile
+	  "wmflabs hillshade": wmflabsHillshadeTile,
+	  "free map sk": freeMapSkTile
       }
+
       
+      var mySerbiaTile = L.tileLayer(
+	  'https://api.mapbox.com/styles/v1/vanjakom/ckbw0xtfw0oj41irqzbwu1npq/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      
+      var goProEvidence = new L.GridLayer.MarkerLoader(
+	  "/tile/proxy/photo-map/gopro/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+
+      var iphoneEvidence = new L.GridLayer.MarkerLoader(
+	  "/tile/proxy/photo-map/iphone/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      
+      var myDot = L.tileLayer(
+	  '/tile/raster/my-dot/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var markacijaDot = L.tileLayer(
+	  '/tile/raster/markacija/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
+      var e7Markacija = L.tileLayer(
+	  '/tile/raster/e7-markacija/{z}/{x}/{y}',
+	  {
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+
+      var e7Layer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/e7/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      
+      var mineLayer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/mine/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+
+      var transverzaleLayer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/transverzale/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      
+      var geocacheNotFound = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/geocache-not-found/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+     
       var overlayMaps = {
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
 	  "tile bounds": boundsTile,
+	  "location bounds": boundsLocation,
 	  "strava heatmap": stravaHeatmapTile,
 	  "strava auth heatmap": stravaAuthHeatmapTile,
-	  "track": trackTile}
+	  "cyclOSM lite": cyclOSMTile,
+	  "waymakred hike": waymarkedHikeTile,
+	  "waymakred cycle": waymarkedCycleTile,
+	  "my-serbia": mySerbiaTile,
+	  "mine": mineLayer,
+	  "transverzale": transverzaleLayer,
+	  "track": trackTile,
+	  "track-note": trackNoteTile,
+	  "gopro evidence": goProEvidence,
+	  "iphone evidence": iphoneEvidence,
+	  "DPM": mapboxDPMTile,
+	  "geocache-not-found": geocacheNotFound,
+	  "slot-a": slotATile,
+	  "slot-b": slotBTile,
+	  "slot-c": slotCTile,
+	  "my-dot": myDot,
+	  "e7": e7Layer,
+	  "e7-markacija": e7Markacija,
+	  "markacija": markacijaDot}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
+      
+      new L.Control.Geocoder({
+	  geocoder: L.Control.Geocoder.nominatim(),
+	  defaultMarkGeocode: false}).on(
+	      'markgeocode',
+	      function(e) {
+		  var bbox = e.geocode.bbox;
+		  var poly = L.polygon([
+		      bbox.getSouthEast(),
+		      bbox.getNorthEast(),
+		      bbox.getNorthWest(),
+		      bbox.getSouthWest()
+		  ])
+		  map.fitBounds(poly.getBounds());
+	      }).addTo(map)
 
       L.Control.Button = L.Control.extend({
 	  options: {
@@ -334,139 +752,79 @@
       });
 
       
-      if (!Array.prototype.last){
-	  Array.prototype.last = function(){
-              return this[this.length - 1]
-	  }
-      }
+      
+      
 
-      var networkId = window.location.pathname.split("/").last()
-      var networkWays = L.featureGroup()
-      networkWays.addTo(map)
+      var routeId = window.location.pathname.split("/").last()
       var availableWays = L.featureGroup()
       availableWays.addTo(map)
+      var availableNodes = L.featureGroup()
+      availableNodes.addTo(map)
       
       var reloadDataFn = function() {
 	  alert("not implemented")
       }
 
-      var reloadAvailableDataFn = function() {
+      var reloadAvailableWaysDataFn = function() {
 	  availableWays.clearLayers()
-	  fetch("/planner/route/" + networkId + "/explore/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
-	      var networkWaySet = new Set()
-	      networkWays.eachLayer(function(feature) {
-		  if (feature.selected) {
-		      networkWaySet.add(feature.id)
-		  }
-	      })
-
+	  fetch("/projects/planner-route/" + routeId + "/ways/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
 	      data.features.forEach(function(feature) {
-		  if (!networkWaySet.has(feature.properties.id)) {
-		      var layer = L
-			  .geoJSON(
-			      feature,
-			      {
-				  style: {
-				      color:"#0000ff"}})
-		      layer.selected = false
-		      layer.id = feature.properties.id
-		      layer.on("click", function() {
-			  if (layer.selected) {
-			      layer.setStyle({color: "#0000ff"})
-			      layer.selected = false
-			      networkWays.removeLayer(layer)
-			      availableWays.addLayer(layer)
-			      console.log("removed: " + layer.id)
-			  } else {
-			      layer.setStyle({color: "#ff0000"})
-			      layer.selected = true
-			      availableWays.removeLayer(layer)
-			      networkWays.addLayer(layer)
-			      console.log("added: " + layer.id)
-			  }
-		      })
+		  var layer = L.geoJSON(
+		      feature,
+		      {style: {color:"#0000ff"}})
+		  layer.selected = false
+		  layer.id = feature.properties.id
+		  layer.on("click", function() {
+		      if (layer.selected) {
+			  layer.setStyle({color: "#0000ff"})
+			  layer.selected = false
+		      } else {
+			  layer.setStyle({color: "#ff0000"})
+			  layer.selected = true
+			  console.log("way: " + layer.id)
 
-		      availableWays.addLayer(layer)
-		  }
+			  fetch("/projects/planner-route/" + routeId + "/select/way/" + layer.id)
+			      .then(response => response.json())
+			      .then(function(data) { })
+		      }})
+		  availableWays.addLayer(layer)
+	      })
+	  })
+      }
+
+      
+      var reloadAvailableNodesDataFn = function() {
+	  availableNodes.clearLayers()
+	  fetch("/projects/planner-route/" + routeId + "/nodes/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
+	      data.features.forEach(function(feature) {
+		  var layer = L.geoJSON(feature)
+		  layer.id = feature.properties.id
+		  
+		  layer.on("click", function() {
+		      console.log("node: " + layer.id)
+		      fetch("/projects/planner-route/" + routeId + "/select/node/" + layer.id)
+			  .then(response => response.json())
+			  .then(function(data) {
+			      	  availableNodes.clearLayers()
+			  })
+		  })
+
+		  availableNodes.addLayer(layer)
 	      })
 	  })
       }
       
-      fetch("/network/edit/" + networkId + "/retrieve").then(response => response.json()).then(function(data) {
-	  data.features.forEach(function(feature) {
-	      var layer = L
-		  .geoJSON(
-		      feature,
-		      {
-			  style: {
-			      color:"#ff0000"}})
-	      layer.selected = true
-	      layer.id = feature.properties.id
-	      layer.on("click", function() {
-			  if (layer.selected) {
-			      layer.setStyle({color: "#0000ff"})
-			      layer.selected = false
-			      networkWays.removeLayer(layer)
-			      availableWays.addLayer(layer)
-			      console.log("removed: " + layer.id)
-			  } else {
-			      layer.setStyle({color: "#ff0000"})
-			      layer.selected = true
-			      availableWays.removeLayer(layer)
-			      networkWays.addLayer(layer)
-			      console.log("added: " + layer.id)
-			  }
-		      })
-	      networkWays.addLayer(layer)
-	  })
-
-	  map.fitBounds(networkWays.getBounds())
-      })
-
-      new L.Control.Geocoder({
-	  geocoder: L.Control.Geocoder.nominatim(),
-	  defaultMarkGeocode: false}).on(
-	      'markgeocode',
-	      function(e) {
-		  var bbox = e.geocode.bbox;
-		  var poly = L.polygon([
-		      bbox.getSouthEast(),
-		      bbox.getNorthEast(),
-		      bbox.getNorthWest(),
-		      bbox.getSouthWest()
-		  ])
-		  map.fitBounds(poly.getBounds());
-	      }).addTo(map)
-
       new L.Control.Button({
-	  'text': 'refresh',
-	  'onClick': reloadAvailableDataFn,
+	  'text': 'ways',
+	  'onClick': reloadAvailableWaysDataFn,
       }).addTo(map);
 
-      var clearFn = function() {
-	  availableWays.clearLayers()
-      }
+
       new L.Control.Button({
-	  'text': 'clear',
-	  'onClick': clearFn,
+	  'text': 'nodes',
+	  'onClick': reloadAvailableNodesDataFn,
       }).addTo(map);
-      
-      var saveFn = function() {
-	  var ids = []
-	  networkWays.eachLayer(function(layer) {
-	      ids.push(layer.id)
-	  })
-	  fetch(
-	      "/network/edit/" + networkId + "/update",
-	      {
-		  method: "POST",
-		  body: JSON.stringify(ids)})
-      }
-      new L.Control.Button({
-	  'text': 'save',
-	  'onClick': saveFn,
-      }).addTo(map);
-      
+
       var mousedownInterval;      
       map.on (
 	  "mousedown",

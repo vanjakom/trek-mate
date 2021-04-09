@@ -574,18 +574,20 @@
 #_(deref dpm-ways) ;; [729115595 313730002 865771171]
 #_(swap! dpm-ways (constantly [729115595 313730002 865771171]))
 
-(defn way->feature [way-id]
-  (let [way-dataset (dataset-way way-id)]
-    (update-in
-     (geojson/location-seq->line-string
-      (map
-       #(let [node (get-in way-dataset [:nodes %])]
-          {
-           :longitude (as/as-double (:longitude node))
-           :latitude (as/as-double (:latitude node))})
-       (get-in way-dataset [:ways way-id :nodes])))
-     [:properties :id]
-     (constantly way-id))))
+(defn way->feature
+  ([way-id]
+   (way->feature (dataset-way way-id) way-id))
+  ([dataset way-id]
+   (update-in
+    (geojson/location-seq->line-string
+     (map
+      #(let [node (get-in dataset [:nodes %])]
+         {
+          :longitude (as/as-double (:longitude node))
+          :latitude (as/as-double (:latitude node))})
+      (get-in dataset [:ways way-id :nodes])))
+    [:properties :id]
+    (constantly way-id))))
 
 (defn prepare-network-data
   [id]
@@ -1448,7 +1450,34 @@
     [id]
     {
      :status 200
-     :body (jvm/resource-as-stream ["web" "network-editor.html"])})))
+     :body (jvm/resource-as-stream ["web" "network-editor.html"])})
+
+  ;; unite servers, intermediate solution
+  ;; proxy for trek-mate.web
+  ;; final solution would be to projects, back to trek-mate.web
+  ;; and register osmeditor as project
+  (compojure.core/GET
+   "/tile/:type/:name/:zoom/:x/:y"
+   [type name zoom x y]
+   (if-let [response (http/get-raw-as-stream (str "http://localhost:8085/tile/" type "/" name "/" zoom "/" x "/" y))]
+     {
+      :status 200
+      :headers {
+                "Content-Type" (get-in response [:headers :Content-Type])} 
+      :body (:body response)}
+     {
+      :status 404}))
+  (compojure.core/GET
+   "/pin/:base/:pin"
+   [base pin]
+   (if-let [response (http/get-raw-as-stream (str "http://localhost:8085/pin/" base "/" pin))]
+     {
+      :status 200
+      :headers {
+                "Content-Type" (get-in response [:headers :Content-Type])} 
+      :body (:body response)}
+     {
+      :status 404}))))
 
 (project-report
  "home"
