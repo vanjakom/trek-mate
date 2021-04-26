@@ -76,12 +76,15 @@
 (def no-tags-pin "no_tags_pin")
 (def trek-mate-original-pin "trekmate-original_pin")
 (def location-pin "location_pin")
-(def photo-pin "photo_pin")
 
 ;; activity
 (def bike-pin "bike_route_pin")
 (def hike-pin "hike_route_pin")
 (def kayak-pin "kayak_route_pin")
+
+;; mapping pins
+(def photo-pin "photo_pin")
+(def note-pin "note_pin")
 
 (defn base-pin-trigger [tags]
   (cond
@@ -192,6 +195,11 @@
      (fn [tags]
        (when (contains? tags tag/tag-photo)
          photo-pin))
+     ;; note pin
+     (fn [tags]
+       (when (contains? tags tag/tag-note)
+         note-pin))
+     
      ;; no tags pin
      (fn [tags]
        (if (= (count tags) 0)

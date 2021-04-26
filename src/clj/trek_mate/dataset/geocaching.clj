@@ -14,6 +14,7 @@
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
@@ -193,17 +194,24 @@
    (var geocache-not-found-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(web/register-map
-   "geocache-not-found"
-   {
-    :vector-tile-fn (web/tile-vector-dotstore-fn
-                    [
-                     (fn [_ _ _ _]
-                       (map
-                        #(select-keys
-                          %
-                          [:longitude :latitude :tags])
-                        geocache-not-found-seq))])})
+
+
+(web/register-dotstore
+ "geocache-not-found"
+ (fn [zoom x y]
+   (let [[min-longitude max-longitude min-latitude max-latitude]
+         (tile-math/tile->location-bounds [zoom x y])]
+     (filter
+      #(and
+        (>= (:longitude %) min-longitude)
+        (<= (:longitude %) max-longitude)
+        (>= (:latitude %) min-latitude)
+        (<= (:latitude %) max-latitude))
+      (map
+       #(select-keys
+         %
+         [:longitude :latitude :tags])
+       geocache-not-found-seq) ))))
 
 ;; import not found geocaches to icloud
 ;; change date to date of import to be able to filter out

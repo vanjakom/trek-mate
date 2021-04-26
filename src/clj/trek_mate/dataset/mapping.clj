@@ -14,14 +14,15 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
-   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
+   [trek-mate.dataset.mine :as mine]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
+   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
@@ -29,11 +30,7 @@
    [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]
-   [trek-mate.web :as web]
-   ;; temporary to be able to do fast name mapping
-   [trek-mate.dataset.zapis :as zapis]
-   ;; fix this
-   [trek-mate.dataset.mine :as mine]))
+   [trek-mate.web :as web]))
 
 ;; to be used after activity to update survey data to OSM
 
@@ -126,121 +123,6 @@
                      (web/create-transparent-raster-tile-fn)
                      :pending-dot
                      [(constantly [draw/color-red 2])])}))
-
-
-;; #mapping #track #location #trek-mate #garmin #garmin-connect
-;; combined track and pending locations to be used with iD, produces GeoJSON
-;; used for all track types
-(let [track-seq
-      (or
-       ;; trek-mate
-       #_(let [track-id 1617451509]
-         (with-open [is (fs/input-stream
-                         (path/child
-                          env/*global-my-dataset-path*
-                          "trek-mate" "cloudkit" "track"
-                          env/*trek-mate-user*
-                          (str track-id ".json")))]
-           [(:locations (json/read-keyworded is))]))
-       ;; garmin
-       (let [track-id "Track_2021-04-04 204925"]
-         (with-open [is (fs/input-stream
-                         (path/child
-                          env/*global-my-dataset-path*
-                          "garmin"
-                          "gpx"
-                          (str track-id ".gpx")))]
-           (:track-seq (gpx/read-track-gpx is))))
-       ;; garmin connect (watch)
-       #_(let [track-id "2021-03-07T09:14:06+00:00_6390754145"]
-         (with-open [is (fs/input-stream
-                         (path/child
-                          env/*global-my-dataset-path*
-                          "garmin-connect"
-                          (str track-id ".gpx")))]
-           (:track-seq (gpx/read-track-gpx is)))))
-      location-seq
-      (or
-       ;; trek-mate
-       #_(storage/location-request-file->location-seq
-        (storage/location-request-last-file env/*trek-mate-user*))
-       ;; garmin
-       (let [waypoint-file-name "Waypoints_04-APR-21.gpx"]
-         (mine/garmin-waypoint-file->location-seq
-          (path/child
-           env/*global-my-dataset-path*
-           "garmin"
-           "waypoints"
-           waypoint-file-name)))
-       ;; nothing
-       [])]
-  (with-open [os (fs/output-stream ["tmp" (str "iD-dot-only.geojson")])]
-    (json/write-to-stream
-     (geojson/geojson
-      (map
-       (comp
-        geojson/location->point
-        (fn [location]
-          (let [tags (:tags location)]
-            (into
-             (dissoc
-              location
-              :tags)
-             (map
-              (fn [tag]
-                [tag "yes"])
-              tags)))))
-       location-seq))
-     os))
-  (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
-    (json/write-to-stream
-     (geojson/geojson
-      (concat
-       (map
-        geojson/location->point
-        (filter
-         ;; filter out hiking trail marks
-         #_(not (= (:symbol %) "Civil"))
-         (constantly true)
-         location-seq))
-       (map
-        geojson/location-seq->line-string
-        track-seq)))
-     os))
-
-  (with-open [os (fs/output-stream ["tmp" "track.gpx"])]
-    (gpx/write-gpx
-     os
-     [
-      (gpx/track
-       (map
-        gpx/track-segment
-        track-seq))]))
-  
-  (web/register-dotstore
-   "track"
-   (fn [zoom x y]
-     (let [image-context (draw/create-image-context 256 256)]
-       (draw/write-background image-context draw/color-transparent)
-       (render/render-location-seq-as-dots
-        image-context 2 draw/color-blue [zoom x y] (apply concat track-seq))
-       {
-        :status 200
-        :body (draw/image-context->input-stream image-context)})))
-
-  (web/register-dotstore
-   "track-note"
-   (fn [zoom x y]
-     (let [[min-longitude max-longitude min-latitude max-latitude]
-           (tile-math/tile->location-bounds [zoom x y])]
-       (filter
-        #(and
-          (>= (:longitude %) min-longitude)
-          (<= (:longitude %) max-longitude)
-          (>= (:latitude %) min-latitude)
-          (<= (:latitude %) max-latitude))
-        location-seq)))))
-
 
 ;; #garmin #connect #mapping #track
 ;; DEPRECATED
@@ -338,26 +220,193 @@
                      :slot-a
                      [(constantly [draw/color-red 2])])})))
 
+
+
+;; #mapping #track #location #trek-mate #garmin #garmin-connect
+;; combined track and pending locations to be used with iD, produces GeoJSON
+;; used for all track types
+#_(let [track-seq
+      (or
+       ;; trek-mate
+       #_(let [track-id 1617451509]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "trek-mate" "cloudkit" "track"
+                          env/*trek-mate-user*
+                          (str track-id ".json")))]
+           [(:locations (json/read-keyworded is))]))
+       ;; garmin
+       (let [track-id "Track_2021-04-24 181711"]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "garmin"
+                          "gpx"
+                          (str track-id ".gpx")))]
+           (:track-seq (gpx/read-track-gpx is))))
+       ;; garmin connect (watch)
+       #_(let [track-id "2021-03-07T09:14:06+00:00_6390754145"]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "garmin-connect"
+                          (str track-id ".gpx")))]
+           (:track-seq (gpx/read-track-gpx is)))))
+      location-seq
+      (or
+       ;; trek-mate
+       #_(storage/location-request-file->location-seq
+        (storage/location-request-last-file env/*trek-mate-user*))
+       ;; garmin
+       (let [waypoint-file-name "Waypoints_24-APR-21.gpx"]
+         (mine/garmin-waypoint-file->location-seq
+          (path/child
+           env/*global-my-dataset-path*
+           "garmin"
+           "waypoints"
+           waypoint-file-name)))
+       ;; nothing
+       [])]
+  (with-open [os (fs/output-stream ["tmp" (str "iD-dot-only.geojson")])]
+    (json/write-to-stream
+     (geojson/geojson
+      (map
+       (comp
+        geojson/location->point
+        (fn [location]
+          (let [tags (:tags location)]
+            (into
+             (dissoc
+              location
+              :tags)
+             (map
+              (fn [tag]
+                [tag "yes"])
+              tags)))))
+       location-seq))
+     os))
+  (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
+    (json/write-to-stream
+     (geojson/geojson
+      (concat
+       (map
+        geojson/location->point
+        (filter
+         ;; filter out hiking trail marks
+         #_(not (= (:symbol %) "Civil"))
+         (constantly true)
+         location-seq))
+       (map
+        geojson/location-seq->line-string
+        track-seq)))
+     os))
+
+  (with-open [os (fs/output-stream ["tmp" "track.gpx"])]
+    (gpx/write-gpx
+     os
+     [
+      (gpx/track
+       (map
+        gpx/track-segment
+        track-seq))]))
+  
+  (web/register-dotstore
+   "track"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-blue [zoom x y] (apply concat track-seq))
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)})))
+
+  (web/register-dotstore
+   "track-note"
+   (fn [zoom x y]
+     (let [[min-longitude max-longitude min-latitude max-latitude]
+           (tile-math/tile->location-bounds [zoom x y])]
+       (filter
+        #(and
+          (>= (:longitude %) min-longitude)
+          (<= (:longitude %) max-longitude)
+          (>= (:latitude %) min-latitude)
+          (<= (:latitude %) max-latitude))
+        location-seq)))))
+
+
+
+(defn cyrillic->latin
+  [name]
+  (let [translate-map {
+                       \а \a
+                       \б \b
+                       \в \v
+                       \г \g
+                       \д \d
+                       \ђ \đ
+                       \е \e
+                       \ж \ž
+                       \з \z
+                       \и \i
+                       \ј \j
+                       \к \k
+                       \л \l
+                       \љ "lj"
+                       \м \m
+                       \н \n
+                       \њ "nj"
+                       \о \o
+                       \п \p
+                       \р \r
+                       \с \s
+                       \т \t
+                       \ћ \ć
+                       \у \u
+                       \ф \f
+                       \х \h
+                       \ц \c
+                       \ч \č
+                       \џ "dž"
+                       \ш \š}]
+    (apply
+     str
+     (map
+      (fn [c]
+        (if-let [t (get translate-map (Character/toLowerCase ^char c))]
+          (if (Character/isUpperCase ^char c)
+            (cond
+              (= c \Љ)
+              "Lj"
+              (= c \Њ)
+              "Nj"
+              :else
+              (.toUpperCase (str t)))
+            t)
+          c))
+      name))))
+
 ;; #name #translate
 (defn prepare-name-tags [name-cyrillic]
   (println "name =" name-cyrillic)
   (println "name:sr =" name-cyrillic)
-  (println "name:sr-Latn =" (zapis/cyrillic->latin name-cyrillic)))
-
+  (println "name:sr-Latn =" (cyrillic->latin name-cyrillic)))
 
 #_(Prepare-name-tags "Чесма Свете Тројице") 
 #_(prepare-name-tags "ЈП \"Војводинашуме\"")
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
 #_(prepare-name-tags "Црква Свете Петке")
-#_(prepare-name-tags "34240 Кнић")
+#_(prepare-name-tags "22409 Јазак")
 #_(prepare-name-tags "Уб")
+#_(prepare-name-tags "Запис липа у манастиру")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
-#_(prepare-name-tags "Рајска долина")
-#_(prepare-name-tags "Месна заједница Каменица")
+#_(prepare-name-tags "Вила Нарцис")
+#_(prepare-name-tags "Месна заједница Бешеновачки Прњавор")
 #_(prepare-name-tags "Црква Св. пророка Илије")
 #_(prepare-name-tags "Дом здравља Ваљево")
-#_(prepare-name-tags "Здравствена станица Прањани")
+#_(prepare-name-tags "Одмаралиште Стари град")
 #_(prepare-name-tags "Амбуланта Каменица")
 
 

@@ -52,6 +52,7 @@
 (def tag-wikipedia "#wikipedia")
 (def tag-wikivoyage "#wikivoyage")
 (def tag-photo "#photo")
+(def tag-note "#note")
 
 ;;; using system tags now
 ;;; used during system import of datasets to be able to filter and partially

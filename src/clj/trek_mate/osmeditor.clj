@@ -17,7 +17,7 @@
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
-   [clj-geo.import.geojson :as geojson]
+   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
@@ -1177,88 +1177,92 @@
   (compojure.core/GET
    "/view/osm/history/changeset/:id"
    [id]
-   {
-    :status 200
-    :headers {
-              "Content-Type" "text/html; charset=utf-8"}
-    :body
-    (hiccup/html
-     [:html
-      [:head [:title (str
-                      (cond
-                        (= type "way")
-                        "w"
-                        (= type "node")
-                        "n"
-                        (= type "relation")
-                        "r")
-                      id)]]
-      [:body {:style "font-family:arial;"}
-       (let [changeset (osmapi/changeset-download id)]         
-         (concat
-          [
-           [:div
-            "changeset: "
-            [:a {
-                 :href (str "https://www.openstreetmap.org/changeset/" id)
-                 :target "_blank"}
-             id]]
-           [:br]]
-          (mapcat
-           (fn [element]
-             (let [id (:id element)]
-               (cond
-                 (= (:type element) :node)
-                 (concat
-                  [
-                   [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id]
-                    " "
-                    [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
-                    " "
-                    [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
-                    [:br]]]
-                  (map
-                   render-change
-                   (osmapi/calculate-node-change id (:version element)))
-                  [[:br]])
-                
-                 (= (:type element) :way)
-                 (concat
-                  [
-                   [:div
-                    "way: "
-                    [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id]
-                    " "
-                    [:a {:href (str "http://localhost:8080/#id=w" id) :target "_blank"} "iD(localhost)"]
-                    " "
-                    [:a {:href (str "http://level0.osmz.ru/?url=way/" id) :target "_blank"} "level0"]
-                    [:br]]]
-                  (map
-                   render-change
-                   (osmapi/calculate-way-change id (:version element)))
-                  [[:br]])
-                
-                 (= (:type element) :relation)
-                 (concat
-                  [
-                   [:div
-                    "relation: "
-                    [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
-                    " "
-                    [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
-                    " "
-                    [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
-                    " "
-                    [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
-                    [:br]]]
-                  (map
-                   render-change
-                   (osmapi/calculate-relation-change id (:version element)))
-                  [[:br]])
-                
-                 :else
-                 (list {:change :unknown}))))
-           (:modify changeset))))]])})
+   (try
+     {
+      :status 200
+      :headers {
+                "Content-Type" "text/html; charset=utf-8"}
+      :body
+      (hiccup/html
+       [:html
+        [:head [:title (str
+                        (cond
+                          (= type "way")
+                          "w"
+                          (= type "node")
+                          "n"
+                          (= type "relation")
+                          "r")
+                        id)]]
+        [:body {:style "font-family:arial;"}
+         (let [changeset (osmapi/changeset-download id)]         
+           (concat
+            [
+             [:div
+              "changeset: "
+              [:a {
+                   :href (str "https://www.openstreetmap.org/changeset/" id)
+                   :target "_blank"}
+               id]]
+             [:br]]
+            (mapcat
+             (fn [element]
+               (let [id (:id element)]
+                 (cond
+                   (= (:type element) :node)
+                   (concat
+                    [
+                     [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id]
+                      " "
+                      [:a {:href (str "http://localhost:8080/#id=n" id) :target "_blank"} "iD(localhost)"]
+                      " "
+                      [:a {:href (str "http://level0.osmz.ru/?url=way/" id) :target "_blank"} "level0"]
+                      [:br]]]
+                    (map
+                     render-change
+                     (osmapi/calculate-node-change id (:version element)))
+                    [[:br]])
+                   
+                   (= (:type element) :way)
+                   (concat
+                    [
+                     [:div
+                      "way: "
+                      [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id]
+                      " "
+                      [:a {:href (str "http://localhost:8080/#id=w" id) :target "_blank"} "iD(localhost)"]
+                      " "
+                      [:a {:href (str "http://level0.osmz.ru/?url=way/" id) :target "_blank"} "level0"]
+                      [:br]]]
+                    (map
+                     render-change
+                     (osmapi/calculate-way-change id (:version element)))
+                    [[:br]])
+                   
+                   (= (:type element) :relation)
+                   (concat
+                    [
+                     [:div
+                      "relation: "
+                      [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
+                      " "
+                      [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+                      " "
+                      [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+                      " "
+                      [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
+                      [:br]]]
+                    (map
+                     render-change
+                     (osmapi/calculate-relation-change id (:version element)))
+                    [[:br]])
+                   
+                   :else
+                   (list {:change :unknown}))))
+             (:modify changeset))))]])}
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))
   (compojure.core/GET
    "/view/poi/:type"
    [type]

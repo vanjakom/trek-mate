@@ -552,7 +552,6 @@
 	      signature: "R6a~NwbZ4-P4dVIyOuQvLpacJPRk0qzWBWl4O-WowGA7wuydNtaLJT2jK6ohz5A~nrXAPMtqtKULCRxO15V00rYicTCbs-~ikDCZEwj-Q1qOAK-7eYN4rd~TuDJTektz6x4l-KKQcwBX-GeOrzqqYT2hobbKB~S7aiNANqlYqfuFXYrLAnM2gOQj-nX-whm8SdgaK92dQBvBjCYcW8rDopTm1hvhaRLKBJ2m40z2S2eOTRZoWyEGqsoKpTY8E8KRXcmPBU5Z1w3OQalv44FJ2cuV3xzGUXZrug0POlif8OJ2JvBiH6q6VvjYOuehT5SpRcuVsiITK5qN~oSp-KmJAA__"
 	  })
       
-      
       var boundsTile = new L.TileBoundsLayer(
 	  {
 	      maxZoom: 21,
@@ -567,9 +566,8 @@
 	      noWrap: true,
 	      color: "rgba(0, 0, 0, 0.5"})
 
-      
       var trackTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/track/{z}/{x}/{y}',
+	  '/tile/raster/track/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -586,7 +584,7 @@
 	      }) 
 
       var slotATile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/slot-a/{z}/{x}/{y}',
+	  '/tile/raster/slot-a/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -595,7 +593,7 @@
 	  })
 
       var slotBTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/slot-b/{z}/{x}/{y}',
+	  '/tile/raster/slot-b/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -604,7 +602,7 @@
 	  })
 
       var slotCTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/slot-c/{z}/{x}/{y}',
+	  '/tile/raster/slot-c/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -615,7 +613,7 @@
       
 
       var maptilerSatelliteTile = L.tileLayer(
-	  'http://localhost:8085/tile/proxy/maptiler/{z}/{x}/{y}',
+	  '/tile/proxy/maptiler/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -683,7 +681,7 @@
       
       
       var goProEvidence = new L.GridLayer.MarkerLoader(
-	  "/tile/proxy/photo-map/gopro/{z}/{x}/{y}",
+	  "/tile/proxy/gopro/{z}/{x}/{y}",
 	  {
 	      maxZoom: 21,
 	      bounds: [[-90,-180], [90, 180]],
@@ -691,7 +689,7 @@
 	  })
 
       var iphoneEvidence = new L.GridLayer.MarkerLoader(
-	  "/tile/proxy/photo-map/iphone/{z}/{x}/{y}",
+	  "/tile/proxy/iphone/{z}/{x}/{y}",
 	  {
 	      maxZoom: 21,
 	      bounds: [[-90,-180], [90, 180]],
@@ -741,6 +739,14 @@
 	      noWrap: true
 	  })
 
+      var currentLayer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/current/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
+      
       var transverzaleLayer = new L.GridLayer.MarkerLoader(
 	  "/tile/vector/transverzale/{z}/{x}/{y}",
 	  {
@@ -756,6 +762,14 @@
 		  bounds: [[-90,-180], [90, 180]],
 		  noWrap: true
 	      })
+      
+      var zapisZblagojevicLayer = new L.GridLayer.MarkerLoader(
+	  "/tile/vector/zapis-zblagojevic/{z}/{x}/{y}",
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180], [90, 180]],
+	      noWrap: true
+	  })
      
       var overlayMaps = {
 	  "data": dataLayer,
@@ -770,6 +784,7 @@
 	  "waymakred cycle": waymarkedCycleTile,
 	  "my-serbia": mySerbiaTile,
 	  "mine": mineLayer,
+	  "current": currentLayer,
 	  "transverzale": transverzaleLayer,
 	  "track": trackTile,
 	  "track-note": trackNoteTile,
@@ -783,7 +798,8 @@
 	  "my-dot": myDot,
 	  "e7": e7Layer,
 	  "e7-markacija": e7Markacija,
-	  "markacija": markacijaDot}
+	  "markacija": markacijaDot,
+	  "zapis-zblagojevic": zapisZblagojevicLayer}
 
       L.control.layers(baseMaps, overlayMaps).addTo(map)
       

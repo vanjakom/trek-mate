@@ -795,7 +795,7 @@
       
       var reloadAvailableNodesDataFn = function() {
 	  availableNodes.clearLayers()
-	  fetch("/projects/planner-route/" + routeId + "/nodes/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
+	  fetch("/projects/planner-route/" + routeId + "/crossroads/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
 	      data.features.forEach(function(feature) {
 		  var layer = L.geoJSON(feature)
 		  layer.id = feature.properties.id
@@ -814,6 +814,32 @@
 	  })
       }
       
+      var reloadAvailableCrossroadsDataFn = function() {
+	  availableNodes.clearLayers()
+	  fetch("/projects/planner-route/" + routeId + "/crossroads/" + map.getBounds().getWest() + "/" + map.getBounds().getEast() + "/" + map.getBounds().getSouth() + "/" + map.getBounds().getNorth()) .then(response => response.json()).then(function(data) {
+	      data.features.forEach(function(feature) {
+		  var layer = L.geoJSON(feature)
+		  layer.id = feature.properties.id
+		  
+		  layer.on("click", function() {
+		      console.log("node: " + layer.id)
+		      fetch("/projects/planner-route/" + routeId + "/select/node/" + layer.id)
+			  .then(response => response.json())
+			  .then(function(data) {
+			      	  availableNodes.clearLayers()
+			  })
+		  })
+
+		  availableNodes.addLayer(layer)
+	      })
+	  })
+      }
+
+      var clearDataFn = function() {
+	  availableWays.clearLayers()
+	  availableNodes.clearLayers()
+      }
+      
       new L.Control.Button({
 	  'text': 'ways',
 	  'onClick': reloadAvailableWaysDataFn,
@@ -825,6 +851,16 @@
 	  'onClick': reloadAvailableNodesDataFn,
       }).addTo(map);
 
+      new L.Control.Button({
+	  'text': 'crossroads',
+	  'onClick': reloadAvailableCrossroadsDataFn,
+      }).addTo(map);
+
+      new L.Control.Button({
+	  'text': 'clear',
+	  'onClick': clearDataFn,
+      }).addTo(map);
+      
       var mousedownInterval;      
       map.on (
 	  "mousedown",

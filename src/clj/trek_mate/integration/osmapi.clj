@@ -79,27 +79,36 @@
     (:tags node))))
 
 (defn way-xml->way
-  [way]
-  {
-   :id (as/as-long (:id (:attrs way)))
-   :type :way
-   :version (as/as-long (:version (:attrs way)))
-   :changeset (as/as-long (:changeset (:attrs way)))
-   :tags (reduce
-          (fn [tags tag]
-            (assoc
-             tags
-             (:k (:attrs tag))
-             (:v (:attrs tag))))
-          {}
-          (filter
-           #(= (:tag %) :tag)
-           (:content way)))
-   :nodes (map
-           #(as/as-long (:ref (:attrs %)))
-           (filter
-            #(= (:tag %) :nd)
-            (:content way)))})
+  [way-xml]
+  (let [way {
+             :id (as/as-long (:id (:attrs way-xml)))
+             :type :way
+             :version (as/as-long (:version (:attrs way-xml)))
+             :changeset (as/as-long (:changeset (:attrs way-xml)))
+             :tags (reduce
+                    (fn [tags tag]
+                      (assoc
+                       tags
+                       (:k (:attrs tag))
+                       (:v (:attrs tag))))
+                    {}
+                    (filter
+                     #(= (:tag %) :tag)
+                     (:content way-xml)))
+             :nodes (map
+                     #(as/as-long (:ref (:attrs %)))
+                     (filter
+                      #(= (:tag %) :nd)
+                      (:content way-xml)))}]
+    ;; support for overpass center extraction, will be added as longitude latitude
+    (if-let [center (first (filter #(= (:tag %) :center) (:content way-xml)))]
+      (assoc
+       way
+       :longitude
+       (as/as-double (:lon (:attrs center)))
+       :latitude
+       (as/as-double (:lat (:attrs center))))
+      way)))
 
 (defn way->way-xml
   [way]

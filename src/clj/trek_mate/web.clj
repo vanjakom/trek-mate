@@ -868,7 +868,7 @@
        :status 200
        :body input-stream}))
    (compojure.core/GET
-    "/tile/proxy/photo-map/:tag/:zoom/:x/:y"
+    "/tile/proxy/:tag/:zoom/:x/:y"
     [tag zoom x y]
     (let [response (json/read-keyworded
                     (http/get-as-stream (str "http://localhost:7076/tile/" tag "/" zoom "/" x "/" y)))]

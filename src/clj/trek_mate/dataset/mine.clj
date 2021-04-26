@@ -23,7 +23,6 @@
    [clj-common.pipeline :as pipeline]
    [clj-common.time :as time]
    [clj-geo.import.gpx :as gpx]
-   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
    [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
@@ -33,6 +32,7 @@
    [trek-mate.dot :as dot]
    [trek-mate.dotstore :as dotstore]
    [trek-mate.env :as env]
+   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
@@ -203,6 +203,7 @@
 
   ;; divcibare
   ;; todo
+  (l 19.99937, 44.12823 tag/tag-bike "marijana ideja" "dodjem bajsom u Krcmar ona me pokupi, E7, istrazivanje")
   (l 19.99080 44.13025 tag/tag-todo tag/tag-hike "obelezena staza vodi negde, prosao bajsom pred")
   (l 19.99713 44.09571 tag/tag-todo tag/tag-hike "obelezena staza vodopad")
   (l 19.99746 44.09563 tag/tag-todo tag/tag-hike "obelezena staza subjel")
@@ -241,6 +242,25 @@
   (l 19.99568, 44.09190 tag/tag-todo tag/tag-hike "povezati deo staze koji nedostaje")
 
   (l 19.96136, 44.06600 "Rosici jezero" "mapirati")
+
+  (l 19.71737, 44.13615
+     "Kamene kugle Mali Povlen"
+     (tag/url-tag
+      "link 1"
+      "https://www.serbia.com/srpski/zamislite-zelju-lekovite-misteriozne-kugle-sa-povlena/")
+     (tag/url-tag
+      "link 2"
+      "https://www.novosti.rs/vesti/naslovna/reportaze/aktuelno.293.html:593319-MISTERIJA-KOD-VALjEVA-Povlenske-kugle-i-alke"))
+  (l 19.72527, 44.13417
+     "Visoka pecina, gde se nalazi"
+     (tag/url-tag "wikipedia" "https://sr.wikipedia.org/sr-el/Висока_пећина"))
+
+
+  (l 20.17536, 44.11988
+     "Мокра пећина"
+     (tag/url-tag
+      "link 1"
+      "https://www.danas.rs/zivot/cetnicko-blago-iz-mokre-pecine/"))
   
   ;; #pskbalkan table
   (l 19.94486, 44.08989 tag/tag-todo "Rosica jezero, PSK Balkan staza" "#pskbalkan")
@@ -271,6 +291,8 @@
   (l 20.22482, 44.13628 tag/tag-todo "rajac, vrh, transverzala, e7")
   (l 20.12129, 44.16127 tag/tag-todo "cudno, po mapi deluje da se skrece a nije tako, imam go pro, 20210330")
   (l 20.22171, 44.19187 tag/tag-todo "skretanje levo put doma, putokaz 3-20-1")
+
+  (n 2494127108 tag/tag-cave "Дражина пећина")
   
   (l 19.95901 44.03925
      tag/tag-todo
@@ -411,9 +433,15 @@
   (r 11144136)
   (l 20.06305, 44.04608 "!ranc orlovo gnezdo")
   (l 20.04275, 43.94822 (tag/url-tag "suma 200A, 15k" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/suma-na-prodaju/5425634557889?kid=1"))
-  (l 19.98614, 44.09825 "da li je ovo Vila Narcis, Upoznaj Divcibare 58")
+  #_(l 19.98614, 44.09825 "da li je ovo Vila Narcis, Upoznaj Divcibare 58" "nije")
   (l 19.99470, 44.08590 tag/tag-bike "rastovac, survey putevi")
 
+  (l 20.08336, 44.06834
+     tag/tag-todo
+     "fabrika vode?"
+     (tag/url-tag "website" "http://crystal-field.com")
+     (tag/url-tag "wikiloc1" "https://sr.wikiloc.com/rute-pjesacenje-po-planinama/maljen-od-fabrike-vode-do-vrha-veliki-maljen-i-nazad-19596249")
+     (tag/url-tag "wikiloc2" "https://sr.wikiloc.com/rute-pjesacenje-po-planinama/maljen-fabrika-vode-vrh-veliki-maljen-25098295"))
   
   ;; zlatibor
   (q 83166) ;; "!Stari grad Užice"
@@ -641,6 +669,11 @@
   (l 21.58800 43.95516 tag/tag-beach) ;; sisevac bazeni
   (q 16089198) ;; petrus
 
+  ;; fruska gora
+  (l 19.74816, 45.14622 "#research" "izvideti put koji se gradi, 20210410 naisli na njega")
+  (l 19.69237, 45.13553 "#research" "saznati vise od stablu, spomen park Jabuka 20210410")
+  (l 19.73888, 45.11182 "ruza vetrova" (tag/url-tag "website" "http://ruzavetrova.rs"))
+  
   ;; zabrega - sisavac
   ;; https://www.wikiloc.com/wikiloc/view.do?pic=hiking-trails&slug=zabrega-sisevac&id=24667423&rd=en
   ;; https://www.wikiloc.com/hiking-trails/stazama-petruskih-monaha-14208596
@@ -831,47 +864,52 @@
   {
    "Museum" "objekat"
    "Civil" "#markacija"
+   ;; should be defined per waypoint file
+   "Stadium" "#unknown"
    "Block, Blue" "ukrstanje neasfaltiranih puteva"
    "Block, Green" "ukrstanje pesackih puteva"
-   ;; not extracted since it doesn't add value but left for overview of symbols used
-   #_"Golf Course" #_"nesto"
+   "Golf Course" "#nesto"
    "Fishing Hot Spot Facility" "mala kuca"})
 
 (defn garmin-waypoint-note->tags
-  "Whole text will be extracted plus tag per each # or @ until space"
+  "Each # or @ until space"
   [note]
-  (conj
-   (into
-    #{}
-    (filter
-     some?
-     (first
-      (reduce
-       (fn [[tags in-tag tag-buffer] char]
-         (if in-tag
-           (if (= char \ )
-             [
-              (conj tags tag-buffer)
-              false
-              ""]
-             [
-              tags
-              true
-              (str tag-buffer char)])
-           (if (or (= char \#) (= char \@))
-             [
-              tags
-              true
-              (str char)]
-             [
-              tags
-              false
-              ""])))
-       []
-       note))))
-   note))
+  (into
+   #{}
+   (filter
+    some?
+    (let [[tags in-tag tag-buffer] (reduce
+                                    (fn [[tags in-tag tag-buffer] char]
+                                      (if in-tag
+                                        (if (= char \ )
+                                          [
+                                           (conj tags tag-buffer)
+                                           false
+                                           ""]
+                                          [
+                                           tags
+                                           true
+                                           (str tag-buffer char)])
+                                        (if (or (= char \#) (= char \@))
+                                          [
+                                           tags
+                                           true
+                                           (str char)]
+                                          [
+                                           tags
+                                           false
+                                           ""])))
+                                    []
+                                    note)]
+      (if in-tag
+        (conj tags tag-buffer)
+        tags)))))
 
 #_(garmin-waypoint-note->tags "#e7 markacije i #markacija ostalih staza")
+;; #{"#e7" "#markacija"}
+
+#_(garmin-waypoint-note->tags "#markacija #fruskogorskatransverzala")
+;; #{"#fruskogorskatransverzala" "#markacija"}
 
 (defn garmin-waypoint-file->location-seq
   [path]
@@ -894,16 +932,28 @@
           {
            :longitude (:longitude waypoint)
            :latitude (:latitude waypoint)
+           :name (:name waypoint)
+           :symbol (:symbol waypoint)
+           :note (get note-map (:name waypoint))
            :tags (into
                   #{}
                   (filter
                    some?
-                   (conj
-                    (if-let [note (get note-map (:name waypoint))]
-                      (garmin-waypoint-note->tags note)
-                      [])
-                    (get garmin-symbol-map (:symbol waypoint)))))})
+                   (concat
+                    ;; check by name
+                    (when-let [note (get note-map (:name waypoint))]
+                      (conj
+                       (garmin-waypoint-note->tags note)
+                       ;; add note only for waypoints with note, not just tags
+                       ;; useful during mapping
+                       tag/tag-note))
+                    ;; check by symbol
+                    (when-let [note (get note-map (:symbol waypoint))]
+                      (garmin-waypoint-note->tags note))
+                    [
+                     (get garmin-symbol-map (:symbol waypoint))])))})
         (:wpt-seq (gpx/read-gpx is)))))))
+
 
 (osmeditor/project-report
  "tracks"
@@ -944,53 +994,33 @@
              waypoint (if-let [waypoint (get-in request [:params :waypoint])]
                         (base64/base64->string waypoint)
                         nil)]
-         (println "track retrieve, dataset:" dataset ", track:" track )
+         (println
+          "track retrieve, dataset:" dataset
+          ", track:" track
+          ", waypoint: " waypoint )
          (cond
            (= dataset "garmin")
            (if (some? waypoint)
              ;; switch to use garmin-waypoint-file->location-seq
              (let [path (path/child garmin-waypoints-path (str waypoint ".gpx"))]
                (if (fs/exists? path)
-                 (with-open [is (fs/input-stream path)]
-                   (let [tags-map (into
-                                   {}
-                                   (with-open [is (fs/input-stream
-                                                   (path/child
-                                                    garmin-waypoints-path
-                                                    "index.tsv"))]
-                                     (doall
-                                      (filter
-                                       some?
-                                       (map
-                                        (fn [line]
-                                          (when (not (.startsWith line ";;"))
-                                            (let [fields (.split line "\\|")]
-                                              (when (== (count fields) 2)
-                                                [
-                                                 (first fields)
-                                                 (second fields)]))))
-                                        (io/input-stream->line-seq is))))))
-                         waypoint-seq (:wpt-seq (gpx/read-track-gpx is))]
-                     {
-                      :status 200
-                      :body (json/write-to-string
-                             (geojson/geojson
-                              (map
-                               (fn [waypoint]
-                                 (geojson/location->feature
-                                  {
-                                   :longitude (:longitude waypoint)
-                                   :latitude (:latitude waypoint)
-                                   :text (clojure.string/join
-                                          "</br>"
-                                          (filter
-                                           some?
-                                           [
-                                            (:name waypoint)
-                                            (get garmin-symbol-map (:symbol waypoint))
-                                            (get tags-map (:name waypoint))
-                                            ]))}))
-                               waypoint-seq)))}))
+                 (let [location-seq (garmin-waypoint-file->location-seq path)]
+                   {
+                    :status 200
+                    :body (json/write-to-string
+                           (geojson/geojson
+                            (map
+                             (fn [waypoint]
+                               (geojson/point
+                                (:longitude waypoint)
+                                (:latitude waypoint)
+                                {
+                                 :text
+                                 (str
+                                  (or (:note waypoint) "")
+                                  "</br>"
+                                  (clojure.string/join " "(:tags waypoint)))}))
+                             location-seq)))})
                  {:status 404}))
              (let [path (path/child garmin-track-path (str track ".gpx"))]
                (if (fs/exists? path)
@@ -1119,23 +1149,7 @@
          wp-path (path/child garmin-waypoints-path (str file ".gpx"))]
      (if (fs/exists? wp-path)
        ;; todo tags are not parsed
-       (let [tags-map (into
-                          {}
-                          (with-open [is (fs/input-stream
-                                          (path/child garmin-waypoints-path "index.tsv"))]
-                            (doall
-                             (filter
-                              some?
-                              (map
-                               (fn [line]
-                                 (when (not (.startsWith line ";;"))
-                                   (let [fields (.split line "\\|")]
-                                     (when (== (count fields) 3)
-                                       [
-                                        (str "Waypoints_" (first fields) (second fields))
-                                        (.split (nth fields 2) " ")]))))
-                               (io/input-stream->line-seq is))))))
-             waypoints (:wpt-seq (gpx/read-track-gpx (fs/input-stream wp-path)))]
+       (let [location-seq (garmin-waypoint-file->location-seq wp-path)]
          {
           :status 200
           :body (hiccup/html
@@ -1161,15 +1175,15 @@
                          (:symbol waypoint)]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (or
-                          (get garmin-symbol-map (:symbol waypoint))
+                          (clojure.string/join
+                           " "
+                           (:tags waypoint))
                           "")]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (or
-                          (clojure.string/join
-                           " "
-                           (get tags-map (str file (:name waypoint))))
+                          (:note waypoint)
                           "")]])
-                     waypoints)]]])
+                     location-seq)]]])
           })
        {:status 404})))
   
@@ -1472,3 +1486,5 @@
   ["Users" "vanja" "my-dataset-temp" "track-split"]
   13
   (constantly [1 draw/color-red])))
+
+

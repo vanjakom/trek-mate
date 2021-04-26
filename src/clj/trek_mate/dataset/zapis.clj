@@ -24,11 +24,14 @@
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
    [clj-cloudkit.sort :as ck-sort]
+   [clj-scraper.scrapers.retrieve :as retrieve]
    [clj-scraper.scrapers.org.wikipedia :as wikipedia]
    [trek-mate.dot :as dot]
+   [trek-mate.dataset.mapping :as mapping]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -235,69 +238,73 @@
 (def original-seq
   (with-open [is (fs/input-stream original-dataset-path)
               os (fs/output-stream (path/child dataset-path "zapisi.tsv"))]
-    (let [[header & line-seq] (io/input-stream->line-seq is)]
-      (let [header (map #(.trim %) (.split header "\t"))]
-        (doall
-         (map
-          (fn [zapis]
-            (let [id (get zapis "ID")
-                  name (get zapis "Zapis")
-                  wikipedia (get zapis "Vikipedija-stranica")
-                  longitude (as/as-double (.replace (get zapis "Long_D") "," "."))
-                  latitude (as/as-double (.replace (get zapis "Lat_D") "," "."))]
-              (let [wikipedia (wikipedia/title->metadata "sr" wikipedia)
-                    wikidata-id (:wikidata-id wikipedia)]
-                {
-                 :longitude longitude
-                 :latitude latitude
-                 :properties {
-                              :id id
-                              :name name
-                              :wikipedia (:title wikipedia)
-                              :wikidata wikidata-id}
-                 :raw zapis
-                 :tags (into
-                        #{}
-                        (filter
-                         some?
-                         [
-                          (tag/name-tag name)
-                          id
-                          (when-let [wikidata-id wikidata-id]
-                            (tag/wikidata-tag wikidata-id)
-                            (tag/wikidata-url-tag wikidata-id))]))})
-              #_(do
-                  (println id)
-                  (println "\t" name)
-                  (println "\t" wikipedia)
-                  (println "\t" longitude)
-                  (println "\t" latitude))))
-          (filter
-           #(not
-             (or
-              (= (get % "Zapis") "Запис")
-              (= (get % "Zapis") "Запис ()")
-              (empty? (get % "Zapis"))))
-           (map
-            (fn [line]
-              (let [fields (map #(.trim %) (.split line "\t"))]
-                (zipmap header fields)))
-            line-seq))))))))
+    (binding [retrieve/*configuration* {
+                                        :keep-for (* 30 24 60 60)
+                                        :cache-fn (retrieve/create-local-fs-cache-fn
+                                                   (path/child
+                                                    env/*dataset-cloud-path*
+                                                    "zapis"
+                                                    "wikipedia-cache"))}]
+      (let [[header & line-seq] (io/input-stream->line-seq is)]
+       (let [header (map #(.trim %) (.split header "\t"))]
+         (doall
+          (map
+           (fn [zapis]
+             (let [id (get zapis "ID")
+                   name (get zapis "Zapis")
+                   wikipedia (get zapis "Vikipedija-stranica")
+                   longitude (as/as-double (.replace (get zapis "Long_D") "," "."))
+                   latitude (as/as-double (.replace (get zapis "Lat_D") "," "."))]
+               (let [wikipedia (wikipedia/title->metadata "sr" wikipedia)
+                     wikidata-id (:wikidata-id wikipedia)]
+                 {
+                  :longitude longitude
+                  :latitude latitude
+                  :properties {
+                               :id id
+                               :name name
+                               :wikipedia (:title wikipedia)
+                               :wikidata wikidata-id}
+                  :raw zapis
+                  :tags (into
+                         #{}
+                         (filter
+                          some?
+                          [
+                           (tag/name-tag name)
+                           id
+                           (when-let [wikidata-id wikidata-id]
+                             (tag/wikidata-tag wikidata-id)
+                             (tag/wikidata-url-tag wikidata-id))]))})))
+           (filter
+            #(not
+              (or
+               (= (get % "Zapis") "Запис")
+               (= (get % "Zapis") "Запис ()")
+               (empty? (get % "Zapis"))))
+            (map
+             (fn [line]
+               (let [fields (map #(.trim %) (.split line "\t"))]
+                 (zipmap header fields)))
+             line-seq)))))))))
 
 #_(count original-seq) ;; 1167
 
 
-(web/register-map
- "zapis"
- {
-  :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
-                  :zoom 10}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      original-seq)])})
-(web/create-server)
+(web/register-dotstore
+ "zapis-zblagojevic"
+ (fn [zoom x y]
+   (let [[min-longitude max-longitude min-latitude max-latitude]
+         (tile-math/tile->location-bounds [zoom x y])]
+     (filter
+      #(and
+        (>= (:longitude %) min-longitude)
+        (<= (:longitude %) max-longitude)
+        (>= (:latitude %) min-latitude)
+        (<= (:latitude %) max-latitude))
+      original-seq ))))
+
+;; http://localhost:8085/tile/vector/zapis-zblagojevic/11/1145/744
 
 ;; reduces original-seq to list of zapis which could be imported to osm
 ;; todo add supoort for ignore list if needed
@@ -442,57 +449,6 @@
 (defn normalize-name
   [name]
   (.trim (.substring name 0 (.indexOf name "("))))
-
-
-(defn cyrillic->latin
-  [name]
-  (let [translate-map {
-                       \а \a
-                       \б \b
-                       \в \v
-                       \г \g
-                       \д \d
-                       \ђ \đ
-                       \е \e
-                       \ж \ž
-                       \з \z
-                       \и \i
-                       \ј \j
-                       \к \k
-                       \л \l
-                       \љ "lj"
-                       \м \m
-                       \н \n
-                       \њ "nj"
-                       \о \o
-                       \п \p
-                       \р \r
-                       \с \s
-                       \т \t
-                       \ћ \ć
-                       \у \u
-                       \ф \f
-                       \х \h
-                       \ц \c
-                       \ч \č
-                       \џ "dž"
-                       \ш \š}]
-    (apply
-     str
-     (map
-      (fn [c]
-        (if-let [t (get translate-map (Character/toLowerCase ^char c))]
-          (if (Character/isUpperCase ^char c)
-            (cond
-              (= c \Љ)
-              "Lj"
-              (= c \Њ)
-              "Nj"
-              :else
-              (.toUpperCase (str t)))
-            t)
-          c))
-      name))))
 
 ;; todo with categorization go deeper with species
 
@@ -773,7 +729,7 @@
                                          ["ref:zapis" (get-in zapis [:properties :id])]
                                          ["name" name]
                                          ["name:sr" name]
-                                         ["name:sr-Latn" (cyrillic->latin name)]]))}))
+                                         ["name:sr-Latn" (mapping/cyrillic->latin name)]]))}))
                         import-seq))))]
   (osmeditor/task-report
    "zapis-new"

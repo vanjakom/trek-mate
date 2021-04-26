@@ -17,14 +17,15 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.math.core :as geo]
-   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
+   [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
    [clj-cloudkit.sort :as ck-sort]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
+   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
@@ -134,7 +135,7 @@
 
 ;; 20210403
 ;; divcibare voznja
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(t % "@divcibare20210403")
   [
@@ -501,16 +502,19 @@
 
 #_(def center (overpass/wikidata-id->location :Q3711))
 
-(web/register-map
+
+(web/register-dotstore
  "current"
- {
-  :configuration {
-                  :longitude (:longitude center) 
-                  :latitude (:latitude center)
-                  :zoom 12}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (vals (deref dataset)))])})
+ (fn [zoom x y]
+   (let [[min-longitude max-longitude min-latitude max-latitude]
+         (tile-math/tile->location-bounds [zoom x y])]
+     (filter
+      #(and
+        (>= (:longitude %) min-longitude)
+        (<= (:longitude %) max-longitude)
+        (>= (:latitude %) min-latitude)
+        (<= (:latitude %) max-latitude))
+      (vals (deref dataset))))))
 
 #_(storage/import-location-v2-seq-handler
  (map #(t % "@petruski-monasi") (vals (deref dataset))))
@@ -730,3 +734,76 @@
       (fn [index location]
         (gpx/route-point (:longitude location) (:latitude location) nil (str index) nil))
       (extract-route (relation->location-seq  12026935))))]))
+
+;; 20210424 moto tour Planinica, Ravna gora
+(n 2494127108 tag/tag-cave "Дражина пећина")
+#_(storage/import-location-v2-seq-handler
+ (map
+  #(t % "@moto20210423")
+  (vals (deref dataset))))
+
+
+;; 20210426
+;; rajac - divcibare, steva, suza
+(defn trailrouter-link [location-seq]
+  (str
+   "https://trailrouter.com/#wps="
+   (clojure.string/join
+    "|"
+    (map
+     #(str (:latitude %) "," (:longitude %))
+     location-seq))
+   "&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"))
+
+#_(trailrouter-link
+ [
+  ;; raskrsnica suvobor
+  {:type :node, :id 2496478645, :longitude 20.1754377, :latitude 44.1259303}
+  {:type :node, :id 2627163400, :longitude 20.1756924, :latitude 44.1258678}
+  {:type :node, :id 2627163292, :longitude 20.1787451, :latitude 44.1238213}
+  {:type :node, :id 2496289282, :longitude 20.1751945, :latitude 44.1193466}
+  {:type :node, :id 461614830, :longitude 20.1748543, :latitude 44.1189328}
+  {:type :node, :id 461614821, :longitude 20.17334, :latitude 44.11655}
+  {:type :node, :id 2459483827, :longitude 20.1665249, :latitude 44.1119034}
+  {:type :node, :id 2459483826, :longitude 20.1635544, :latitude 44.1108846}
+  {:type :node, :id 461614761, :longitude 20.157838, :latitude 44.109581}
+  {:type :node, :id 2494215536, :longitude 20.1527692, :latitude 44.108914}
+  {:type :node, :id 2459206778, :longitude 20.1504117, :latitude 44.109863}
+  {:type :node, :id 2494127366, :longitude 20.1420085, :latitude 44.1152193}
+  {:type :node, :id 2459206779, :longitude 20.1424749, :latitude 44.1098892}
+  ;; grab
+  {:type :node, :id 3589231057, :longitude 20.1385722, :latitude 44.1108931}
+  {:type :node, :id 2458488013, :longitude 20.1308398, :latitude 44.1080351}
+  {:type :node, :id 2458487969, :longitude 20.1147402, :latitude 44.1068092}
+  {:type :node, :id 2459800444, :longitude 20.0958044, :latitude 44.1081495}
+  {:type :node, :id 2458488147, :longitude 20.0808738, :latitude 44.1143064}
+  {:type :node, :id 2458451353, :longitude 20.0738243, :latitude 44.1124622}
+  {:type :node, :id 2673010924, :longitude 20.0668352, :latitude 44.1173164}
+  {:type :node, :id 2458369610, :longitude 20.0593892, :latitude 44.1223691}
+  {:type :node, :id 6832364656, :longitude 20.0575188, :latitude 44.1222931}
+  {:type :node, :id 2673055696, :longitude 20.0548602, :latitude 44.1251185}
+  {:type :node, :id 2673055676, :longitude 20.0519278, :latitude 44.1249356}
+  {:type :node, :id 3580677414, :longitude 20.0453182, :latitude 44.126413}
+  {:type :node, :id 3580677402, :longitude 20.0410232, :latitude 44.1296376}
+  {:type :node, :id 2673055802, :longitude 20.0302779, :latitude 44.1286249}
+  {:type :node, :id 4675642827, :longitude 20.0195847, :latitude 44.1255428}
+  {:type :node, :id 420360861, :longitude 20.0136947, :latitude 44.1293195}
+  ;; divcibare dom
+  ])
+#_"https://trailrouter.com/#wps=44.1259303,20.1754377|44.1258678,20.1756924|44.1238213,20.1787451|44.1193466,20.1751945|44.1189328,20.1748543|44.11655,20.17334|44.1119034,20.1665249|44.1108846,20.1635544|44.109581,20.157838|44.108914,20.1527692|44.109863,20.1504117|44.1152193,20.1420085|44.1098892,20.1424749|44.1108931,20.1385722|44.1080351,20.1308398|44.1068092,20.1147402|44.1081495,20.0958044|44.1143064,20.0808738|44.1124622,20.0738243|44.1173164,20.0668352|44.1223691,20.0593892|44.1222931,20.0575188|44.1251185,20.0548602|44.1249356,20.0519278|44.126413,20.0453182|44.1296376,20.0410232|44.1286249,20.0302779|44.1255428,20.0195847|44.1293195,20.0136947&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"
+
+(w 690352197) ;; "!Planinarski dom „Na poljani“"
+(n 7556210034) ;; "!Vlasovi"
+(l 20.05584, 44.12469 "!Čiker")
+(n 1644121459) ;; "!Suva česma"
+(n 7805983146) ;; "!Mali Maljen"
+(n 1644121458) ;; "!Rior"
+(n 2459206793 "!Grab, prelaz")
+(n 427886915) ;; "!Suvobor"
+
+#_(count (deref dataset))
+#_(swap! dataset (constantly {}))
+(storage/import-location-v2-seq-handler
+ (map
+  #(t % "@kona20210427")
+  (vals (deref dataset))))

@@ -221,9 +221,9 @@
 
 (defn query->dataset
   "Performs query and returns dataset in same format as osmapi.
-  Executed query [out:xml];...out meta;"
+  Executed query [out:xml];...out center meta;"
   [query]
-  (let [full-query (str "[out:xml];" query "out meta;")]
+  (let [full-query (str "[out:xml];" query "out center meta;")]
     (println "[overpass]" full-query)
     (reduce
      (fn [dataset element]
