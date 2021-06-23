@@ -4,6 +4,7 @@
    clj-common.clojure)
   (:require
    compojure.core
+   [clj-http.client :as http-client]
    [clj-common.http-server :as server]
    [clj-common.context :as context]
    [clj-common.pipeline :as pipeline]
@@ -592,7 +593,7 @@
    ;; v2 handlers
    (compojure.core/GET
     "/view/map-test"
-    [name]
+    []
     {
      :status 200
      :body (jvm/resource-as-stream ["web" "map-test.html"])})
@@ -864,6 +865,22 @@
                             "https://api.maptiler.com/tiles/satellite/"
                             zoom "/" x "/" y ".jpg"
                             "?key=" (jvm/environment-variable "MAPTILER_CLOUD_KEY")))]
+      {
+       :status 200
+       :body input-stream}))
+   (compojure.core/GET
+    "/tile/proxy/topomap/:zoom/:x/:y"
+    [zoom x y]
+    (if-let [input-stream (:body
+                           (http-client/get
+                            (->
+                             env/server-topo-map
+                             (.replace "{z}" zoom)
+                             (.replace "{x}" x)
+                             (.replace "{y}" y))
+                            {
+                             :basic-auth [env/server-topo-user env/server-topo-pass]
+                             :as :stream}))]
       {
        :status 200
        :body input-stream}))

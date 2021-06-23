@@ -228,7 +228,7 @@
 #_(let [track-seq
       (or
        ;; trek-mate
-       #_(let [track-id 1617451509]
+       (let [track-id 1624175348]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -237,7 +237,7 @@
                           (str track-id ".json")))]
            [(:locations (json/read-keyworded is))]))
        ;; garmin
-       (let [track-id "Track_2021-04-24 181711"]
+       #_(let [track-id "Track_2021-06-19 173828"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -259,7 +259,7 @@
        #_(storage/location-request-file->location-seq
         (storage/location-request-last-file env/*trek-mate-user*))
        ;; garmin
-       (let [waypoint-file-name "Waypoints_24-APR-21.gpx"]
+       (let [waypoint-file-name "Waypoints_19-JUN-21.gpx"]
          (mine/garmin-waypoint-file->location-seq
           (path/child
            env/*global-my-dataset-path*
@@ -336,6 +336,26 @@
         location-seq)))))
 
 
+;; support for marking trails
+#_(let [location-seq (filter
+                    #(contains? (:tags %) "#e7")
+                    (mine/garmin-waypoint-file->location-seq
+                     (path/child
+                      env/*global-my-dataset-path*
+                      "garmin"
+                      "waypoints"
+                      "Waypoints_11-MAY-21.gpx")))]
+  (web/register-dotstore
+   "slot-c"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 5 draw/color-red [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
+
 
 (defn cyrillic->latin
   [name]
@@ -398,16 +418,17 @@
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
 #_(prepare-name-tags "Црква Свете Петке")
-#_(prepare-name-tags "22409 Јазак")
-#_(prepare-name-tags "Уб")
+#_(prepare-name-tags "32312 Бољковци")
+#_(prepare-name-tags "Чика Душкове рајачке стазе")
 #_(prepare-name-tags "Запис липа у манастиру")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
-#_(prepare-name-tags "Вила Нарцис")
+#_(prepare-name-tags "Шабачки пут")
 #_(prepare-name-tags "Месна заједница Бешеновачки Прњавор")
-#_(prepare-name-tags "Црква Св. пророка Илије")
+#_(prepare-name-tags "Видиковац - Равне / Први шумар - Питине стијене")
 #_(prepare-name-tags "Дом здравља Ваљево")
-#_(prepare-name-tags "Одмаралиште Стари град")
-#_(prepare-name-tags "Амбуланта Каменица")
+#_(prepare-name-tags "Чесма ПД „Маглеш”")
+#_(prepare-name-tags "Славковица - Чика Душков дом на Рајцу")
+
 
 
 

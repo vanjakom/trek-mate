@@ -1,9 +1,13 @@
-(ns trek-mate.integration.geojson)
+(ns trek-mate.integration.geojson
+  (:require
+   [clj-common.json :as json]))
 
 (defn geojson [feature-seq]
   {
    :type "FeatureCollection"
    :features feature-seq})
+
+(def ^:dynamic *stroke-color* "#0000FF")
 
 (defn point [longitude latitude properties]
   {
@@ -12,6 +16,18 @@
    :geometry  {
                :type "Point"
                :coordinates [longitude latitude]}})
+
+(defn line-string [location-seq]
+  {
+   :type "Feature"
+   :properties {
+                "stroke" *stroke-color*}
+   :geometry {
+              :type "LineString"
+              :coordinates (map
+                            (fn [location]
+                              [(:longitude location) (:latitude location)])
+                            location-seq)}})
 
 (defn location->feature [location]
   {
@@ -106,3 +122,15 @@
   {
    :type "FeatureCollection"
    :features (map way->line-string way-seq)})
+
+(defn geojson->location-seq [input-stream]
+  (let [geojson (json/read-keyworded input-stream)]
+    (mapcat
+     (fn [feature]
+       (map
+        (fn [location]
+          {
+           :longitude (first location)
+           :latitude (second location)})
+        (:coordinates (:geometry feature))))
+     (:features geojson))))

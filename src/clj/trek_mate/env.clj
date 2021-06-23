@@ -21,3 +21,9 @@
 
 (def ^:dynamic *trek-mate-user*
   (jvm/environment-variable "TREK_MATE_CK_USER"))
+
+(def server-topo-map (jvm/environment-variable "SERVER_TOPO_MAP"))
+(def server-topo-user (jvm/environment-variable "SERVER_TOPO_USER"))
+(def server-topo-pass (jvm/environment-variable "SERVER_TOPO_PASS"))
+
+(jvm/set-environment-variable "SERVER_TOPO_MAP" "http://topomap.uzice.net/{z}/{x}/{y}.png")

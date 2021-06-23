@@ -144,6 +144,156 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
+;; planner route
+
+(def current-dataset (atom {}))
+
+(defn prepare-planner-route-ways
+  [min-longitude max-longitude min-latitude max-latitude]
+  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  (let [dataset (osmapi/map-bounding-box
+                 min-longitude min-latitude max-longitude max-latitude)]
+    (swap! current-dataset (constantly dataset))
+    (geojson/geojson
+     (map
+      (partial osmeditor/way->feature dataset)
+      (map
+       :id
+       (filter
+        #(contains? (:tags %) "highway")
+        (vals
+         (:ways
+          dataset))))))))
+
+(defn prepare-planner-route-nodes
+  [min-longitude max-longitude min-latitude max-latitude]
+  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  (let [dataset (osmapi/map-bounding-box
+                 min-longitude min-latitude max-longitude max-latitude)]
+    (swap! current-dataset (constantly dataset))
+    (geojson/geojson
+     (map
+      geojson/location->point
+      (map
+       #(get-in dataset [:nodes %])
+       (into
+        #{}
+        (mapcat
+         :nodes
+         (filter
+          #(contains? (:tags %) "highway")
+          (vals
+           (:ways
+            dataset))))))))))
+
+(defn prepare-planner-route-crossroads
+  [min-longitude max-longitude min-latitude max-latitude]
+  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  (let [dataset (osmapi/map-bounding-box
+                 min-longitude min-latitude max-longitude max-latitude)]
+    #_(println "[crossroads]" min-longitude max-longitude min-latitude max-latitude)
+    #_(println
+     "nodes:" (count (:nodes dataset))
+     "ways:" (count (:ways dataset))
+     "relations:" (count (:relations dataset)))
+    (swap! current-dataset (constantly dataset))
+    (geojson/geojson
+     (map
+      geojson/location->point
+      (map
+       #(get-in dataset [:nodes %])
+       (map
+        first
+        (filter
+         #(> (count (second %)) 1)
+         (group-by
+          identity(mapcat
+           :nodes
+           (filter
+            #(contains? (:tags %) "highway")
+            (vals
+             (:ways
+              dataset))))))))))))
+
+(osmeditor/project-report
+ "planner-route"
+ "route planner"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/planner-route/:route-id"
+   [id]
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "planner-route.html"])})
+  (compojure.core/GET
+    "/projects/planner-route/:route-id/ways/:left/:top/:right/:bottom"
+    [route-id left top right bottom]
+    (let [left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-planner-route-ways left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+  (compojure.core/GET
+    "/projects/planner-route/:route-id/nodes/:left/:top/:right/:bottom"
+    [route-id left top right bottom]
+    (let [left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-planner-route-nodes left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))
+  (compojure.core/GET
+    "/projects/planner-route/:route-id/crossroads/:left/:top/:right/:bottom"
+    [route-id left top right bottom]
+    (let [left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-planner-route-crossroads left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))  
+  (compojure.core/GET
+   "/projects/planner-route/:route-id/select/:type/:id"
+   [route-id type id]
+   (let [id (as/as-long id)]
+     (println
+      (edn/write-object
+       (cond
+         (= type "node")
+         (if-let [node (get-in (deref current-dataset) [:nodes id])]
+           {
+            :type :node
+            :id id
+            :longitude (as/as-double (:longitude node))
+            :latitude (as/as-double (:latitude node))}
+           {
+            :type :node
+            :id id})
+         :else
+         {
+          :type type
+          :id id})))
+     {
+      :status 200
+      :headers {
+                "Content-Type" "application/json; charset=utf-8"}
+      :body (json/write-to-string {})}))))
+
+
+
+
 ;; CIKA DUSKOVE RAJACKE STAZE
 
 (q 61125363 "KT1") ;; "!Planinarski dom „Čika Duško Jovanović“"
@@ -201,23 +351,32 @@
         :status 200
         :body (draw/image-context->input-stream image-context)}))))
 
+(def fruskogorska-track-seq
+  [
+   "Track_2021-03-27 161303.gpx"
+   "Track_2021-04-10 180433.gpx"
+   "Track_2021-04-24 181711.gpx"
+   "Track_2021-04-30 121435.gpx"
+   "Track_2021-05-04 133111.gpx"
+   "Track_2021-05-08 170351.gpx"])
 
-(let [location-seq (concat
-                    (with-open [is (fs/input-stream (path/child
-                                                     mine/garmin-track-path
-                                                     "Track_2021-04-10 180433.gpx"))]
-                      (let [track (gpx/read-track-gpx is)]
-                        (apply concat (:track-seq track))))
-                    (with-open [is (fs/input-stream (path/child
-                                                     mine/garmin-track-path
-                                                     "Track_2021-03-27 161303.gpx"))]
-                      (let [track (gpx/read-track-gpx is)]
-                        (apply concat (:track-seq track))))
-                    (with-open [is (fs/input-stream (path/child
-                                                     mine/garmin-track-path
-                                                     "Track_2021-04-24 181711.gpx"))]
-                      (let [track (gpx/read-track-gpx is)]
-                        (apply concat (:track-seq track)))))]  
+(def fruskogorska-waypoint-seq
+  [
+   "Waypoints_27-MAR-21"
+   "Waypoints_10-APR-21"
+   "Waypoints_24-APR-21"
+   "Waypoints_30-APR-21"
+   "Waypoints_04-MAY-21"
+   "Waypoints_08-MAY-21"])
+
+(let [location-seq (mapcat
+                    (fn [track-name]
+                      (with-open [is (fs/input-stream (path/child
+                                                       mine/garmin-track-path
+                                                       track-name))]
+                        (let [track (gpx/read-track-gpx is)]
+                          (apply concat (:track-seq track)))))
+                    fruskogorska-track-seq)]  
   (web/register-dotstore
    "slot-b"
    (fn [zoom x y]
@@ -229,8 +388,33 @@
         :status 200
         :body (draw/image-context->input-stream image-context)}))))
 
+;; support for mapping of trail based on collected dots
+;; generic copy moved to mapping, use that
+(let [location-seq(mapcat
+                   (fn [waypoint-name]
+                     (filter
+                      #(contains? (:tags %) "#e7")
+                      (mine/garmin-waypoint-file->location-seq
+                       (path/child
+                        env/*global-my-dataset-path*
+                        "garmin"
+                        "waypoints"
+                        (str waypoint-name ".gpx")))))
+                   fruskogorska-waypoint-seq)]
+  (web/register-dotstore
+   "slot-c"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 5 draw/color-red [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
+
 ;; preparations
 (let [location-seq (concat
+                    []
                     #_(with-open [is (fs/input-stream (path/child
                                                      env/*global-my-dataset-path*
                                                      "transverzale"
@@ -238,7 +422,7 @@
                                                      "predlog_20210424_18km.gpx"))]
                       (let [track (gpx/read-track-gpx is)]
                         (apply concat (:route-seq track))))
-                    (with-open [is (fs/input-stream (path/child
+                    #_(with-open [is (fs/input-stream (path/child
                                                      env/*global-my-dataset-path*
                                                      "transverzale"
                                                      "fruskogorska"
@@ -252,7 +436,6 @@
                                                      "predlog_20210424_extension_8km.gpx"))]
                       (let [track (gpx/read-track-gpx is)]
                         (apply concat (:route-seq track)))))]
-  (def a location-seq)
   (web/register-dotstore
    "slot-c"
    (fn [zoom x y]
@@ -423,157 +606,6 @@
 
 ;; todo work on route planner
 
-(def current-dataset (atom {}))
-
-(defn prepare-planner-route-ways
-  [min-longitude max-longitude min-latitude max-latitude]
-  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
-  (let [dataset (osmapi/map-bounding-box
-                 min-longitude min-latitude max-longitude max-latitude)]
-    (swap! current-dataset (constantly dataset))
-    (geojson/geojson
-     (map
-      (partial osmeditor/way->feature dataset)
-      (map
-       :id
-       (filter
-        #(contains? (:tags %) "highway")
-        (vals
-         (:ways
-          dataset))))))))
-
-(defn prepare-planner-route-nodes
-  [min-longitude max-longitude min-latitude max-latitude]
-  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
-  (let [dataset (osmapi/map-bounding-box
-                 min-longitude min-latitude max-longitude max-latitude)]
-    (swap! current-dataset (constantly dataset))
-    (geojson/geojson
-     (map
-      geojson/location->point
-      (map
-       #(get-in dataset [:nodes %])
-       (into
-        #{}
-        (mapcat
-         :nodes
-         (filter
-          #(contains? (:tags %) "highway")
-          (vals
-           (:ways
-            dataset))))))))))
-
-(defn prepare-planner-route-crossroads
-  [min-longitude max-longitude min-latitude max-latitude]
-  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
-  (let [dataset (osmapi/map-bounding-box
-                 min-longitude min-latitude max-longitude max-latitude)]
-    #_(println "[crossroads]" min-longitude max-longitude min-latitude max-latitude)
-    #_(println
-     "nodes:" (count (:nodes dataset))
-     "ways:" (count (:ways dataset))
-     "relations:" (count (:relations dataset)))
-    (swap! current-dataset (constantly dataset))
-    (geojson/geojson
-     (map
-      geojson/location->point
-      (map
-       #(get-in dataset [:nodes %])
-       (map
-        first
-        (filter
-         #(> (count (second %)) 1)
-         (group-by
-          identity(mapcat
-           :nodes
-           (filter
-            #(contains? (:tags %) "highway")
-            (vals
-             (:ways
-              dataset))))))))))))
-
-#_(take
- 2
- (prepare-planner-route-nodes 19.542961120605472 19.604759216308597 45.05924433672223 45.08427849626321))
-
-;; tools for route preparation
-;; planner - to be used for planning
-
-(osmeditor/project-report
- "planner-route"
- "route planner"
- (compojure.core/routes
-  (compojure.core/GET
-   "/projects/planner-route/:route-id"
-   [id]
-   {
-    :status 200
-    :body (jvm/resource-as-stream ["web" "planner-route.html"])})
-  (compojure.core/GET
-    "/projects/planner-route/:route-id/ways/:left/:top/:right/:bottom"
-    [route-id left top right bottom]
-    (let [left (as/as-double left)
-          top (as/as-double top)
-          right (as/as-double right)
-          bottom (as/as-double bottom)
-          data (prepare-planner-route-ways left top right bottom)]
-      {
-       :status 200
-       :headers {
-                 "Content-Type" "application/json; charset=utf-8"}
-       :body (json/write-to-string data)}))
-  (compojure.core/GET
-    "/projects/planner-route/:route-id/nodes/:left/:top/:right/:bottom"
-    [route-id left top right bottom]
-    (let [left (as/as-double left)
-          top (as/as-double top)
-          right (as/as-double right)
-          bottom (as/as-double bottom)
-          data (prepare-planner-route-nodes left top right bottom)]
-      {
-       :status 200
-       :headers {
-                 "Content-Type" "application/json; charset=utf-8"}
-       :body (json/write-to-string data)}))
-  (compojure.core/GET
-    "/projects/planner-route/:route-id/crossroads/:left/:top/:right/:bottom"
-    [route-id left top right bottom]
-    (let [left (as/as-double left)
-          top (as/as-double top)
-          right (as/as-double right)
-          bottom (as/as-double bottom)
-          data (prepare-planner-route-crossroads left top right bottom)]
-      {
-       :status 200
-       :headers {
-                 "Content-Type" "application/json; charset=utf-8"}
-       :body (json/write-to-string data)}))  
-  (compojure.core/GET
-   "/projects/planner-route/:route-id/select/:type/:id"
-   [route-id type id]
-   (let [id (as/as-long id)]
-     (println
-      (edn/write-object
-       (cond
-         (= type "node")
-         (if-let [node (get-in (deref current-dataset) [:nodes id])]
-           {
-            :type :node
-            :id id
-            :longitude (as/as-double (:longitude node))
-            :latitude (as/as-double (:latitude node))}
-           {
-            :type :node
-            :id id})
-         :else
-         {
-          :type type
-          :id id})))
-     {
-      :status 200
-      :headers {
-                "Content-Type" "application/json; charset=utf-8"}
-      :body (json/write-to-string {})}))))
 
 ;; predlog 20210424 extension 18km
 #_(trailrouter-link
@@ -595,7 +627,7 @@
   {:type :node, :id 6755994341, :longitude 19.5311165, :latitude 45.127691}
   {:type :node, :id 6755994329, :longitude 19.5291379, :latitude 45.13838}
   {:type :node, :id 6612862931, :longitude 19.5300172, :latitude 45.1408451}])
-"https://trailrouter.com/#wps=45.1353006,19.5077693|45.1269151,19.5105031|45.1268867,19.5111092|45.119584,19.5112831|45.1160012,19.5132204|45.1145686,19.5143182|45.1109029,19.5128425|45.1090622,19.5146129|45.1117824,19.5163174|45.1135469,19.5176539|45.1148829,19.5196594|45.1161343,19.5203515|45.1191886,19.5220157|45.125475,19.5296761|45.127691,19.5311165|45.13838,19.5291379|45.1408451,19.5300172&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"
+#_"https://trailrouter.com/#wps=45.1353006,19.5077693|45.1269151,19.5105031|45.1268867,19.5111092|45.119584,19.5112831|45.1160012,19.5132204|45.1145686,19.5143182|45.1109029,19.5128425|45.1090622,19.5146129|45.1117824,19.5163174|45.1135469,19.5176539|45.1148829,19.5196594|45.1161343,19.5203515|45.1191886,19.5220157|45.125475,19.5296761|45.127691,19.5311165|45.13838,19.5291379|45.1408451,19.5300172&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"
 
 ;; predlog 20210424 25km
 #_(trailrouter-link
@@ -683,21 +715,6 @@
   #_{:type :node, :id 2440758682, :longitude 19.5108871, :latitude 45.1232673}])
 #_"https://trailrouter.com/#wps=45.1412854,19.5295465|45.1450301,19.5311808|45.1505388,19.5288205|45.1535696,19.5283136|45.1578627,19.5241212|45.1549574,19.5147228|45.1725076,19.515506|45.1855425,19.501188|45.1814007,19.4996166|45.1711081,19.4918233|45.1681375,19.4827244|45.1676783,19.483339|45.1663044,19.4812816|45.1617607,19.4841853|45.1507978,19.4900537|45.1478087,19.4889792|45.1461141,19.4863458|45.1447177,19.4873184|45.1422594,19.4950154|45.1416407,19.5000949|45.1428356,19.5019555|45.1411442,19.5035005|45.1408453,19.5070517|45.1389507,19.5090536|45.1350711,19.5069224|45.1353006,19.5077693|45.1418928,19.520291|45.141519,19.5213939|45.1409348,19.5248161|45.1408468,19.5288444|45.1412854,19.5295465&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"
 
-
-(with-open [os (fs/output-stream ["tmp" "test.geojson"])]
-  (json/write-to-stream
-   (geojson/geojson
-    [(geojson/location-seq->line-string
-     [
-      {:type :node, :id 6612862968, :longitude 19.5147228, :latitude 45.1549574}
-      {:type :node, :id 7817272724, :longitude 19.5288444, :latitude 45.1408468}
-      {:type :node, :id 6612862935, :longitude 19.5308804, :latitude 45.1431080}
-      {:type :node, :id 6843900713, :longitude 19.5311808, :latitude 45.1450301}
-      {:type :node, :id 6612862942, :longitude 19.5305156, :latitude 45.1470883}
-      {:type :node, :id 6612862950, :longitude 19.5288205, :latitude 45.1505388}])])
-   os))
-
-{"a": "b"}
 
 #_(defn way
   ([id]

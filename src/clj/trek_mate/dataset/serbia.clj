@@ -79,19 +79,19 @@
 
 
 (def dataset-path (path/child
-                   env/*global-my-dataset-path*
+                   env/*dataset-cloud-path*
                    "extract"
                    "serbia"))
 
 (def osm-pbf-root-path (path/child
-                        env/*global-dataset-path*
+                        env/*dataset-local-path*
                         "geofabrik.de"))
 (def osm-pbf-path (path/child
                    osm-pbf-root-path
                    "serbia-latest.osm.pbf"))
 
 (def osm-extract-path (path/child
-                       env/*global-dataset-path*
+                       env/*dataset-local-path*
                        "serbia-extract"))
 (def osm-node-path (path/child
                     osm-extract-path
@@ -435,7 +435,7 @@
 ;; (+ 9088937 3600000000) ; 3609088937
 
 
-(web/register-map
+#_(web/register-map
  "serbia"
  {
   :configuration {
@@ -449,7 +449,7 @@
   :vector-tile-fn (web/tile-vector-dotstore-fn [(constantly [beograd])])
   :search-fn nil})
 
-(web/register-map
+#_(web/register-map
  "serbia-lat"
  {
   :configuration {
@@ -528,7 +528,7 @@
    12
    20.31544 20.55679 44.72308 44.89334)))
 
-(web/create-server)
+#_(web/create-server)
 
 ;; process fns, add new approaches on top
 

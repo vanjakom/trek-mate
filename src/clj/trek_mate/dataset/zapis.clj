@@ -202,6 +202,7 @@
    "node[natural=tree][religion=christian][denomination=serbian_orthodox](area:3601741311);"))
 
 #_(count osm-seq)
+;; 200 20210527
 ;; 193 20210406
 ;; 186 20210325
 ;; 170 20210315
@@ -487,7 +488,8 @@
     "Prunus" "broadleaved"
     "Pinus" "needleleaved"
     "Castanea" "broadleaved"
-    "Platanus" "broadleaved"}
+    "Platanus" "broadleaved"
+    "Ulmus" "broadleaved"}
    genus))
 
 (def note-map
@@ -518,7 +520,9 @@
    "0555" "zapis u restoranu Novi zapis"
    "0556" "zapis sa uredjenom okolinom"
    "0565" "zapis ima zakacenu kucicu"
-   "0584" "lepo uredjen prostor oko zapisa"})
+   "0584" "lepo uredjen prostor oko zapisa"
+   "0621" "odmah pored starog hrasta"
+   "0623" "kamena oznaka zapisa"})
 
 ;; private, skip in first iteration
 ;; 20210302 - started tracking private on 421
@@ -546,28 +550,37 @@
    "0568" "ostaci zapisa"
    "0585" "krst"
    "0589" "ostaci zapisa"
-   "0590" "ostaci zapisa"})
+   "0590" "ostaci zapisa"
+   "0593" "krst"
+   "0620" "ostaci"
+   "0622" "ostaci"
+   "0626" "suvo drvo"
+   "0632" "poseceno stablo"})
 
 ;; started tracking in church and looks public at 0361 on 20210222 
 ;; in church assumes looks public
 
 (def in-church
   ["0388" "0392" "0397" "0401" "0411" "0456" "0508" "0512" "0518" "0519" "0525"
-   "0526" "0541" "0542" "0552"])
+   "0526" "0541" "0542" "0552"
+   "0594" "0617" "0625" "0644" "0647" "0656" "0657" "0668" "0672" "0674" "0675"])
 
 (def looks-public
   ["0386" "0387" "0389" "0390" "0395" "0400" "0405" "0407" "0417" "0421"
-   "0425" "0429n" "0430" "0434" "0438" "0452" "0544" "0546"])
+   "0425" "0429n" "0430" "0434" "0438" "0452" "0544" "0546" "0612" "0615"
+   "0635" "0639" "0640" "0648"])
 
 ;; started tracking at 0391 on 20210223
 (def close-to-road
   ["0391" "0396" "0398" "0399" "0403" "0408" "0409" "0410" "0412" "0415"
-   "0422" "0431" "0437" "0440" "0523" "0547" "0550" "0553"])
+   "0422" "0431" "0437" "0440" "0523" "0547" "0550" "0553"
+   "0596" "0597" "0605" "0606" "0614" "0618" "0627" "0628"])
 
 ;; looks like private, not sure how to tag, either ignore or if looks important
 ;; map and add to this list
 (def private
-  ["0423" "0441" "0442" "0443" "0455" "0458" "0502" "0516" "0522" "0524" "0528"])
+  ["0423" "0441" "0442" "0443" "0455" "0458" "0502" "0516" "0522" "0524" "0528"
+   "0591" "0592" "0595" "0603" "0604"])
 
 ;; 20210310, од 0510
 ;; одлучио се за две итерације уноса, прва ”знаменита стабла”, доста субјективно
@@ -579,9 +592,15 @@
 
 (def second-iteration
   #{"0520" "0529" "0531" "0537" "0545" "0551" "0561" "0563" "0564" "0566"
-    "0569" "0570" "0572" "0574" "0575" "0579" "0580" "0581"})
+    "0569" "0570" "0572" "0574" "0575" "0579" "0580" "0581" "0598" "0599"
+    "0600" "0601" "0602" "0607" "0608" "0609" "0611" "0613" "0616" "0619"
+    "0624" "0629" "0630" "0635" "0637" "0643" "0645" "0646" "0650"
+    "0658" "0659" "0661" "0662" "0663" "0664" "0666" "0667" "0669" "0670"
+    "0671" "0673" })
 
-;; 0361 - kesten u staroj porti
+;; 20210611 zavrsio sa 0675
+;; 20210608 zavrsio sa 0650
+;; 20210601 zavrsio sa 0610
 
 ;; create project list with mapped
 

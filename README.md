@@ -1,5 +1,9 @@
 # trek-mate project
 
+# convert, gpx, geojson
+
+trek-mate.dataset.current, search  "#gpx #geojson"
+
 # web dotstore
 
 old naming, migrating from map to dotstore ( raster, vector, geojson )
@@ -23,6 +27,8 @@ in trek-mate.dataset.zapis, 20210218, changing tags for zapis mapping
 
 # creating gpx from relation
 used in trek-mate.dataset.current to create gpx of all hiking relations in Deliblato  
+relation->location-seq
+also util functions from maply-backend-project to reduce number of points
 
 # word
 describe location with alphabet leters, trek-mate.word

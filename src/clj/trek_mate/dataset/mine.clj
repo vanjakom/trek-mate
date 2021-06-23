@@ -201,6 +201,34 @@
 
   (l 20.46045, 44.16894 tag/tag-hike "!Ostrovica hike")
 
+
+  ;; motobosna2021 preporuke
+  (n 8844266483) ;; "!Сана"
+  (n 2297441034) ;; "!Ćevabdžinica Željo"
+  (n 7925772814) ;; "!Caffe Slastičarna Badem"
+
+  (l 18.92498, 44.15050 tag/tag-todo "da li je ovo skijaliste")
+
+ (l 18.45019, 43.83970 tag/tag-todo tag/tag-bike "trebevic bajsom mora da je ludnica")
+  
+  ;; zapis
+  (l 20.63267, 43.72240
+     tag/tag-todo
+     "!Чибуковац, запис"
+     "проверити тачну локац"
+     "#zapis"
+     (tag/url-tag "prva" "https://www.prva.rs/zivot/zanimljivosti/320488/u-blizini-kraljeva-crkva-napravljena-u-hrastu-starom-sest-vekova-ovde-se-ljudi-okupljaju-i-mole")
+     (tag/url-tag "kurir" "https://www.kurir.rs/vesti/srbija/3288927/na-hrastu-u-kraljevu-priroda-urezala-krst-a-onda-se-dogodilo-cudo-na-tom-mestu-danas-se-okupljaju-mnogi-da-bi-se-pomolili-foto"))
+  (l
+   21.98600, 42.63718
+   tag/tag-todo
+   "! Јовац, запис, црква"
+   "проверити тачну локац"
+   "#zapis"
+   (tag/url-tag "serbia.com" "http://www.serbia.com/srpski/kao-iz-bajke-srpska-crkvica-sakrivena-u-hrastu/")
+   (tag/url-tag "youtube " "https://www.youtube.com/watch?v=c8_vUb8STPI"))
+  
+
   ;; divcibare
   ;; todo
   (l 19.99937, 44.12823 tag/tag-bike "marijana ideja" "dodjem bajsom u Krcmar ona me pokupi, E7, istrazivanje")
@@ -210,6 +238,8 @@
   (q 16761408 tag/tag-todo) ;; Skaklo
   (l 20.00648, 44.12680 tag/tag-todo "mapirati put")
   (l 20.02530, 44.12864 tag/tag-todo "planinarska staza, gde vodi, vodopad?")
+
+  (l 20.00149, 44.09104 tag/tag-hike "videti da li staza ide do vrazijeg vira")
   
   (l 19.990806 44.130214 tag/tag-todo "markacija")
   (l 19.989611 44.129356 tag/tag-todo "markacija")
@@ -241,6 +271,8 @@
   (l 19.96823, 44.05323 "dani planinara 2019")
   (l 19.99568, 44.09190 tag/tag-todo tag/tag-hike "povezati deo staze koji nedostaje")
 
+(l 20.06990, 44.11230 tag/tag-todo "bajs ili hajk Veliki Maljen, izvideti okolo")
+  
   (l 19.96136, 44.06600 "Rosici jezero" "mapirati")
 
   (l 19.71737, 44.13615
@@ -291,7 +323,23 @@
   (l 20.22482, 44.13628 tag/tag-todo "rajac, vrh, transverzala, e7")
   (l 20.12129, 44.16127 tag/tag-todo "cudno, po mapi deluje da se skrece a nije tako, imam go pro, 20210330")
   (l 20.22171, 44.19187 tag/tag-todo "skretanje levo put doma, putokaz 3-20-1")
+  (l 20.27323, 44.14107 tag/tag-todo "izvideti puteve sa ove strane")
+  (l 20.18150, 44.12127 tag/tag-todo "radio antena na vrh, mapirana u osm?")
+  (l 20.24455, 44.14099 tag/tag-todo "deluje da je pogresan natpis za stazu 3-20-6")
+  (l 20.18936, 44.10479 tag/tag-todo "izvideti skretanje za danilov vrh")
+  (l 20.27789, 44.16761 tag/tag-todo "pronaci Crkvine" (tag/url-tag "Crkvine, postoji priblizna lokacija" "https://sr.wikipedia.org/wiki/Црквина_у_Славковици"))
+  
+  ;; fruskogorska transverzala, zabeleske sa mapiranja
+  (l 19.509217, 45.138883 "zaraslo nastavili pravo, note transverzala")
 
+  (l 19.73230, 44.13449 "1.5Ha, 16.500,  065/9121314, može i Viber")
+
+  (l 19.87249, 44.26020 tag/tag-todo "obici planinarske staze koje krecu sa parkinga ispred kafane")
+
+  (l 19.96911, 44.13528 tag/tag-todo "извидети Е7 до краја, требало би да иде у Бачевце")
+  (l 19.98885, 44.08259 tag/tag-todo "стаза Вучји мрамор")
+
+  
   (n 2494127108 tag/tag-cave "Дражина пећина")
   
   (l 19.95901 44.03925
@@ -307,6 +355,49 @@
      (tag/url-tag "vidikovac" "https://3.bp.blogspot.com/-KW39cohko3I/WrkTcJs1x4I/AAAAAAAALyM/8ILLXMA57X096x21Y0OHCDSk5QFyxByiQCEwYBhgL/s400/IMG_8294.JPG"))
   (l 19.96902, 44.05330 tag/tag-todo "Vodopod Skakavci")
   (l 19.98668, 44.13595 tag/tag-todo "staza Markovi canci - Veliko Brdo, ima markacija")
+  
+  ;; placevi
+  ;; Staro seosko domaćinstvo u selu Sandalj na 9 km od Valjeva, a 3 km od manastira Jovanja. Imanje se sastoji od  44 ara okućnice na kojoj se sem kuće od 50 m2 ,nalaze i magaza, hlebna furuna , štala ,staro voće i sasvim dovoljno prostora za baštu. Domaćinstvo poseduje struju, uvedenu izvorsku vodu koja nikad ne presušuje,ali nema kupatilo, asfaltni put je na oko 1 km udaljenosti . Kuća je, može se reći, na proplanku , na južnoj i osunčanom strani . Uz ovu parcelu na kojoj je kuća ,u prodaju ulazi i još jedna livada na 500 metara udaljenosti površine 23 ara. Nadmorska visina iznad 400 metara.  Brojevi parcela su : 276 i 116 KO Sandalj, opština Valjevo . Za sve informacije kontaktirajte na 065/9121314, može i Viber , What 's up. Cena: 12.500 Eur
+  (l 19.81582, 44.24763
+   "!44a + 23a, 12.5k, seosko domacinstvo"
+   (tag/url-tag "facebook" "https://www.facebook.com/groups/1648280642131855/permalink/2619842214975688/?sfnsn=mo"))
+  (l 19.81960  44.24442
+     "!njiva uz plac")
+
+  (let [add-tag (fn [location & tag-seq]
+                  (update-in
+                   location
+                   [:tags]
+                   clojure.set/union
+                   (into #{} (map as/as-string tag-seq))))]
+    (storage/import-location-v2-seq-handler
+     (map
+      #(add-tag % "@plan-20210530")
+      (vals
+       (reduce
+        (fn [location-map location]
+          (let [location-id (util/location->location-id location)]
+            (if-let [stored-location (get location-map location-id)]
+              (do
+                (report "duplicate")
+                (report "\t" stored-location)
+                (report "\t" location)
+                (assoc
+                 location-map
+                 location-id
+                 {
+                  :longitude (:longitude location)
+                  :latitude (:latitude location)
+                  :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+              (assoc location-map location-id location))))
+        {}
+        [
+         (l 19.81582, 44.24763
+            "!44a + 23a, 12.5k, seosko domacinstvo"
+            (tag/url-tag "facebook" "https://www.facebook.com/groups/1648280642131855/permalink/2619842214975688/?sfnsn=mo"))
+         (l 19.81960  44.24442
+            "!njiva uz plac")
+         ])))))
   
   ;; interesting places
   
@@ -435,7 +526,11 @@
   (l 20.04275, 43.94822 (tag/url-tag "suma 200A, 15k" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/suma-na-prodaju/5425634557889?kid=1"))
   #_(l 19.98614, 44.09825 "da li je ovo Vila Narcis, Upoznaj Divcibare 58" "nije")
   (l 19.99470, 44.08590 tag/tag-bike "rastovac, survey putevi")
+  (l 20.00089, 44.11551 tag/tag-todo "ispitati da li postoji staza")
 
+  (l 19.98445, 44.10082 tag/tag-todo "videti kakvu mapu planinarskih staza imaju")
+  (l 19.98926, 44.11836 tag/tag-todo "istraziti gde dalje putevi vode")
+  
   (l 20.08336, 44.06834
      tag/tag-todo
      "fabrika vode?"
@@ -612,6 +707,11 @@
   (q 1262800)
   (q 539439)
 
+  (l  20.26018, 44.75411 tag/tag-todo "!mini golf" "dve bubamare" (tag/url-tag "website" "https://dve-bubamare-mini-golf-park.business.site"))
+  
+  ;; turisticka mapa beograda
+  (q 89756812) ;; "!Spomenik Klupa sofora"
+
   (q 3400817) ;; "!Зебрњак"
 
   (l 20.0417000 44.1161833 tag/tag-mountain "Zabalac")
@@ -625,6 +725,13 @@
   (l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
   (l 19.39173, 43.31656 tag/tag-todo "meanderi ćehotine")
   (l 18.83574, 42.28090 tag/tag-eat "~" "!Branka" "poslasticarnica iz 1968")
+(l 19.13327, 42.09363 tag/tag-eat tag/tag-sleep "!Stara Carsija" (tag/url-tag "website" "https://staracarsija.me"))
+(q 27559501 tag/tag-hike) ;; "!Радоштак"
+(w 108314432 tag/tag-visit) ;; "!Tvrđava Kom"
+(w 616292680) ;; "!Sveti Ilija"
+
+;; loznica
+(n 8839704579) ;; "!Stobex"
 
   ;; todo world
 
@@ -936,7 +1043,7 @@
            :symbol (:symbol waypoint)
            :note (get note-map (:name waypoint))
            :tags (into
-                  #{}
+                  #{(:name waypoint)}
                   (filter
                    some?
                    (concat
@@ -946,6 +1053,7 @@
                        (garmin-waypoint-note->tags note)
                        ;; add note only for waypoints with note, not just tags
                        ;; useful during mapping
+                       note
                        tag/tag-note))
                     ;; check by symbol
                     (when-let [note (get note-map (:symbol waypoint))]
@@ -1016,10 +1124,9 @@
                                 (:latitude waypoint)
                                 {
                                  :text
-                                 (str
-                                  (or (:note waypoint) "")
+                                 (clojure.string/join
                                   "</br>"
-                                  (clojure.string/join " "(:tags waypoint)))}))
+                                  (:tags waypoint))}))
                              location-seq)))})
                  {:status 404}))
              (let [path (path/child garmin-track-path (str track ".gpx"))]
@@ -1177,7 +1284,9 @@
                          (or
                           (clojure.string/join
                            " "
-                           (:tags waypoint))
+                           (filter
+                            #(or (.startsWith % "#") (.startsWith % "@"))
+                            (:tags waypoint)))
                           "")]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (or

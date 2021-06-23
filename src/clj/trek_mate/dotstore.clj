@@ -169,8 +169,6 @@
         (recur (inc index))))
     tile))
 
-;; todo stao bitset-upscale-merge
-
 (defn bitset-update-tile [tile offset-x offset-y]
   (let [index (+ offset-x (* tile-size offset-y))
         chunk (quot index 8)

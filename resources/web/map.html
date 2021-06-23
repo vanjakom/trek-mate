@@ -655,6 +655,14 @@
 	      noWrap: true
 	  })
       
+      var topoMapTile = L.tileLayer(
+	  '/tile/proxy/topomap/{z}/{x}/{y}',
+	  {
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
+      
       var baseMaps = {
 	  "open street map": osmTile,
 	  "mapbox outdoor": mapboxOutdoorTile,
@@ -666,7 +674,8 @@
 	  "maptiler satellite": maptilerSatelliteTile,
 	  "osm wms de hillshade" : osmWmsDeTile,
 	  "wmflabs hillshade": wmflabsHillshadeTile,
-	  "free map sk": freeMapSkTile
+	  "free map sk": freeMapSkTile,
+	  "topo-map": topoMapTile
       }
 
       

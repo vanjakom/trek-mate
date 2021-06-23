@@ -133,6 +133,9 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210528
+(n6428859685)
+
 ;; 20210403
 ;; divcibare voznja
 #_(storage/import-location-v2-seq-handler
@@ -736,7 +739,7 @@
       (extract-route (relation->location-seq  12026935))))]))
 
 ;; 20210424 moto tour Planinica, Ravna gora
-(n 2494127108 tag/tag-cave "Дражина пећина")
+#_(n 2494127108 tag/tag-cave "Дражина пећина")
 #_(storage/import-location-v2-seq-handler
  (map
   #(t % "@moto20210423")
@@ -792,18 +795,84 @@
   ])
 #_"https://trailrouter.com/#wps=44.1259303,20.1754377|44.1258678,20.1756924|44.1238213,20.1787451|44.1193466,20.1751945|44.1189328,20.1748543|44.11655,20.17334|44.1119034,20.1665249|44.1108846,20.1635544|44.109581,20.157838|44.108914,20.1527692|44.109863,20.1504117|44.1152193,20.1420085|44.1098892,20.1424749|44.1108931,20.1385722|44.1080351,20.1308398|44.1068092,20.1147402|44.1081495,20.0958044|44.1143064,20.0808738|44.1124622,20.0738243|44.1173164,20.0668352|44.1223691,20.0593892|44.1222931,20.0575188|44.1251185,20.0548602|44.1249356,20.0519278|44.126413,20.0453182|44.1296376,20.0410232|44.1286249,20.0302779|44.1255428,20.0195847|44.1293195,20.0136947&ss=&rt=false&td=0&aus=false&aus2=false&ah=0&ar=false&pga=0.8&im=false"
 
-(w 690352197) ;; "!Planinarski dom „Na poljani“"
-(n 7556210034) ;; "!Vlasovi"
-(l 20.05584, 44.12469 "!Čiker")
-(n 1644121459) ;; "!Suva česma"
-(n 7805983146) ;; "!Mali Maljen"
-(n 1644121458) ;; "!Rior"
-(n 2459206793 "!Grab, prelaz")
-(n 427886915) ;; "!Suvobor"
+#_(do
+    (w 690352197) ;; "!Planinarski dom „Na poljani“"
+    (n 7556210034) ;; "!Vlasovi"
+    (l 20.05584, 44.12469 "!Čiker")
+    (n 1644121459) ;; "!Suva česma"
+    (n 7805983146) ;; "!Mali Maljen"
+    (n 1644121458) ;; "!Rior"
+    (n 2459206793 "!Grab, prelaz")
+    (n 427886915) ;; "!Suvobor"
 
-#_(count (deref dataset))
-#_(swap! dataset (constantly {}))
-(storage/import-location-v2-seq-handler
- (map
-  #(t % "@kona20210427")
-  (vals (deref dataset))))
+    #_(count (deref dataset))
+    #_(swap! dataset (constantly {}))
+    (storage/import-location-v2-seq-handler
+     (map
+      #(t % "@kona20210427")
+      (vals (deref dataset)))))
+
+;; povlen plac
+;; #gpx #geojson
+#_(with-open [is (fs/input-stream (path/child
+                                 env/*dataset-cloud-path* "mine" "plac-povlen.geojson"))
+            os (fs/output-stream (path/child
+                                  env/*dataset-cloud-path* "mine" "plac-povlen.gpx"))]
+  (gpx/write-gpx
+   os
+   [
+    (gpx/track
+     [
+      (gpx/track-segment
+       (map
+        (fn [[longitude latitude]]
+          {
+           :longitude longitude
+           :latitude latitude})
+        (:coordinates (:geometry (first (:features (json/read-keyworded is)))))))])]))
+
+;; rajac - boljkovci
+#_(with-open [is (fs/input-stream (path/child env/*dataset-cloud-path* "mine" "rajac-boljkovci.geojson"))
+            os (fs/output-stream (path/child env/*dataset-cloud-path* "mine" "rajac-boljkovci.gpx"))]
+  (let [location-seq (geojson/geojson->location-seq is)]
+    (def a location-seq)
+    (gpx/write-gpx
+     os
+     [(gpx/track
+      [(gpx/track-segment location-seq)])])))
+
+#_(with-open [is (fs/input-stream (path/child env/*dataset-cloud-path* "mine" "rajac-boljkovci-ext.geojson"))
+            os (fs/output-stream (path/child env/*dataset-cloud-path* "mine" "rajac-boljkovci-ext.gpx"))]
+  (let [location-seq (geojson/geojson->location-seq is)]
+    (def a location-seq)
+    (gpx/write-gpx
+     os
+     [(gpx/track
+      [(gpx/track-segment location-seq)])])))
+
+(let [location-seq (concat
+                    (with-open [is (fs/input-stream (path/child
+                                                    env/*dataset-cloud-path*
+                                                    "mine"
+                                                    "rajac-boljkovci-ext.gpx"))]
+                       (let [track (gpx/read-track-gpx is)]
+                         (apply concat (:track-seq track))))
+                    (with-open [is (fs/input-stream (path/child
+                                                     env/*dataset-cloud-path*
+                                                     "mine"
+                                                     "rajac-boljkovci.gpx"))]
+                      (let [track (gpx/read-track-gpx is)]
+                        (apply concat (:track-seq track)))))]  
+  (web/register-dotstore
+   "slot-a"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-blue [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
+
+
+

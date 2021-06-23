@@ -666,6 +666,7 @@
     #(when (= (get % "tourism") "alpine_hut") tag/tag-sleep)
     #(when (= (get % "tourism") "viewpoint") tag/tag-view)
     #(when (= (get % "tourism") "picnic_site") tag/tag-rest)
+    #(when (some? (get % "tourism")))
 
     #(when (= (get % "waterway") "waterfall") tag/tag-creek)
     #(when (= (get % "waterway") "river") tag/tag-river)

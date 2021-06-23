@@ -122,6 +122,7 @@
 
 #_(get-in (first geocache-seq) [:geocaching :owner])
 
+;; provides seq of not found geocaches by filtering serbia pocket query
 (def geocache-seq nil)
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
@@ -217,7 +218,7 @@
 ;; change date to date of import to be able to filter out
 #_(storage/import-location-v2-seq-handler
  (map
-  #(add-tag % "#geocache-not-found-20210326")
+  #(add-tag % "#geocache-not-found-20210528")
   (vals
    (reduce
     (fn [location-map location]
