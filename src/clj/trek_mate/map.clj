@@ -137,25 +137,30 @@
 (defn geojson-style-marker-layer
   "Addition to mapbox simple style, support marker-body, html that will be added
   to marker popup"
-  [name data]
-  (let [var-name (unique-var-name "layer")]
-    (str
-     "\n"
-     "\t\t\tvar " var-name " = L.geoJSON(\n"
-     "\t\t\t\t" (json/write-to-string data) ",\n"
-     "\t\t\t\t{\n"
-     "\t\t\t\t\tuseSimpleStyle: true,\n"
-     "\t\t\t\t\tpointToLayer: function(geojson, latlng) {\n"
-     "\t\t\t\t\t\tvar marker = L.marker(latlng)\n"
-     "\t\t\t\t\t\tvar markerBody = geojson.properties['marker-body']\n"
-     "\t\t\t\t\t\tif (markerBody) {\n"
-     "\t\t\t\t\t\t\tmarker.bindPopup(markerBody)\n"
-     "\t\t\t\t\t\t}\n"
-     "\t\t\t\t\t\treturn marker\n"
-     "\t\t\t\t\t}\n"
-     "\t\t\t\t})\n"
-     "\t\t\t" var-name ".addTo(map)\n"
-     "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n")))
+  ([name data zoom-to]
+   (let [var-name (unique-var-name "layer")]
+     (str
+      "\n"
+      "\t\t\tvar " var-name " = L.geoJSON(\n"
+      "\t\t\t\t" (json/write-to-string data) ",\n"
+      "\t\t\t\t{\n"
+      "\t\t\t\t\tuseSimpleStyle: true,\n"
+      "\t\t\t\t\tpointToLayer: function(geojson, latlng) {\n"
+      "\t\t\t\t\t\tvar marker = L.marker(latlng)\n"
+      "\t\t\t\t\t\tvar markerBody = geojson.properties['marker-body']\n"
+      "\t\t\t\t\t\tif (markerBody) {\n"
+      "\t\t\t\t\t\t\tmarker.bindPopup(markerBody)\n"
+      "\t\t\t\t\t\t}\n"
+      "\t\t\t\t\t\treturn marker\n"
+      "\t\t\t\t\t}\n"
+      "\t\t\t\t})\n"
+      "\t\t\t" var-name ".addTo(map)\n"
+      "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
+      (when zoom-to
+        (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
+      "\n")))
+  ([name data]
+   (geojson-style-marker-layer name data false)))
 
 (defn geojson-hiking-relation-layer [name relation-id]
   (let [dataset (osmapi/relation-full relation-id)
@@ -194,12 +199,22 @@
    "\t\t\tL.control.scale({imperial: false}).addTo(map)\n"
    "\t\t\tvar layers = L.control.layers()\n"
    "\t\t\tlayers.addTo(map)\n"
+   ;; global vars
    "\n"
+   "\t\t\tvar defaultBounds = null\n"
+   "\n"))
+
+(defn map-events-block []
+  (str
    "\t\t\tif (window.location.hash) {\n"
    "\t\t\t\tvar splits = window.location.hash.substring(5).split('/')\n"
    "\t\t\t\tmap.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))\n"
    "\t\t\t} else {\n"
-   "\t\t\t\tmap.setView([44.82763029742812, 20.50529479980469], 10)\n"
+   "\t\t\t\tif (defaultBounds != null) { \n"
+   "\t\t\t\t\tmap.fitBounds(defaultBounds, null)\n"
+   "\t\t\t\t} else {\n"
+   "\t\t\t\t\tmap.setView([44.82763029742812, 20.50529479980469], 10)\n"
+   "\t\t\t\t}\n"
    "\t\t\t}\n"
    "\t\t\twindow.onhashchange = function() {\n"
    "\t\t\t\tvar splits = window.location.hash.substring(5).split('/')\n"
@@ -247,9 +262,8 @@
 
 (def maps (atom {}))
 
-(defn render [name]
-  (let [layers (get (deref maps) name)]
-    (str
+(defn render-raw [layers]
+  (str
     "<html>\n"
     "\t<head>\n"
     (indent (indent (tag "meta" {"charset" "UTF-8"})))
@@ -289,19 +303,22 @@
     (utils-block)
     (map-setup-block)
     (map-onpress-block)
-    layers
+    (apply str layers)
+    (map-events-block)
     "\t\t</script>\n"
     "\t</body>\n"
-    "</html>\n")))
+    "</html>\n"))
+
+(defn render [name]
+  (let [layers (get (deref maps) name)]
+    (render-raw layers)))
 
 (defn define-map [name & layers]
   (swap!
    maps
    assoc
    name
-   (apply
-    str
-    layers))
+   layers)
   nil)
 
 (define-map

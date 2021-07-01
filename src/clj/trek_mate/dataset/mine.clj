@@ -239,7 +239,12 @@
   (l 20.00648, 44.12680 tag/tag-todo "mapirati put")
   (l 20.02530, 44.12864 tag/tag-todo "planinarska staza, gde vodi, vodopad?")
 
+  (l 19.99036, 44.11771 tag/tag-todo tag/tag-history)
+  (l 19.98903, 44.11855 tag/tag-todo tag/tag-hike "uska stasa izvideti gde vodi")
   (l 20.00149, 44.09104 tag/tag-hike "videti da li staza ide do vrazijeg vira")
+  (l 19.98630, 44.12002 tag/tag-hike "izvideti gde dalje vodi staza")
+  (l 19.98730, 44.12025 tag/tag-hike "ostar spust, izvideti gde vodi")
+  (l 19.98724, 44.11796 tag/tag-hike "izvideti gde dalje vodi staza")
   
   (l 19.990806 44.130214 tag/tag-todo "markacija")
   (l 19.989611 44.129356 tag/tag-todo "markacija")
@@ -537,6 +542,10 @@
      (tag/url-tag "website" "http://crystal-field.com")
      (tag/url-tag "wikiloc1" "https://sr.wikiloc.com/rute-pjesacenje-po-planinama/maljen-od-fabrike-vode-do-vrha-veliki-maljen-i-nazad-19596249")
      (tag/url-tag "wikiloc2" "https://sr.wikiloc.com/rute-pjesacenje-po-planinama/maljen-fabrika-vode-vrh-veliki-maljen-25098295"))
+
+  (l 20.02022, 44.10676 tag/tag-todo tag/tag-hike "Vrazji vir - Kraljev sto, izvideti stazu")
+  (l 20.00170, 44.09862 tag/tag-todo "izvideti gde vodi put")
+  (l 20.01079, 44.10601 tag/tag-todo "da li se putevi spajaju")
   
   ;; zlatibor
   (q 83166) ;; "!Stari grad Užice"
@@ -1020,7 +1029,8 @@
 
 (defn garmin-waypoint-file->location-seq
   [path]
-  (let [name (.replace (.replace ^String (last path)  "Waypoints_" "") ".gpx" "")
+  (let [name (.replace (second (.split (last path) "_")) ".gpx" "")
+        ;; name (.replace (.replace ^String (last path)  "Waypoints_" "") ".gpx" "")
         note-map (with-open [is (fs/input-stream (path/child (path/parent path) "index.tsv"))]
                    (reduce
                     (fn [map ^String entry]

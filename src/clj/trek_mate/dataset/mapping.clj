@@ -228,7 +228,7 @@
 #_(let [track-seq
       (or
        ;; trek-mate
-       (let [track-id 1624175348]
+       #_(let [track-id 1624175348]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -237,7 +237,7 @@
                           (str track-id ".json")))]
            [(:locations (json/read-keyworded is))]))
        ;; garmin
-       #_(let [track-id "Track_2021-06-19 173828"]
+       (let [track-id "Track_2021-06-27 181635"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -259,7 +259,7 @@
        #_(storage/location-request-file->location-seq
         (storage/location-request-last-file env/*trek-mate-user*))
        ;; garmin
-       (let [waypoint-file-name "Waypoints_19-JUN-21.gpx"]
+       (let [waypoint-file-name "Waypoints_27-JUN-21.gpx"]
          (mine/garmin-waypoint-file->location-seq
           (path/child
            env/*global-my-dataset-path*
@@ -427,7 +427,7 @@
 #_(prepare-name-tags "Видиковац - Равне / Први шумар - Питине стијене")
 #_(prepare-name-tags "Дом здравља Ваљево")
 #_(prepare-name-tags "Чесма ПД „Маглеш”")
-#_(prepare-name-tags "Славковица - Чика Душков дом на Рајцу")
+#_(prepare-name-tags "Орли Скок")
 
 
 

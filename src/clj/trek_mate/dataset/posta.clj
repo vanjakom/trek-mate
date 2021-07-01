@@ -63,7 +63,7 @@
                 (concat
                  (vals (:nodes dataset))
                  (vals (:ways dataset))))))
-#_(count osm-seq) 
+#_(count osm-seq)
 ;; 20210610 463
 
 ;; extract places and addresses from osm
@@ -215,18 +215,18 @@
 
 
 (run!
- #(println (:address %))
+ #(println (:address-raw %))
  (take
   10
-  (map
-   (comp
-    parse-metadata
-    ensure-metadata)
-   (take 100 tip1-posta-seq))))
+  tip1-posta-seq))
+
+(first (map tip1-posta-seq))
+
+(run!
+ #(println (:address %) "->" (extract-address (:address %)))
+ sample-100)
 
 
-
-(println "test")
 
 ;; taken from source https://www.posta.rs/cir/alati/lokacije.aspx
 ;; id="cphMain_lokacijeusercontrol_pom1" class="pom1"
@@ -364,66 +364,22 @@
           c))
       name))))
 
-(defn parse-metadata [post]
-  (let [description (clean-metadata post)]
-    (when description
-      (let [pattern (java.util.regex.Pattern/compile
-                     "<b>Локација: <\\/b>(.+?)<br\\/><b>Назив:  <\\/b>(.+?)<br\\/><b>Адреса: <\\/b>(.+?)<br\\/><b>ПАК: <\\/b>(.+?)<br\\/><b>Радно време: <\\/b>(.+?)<br\\/><b>Телефон:  <\\/b>(.+?)<br\\/>")
-            matcher (.matcher pattern description)]
-        (when (.find matcher)
-          (let [location (.group matcher 1)
-                name-raw (.group matcher 2)
-                name (normalize-name name-raw)
-                ref (first (.split name-raw " "))
-                address (.group matcher 3)
-                pak (.group matcher 4)
-                hours (.replace (.group matcher 5) "<br/>" ", ")
-                phone (.group matcher 6)]
-            {
-             :posta-id (:id post)
-             :longitude (:longitude post)
-             :latitude (:latitude post)
-             :location location
-             :ref ref
-             :name-raw name-raw
-             :name name
-             :address address
-             :pak pak
-             :hours hours
-             :phone phone
-             :raw description
-             :tags {
-                    "amenity" "post_office"
-                    "name" name
-                    "name:sr" name
-                    "name:sr-Latn" (cyrillic->latin name)
-                    "ref" ref
-                    "addr:pak" pak}}))))))
-
-(def import-seq
-  (map
-   (comp
-    parse-metadata
-    ensure-metadata)
-   tip1-posta-seq))
-
-(count tip1-posta-seq) ;; 1481
-(count import-seq) ;; 1481
-
-(first import-seq)
-
-(do
-  (println "fresh")
-  (run!
-   (partial println "\t")
-   (map
-    #(clojure.string/join "|" %)
+(defn extract-phone [raw]
+  (when (not (empty? raw))
+    (clojure.string/join
+    ";"
     (map
-     (fn [line]
-       (mapcat
-        #(.split % ":")
-        (filter #(not (empty? %)) (map #(.trim %) (.split (.replace line "," "") " ")))))
-     (filter some? (into #{} (map :hours import-seq)))))))
+     #(str
+       "+381 "
+       (.replace
+        (.substring % 1)
+        "/"
+        " "))
+     (filter
+      some?
+      (filter
+       #(not (= % "011/"))
+       (.split raw " ")))))))
 
 (defn extract-working-splits [raw]
   (when (some? raw)
@@ -447,7 +403,7 @@
         (= split "недеља")
         "Su"
         :else
-        split))
+        (.replace split "." ":")))
     (mapcat
      #(.split % ":")
      (filter
@@ -462,6 +418,182 @@
          (.replace "00.00-19.0019.10-24.00" "00.00-19.00 19.10-24.00")
          (.replace "15.00-18.0008.00-11.00" "15.00-18.00 08.00-11.00"))
         " ")))))))
+
+(defn parse-working-hours [raw]
+  (let [splits (extract-working-splits raw)]
+    #_(println "start" splits)
+    (let [[result day times] (reduce
+                              (fn [[result day times] split]
+                                #_(println "step" result day times split)
+                                (if (contains? #{"Mo" "Tu" "We" "Th" "Fr" "Sa" "Su" "PH"} split)
+                                  (if (not (empty? times))
+                                    [
+                                     (if (empty? result)
+                                       [[day (clojure.string/join "," times)]]
+                                       (conj result [day (clojure.string/join "," times)]))
+                                     split
+                                     []]
+                                    [result split []]
+                                    )
+                                  (if (some? day)
+                                    [result day (conj times split)]
+                                    [result "Mo-Fr" (conj times split)])))
+                              [[] nil []]
+                              splits)]
+      (if (not (empty? times))
+        (if (empty? result)
+          [[day (clojure.string/join "," times)]]
+          (conj result [day (clojure.string/join "," times)]))
+        result))))
+
+(defn optimize-working-hours [parsed-hour-seq]
+  #_(println parsed-hour-seq)
+  (if (> (count parsed-hour-seq) 1)
+    (let [[hours days times] (reduce
+                             (fn [[hours days last-times] [day times]]
+                               #_(println "\t" hours days last-times day times)
+                               (if (= last-times times)
+                                 [hours (conj days day) times]
+                                 [(conj hours [(clojure.string/join "," days) last-times]) [day] times ]))
+                             [[] [(first (first parsed-hour-seq))] (second (first parsed-hour-seq))]
+                             (rest parsed-hour-seq))]
+     (if (not (empty? days))
+       (conj hours [(clojure.string/join "," days) times])
+       hours))
+    parsed-hour-seq))
+
+(defn serialize-working-hours [hours]
+  (when (not (empty? hours))
+    (let [serialized (clojure.string/join
+                     "; "
+                     (map
+                      (fn [[days times]]
+                        (let [days (->
+                                    days
+                                    (.replace "Mo-Fr,Sa,Su" "Mo-Su")
+                                    (.replace "Mo-Fr,Sa" "Mo-Sa"))]
+                          (str days " " times)))
+                      hours))]
+     (if (.contains serialized "PH")
+       serialized
+       (str serialized "; PH off")))))
+
+(serialize-working-hours
+ (optimize-working-hours
+  (parse-working-hours
+   "07.00-11.00")))
+
+
+(defn parse-metadata [post]
+  (let [description (clean-metadata post)]
+    (when description
+      (let [pattern (java.util.regex.Pattern/compile
+                     "<b>Локација: <\\/b>(.+?)<br\\/><b>Назив:  <\\/b>(.+?)<br\\/><b>Адреса: <\\/b>(.+?)<br\\/><b>ПАК: <\\/b>(.+?)<br\\/><b>Радно време: <\\/b>(.+?)<br\\/><b>Телефон:  <\\/b>(.+?)<br\\/>")
+            matcher (.matcher pattern description)]
+        (when (.find matcher)
+          (let [location (.group matcher 1)
+                name-raw (.group matcher 2)
+                ref (first (.split name-raw " "))
+                address-raw (.group matcher 3)
+                pak (.group matcher 4)
+                hours-raw (.replace (.group matcher 5) "<br/>" ", ")                
+                phone-raw (.group matcher 6)]
+            (let [name (normalize-name name-raw)
+                  phone (extract-phone phone-raw)
+                  hours (try
+                          (serialize-working-hours
+                           (optimize-working-hours
+                            (parse-working-hours hours-raw)))
+                          (catch Exception e
+                            (throw
+                             (ex-info
+                              "Error parsing working hours"
+                              {:ref ref :hours-raw hours-raw}
+                              e))))
+                  [street street-number] (extract-address address-raw)]
+             {
+              :posta-id (:id post)
+              :longitude (:longitude post)
+              :latitude (:latitude post)
+              :location location
+              :ref ref
+              :name-raw name-raw
+              :name name
+              :address-raw address-raw
+              :pak pak
+              :hours-raw hours-raw
+              :phone-raw phone-raw
+              :raw description
+              :tags (into
+                     {}
+                     (filter
+                      #(some? (second %))
+                      [
+                       ["amenity" "post_office"]
+                       ["name" name]
+                       ["name:sr" name]
+                       ["name:sr-Latn" (cyrillic->latin name)]
+                       ["ref" ref]
+                       ["opening_hours" hours]
+                       ["phone" phone]
+                       ["addr:street" street]
+                       ["addr:housenumber" street-number]
+                       ["addr:pak" pak]]))})))))))
+
+(def import-seq
+  (doall
+   (filter
+    some?
+    (map
+     (fn [post]
+       (let [metadata (parse-metadata (ensure-metadata post))]
+         (when (nil? metadata)
+           (println "[error]" post))
+         metadata))
+     tip1-posta-seq))))
+
+(count tip1-posta-seq) ;; 1481
+(count import-seq) ;; 1475
+
+
+(retrieve-metadata {:longitude 20.375656062071098, :latitude 44.8494206286842, :id 2002, :type 1})
+
+(count (filter #(nil? (:ref %)) import-seq)) ;; 6
+
+
+(run!
+ #(let [phone (extract-phone (:phone-raw %))]
+    (println (:phone-raw %) " -> " phone))
+ (take
+  100
+  import-seq))
+
+
+x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq))))
+
+(serialize-working-hours
+ (optimize-working-hours
+  (extract-working-splits
+   (parse-working-hours "08.00-14.00"))))
+
+(count tip1-posta-seq) ;; 1481
+(count import-seq) ;; 1481
+
+(first import-seq)
+
+(do
+  (println "fresh")
+  (run!
+   (partial println "\t")
+   (map
+    #(clojure.string/join "|" %)
+    (map
+     (fn [line]
+       (mapcat
+        #(.split % ":")
+        (filter #(not (empty? %)) (map #(.trim %) (.split (.replace line "," "") " ")))))
+     (filter some? (into #{} (map :hours import-seq)))))))
+
 
 ;; old
 #_(defn parse-working-hours [raw]
@@ -491,33 +623,16 @@
           (str result "; " (str day " " (clojure.string/join "," times))))
         result))))
 
-(defn parse-working-hours [raw]
-  (let [splits (extract-working-splits raw)]
-    (println "start" splits)
-    (let [[result day times] (reduce
-                              (fn [[result day times] split]
-                                (println "step" result day times split)
-                                (if (contains? #{"Mo" "Tu" "We" "Th" "Fr" "Sa" "Su" "PH"} split)
-                                  (if (not (empty? times))
-                                    [
-                                     (if (empty? result)
-                                       (str day " " (clojure.string/join "," times))
-                                       (str result "; " (str day " " (clojure.string/join "," times))))
-                                     split
-                                     []]
-                                    [result split []]
-                                    )
-                                  (if (some? day)
-                                    [result day (conj times split)]
-                                    [result "Mo-Fr" (conj times split)])))
-                              ["" nil []]
-                              splits)]
-      (if (not (empty? times))
-        (if (empty? result)
-          (str day " " (clojure.string/join "," times))
-          (str result "; " (str day " " (clojure.string/join "," times))))
-        result))))
 
+
+(run!
+ (fn [hours]
+   (let [final-hours (serialize-working-hours
+                      (optimize-working-hours
+                       (parse-working-hours
+                        hours)))]
+     (println hours "->" final-hours)))
+ (map :hours sample-100))
 
 ;; print just splits
 #_(run!
@@ -544,6 +659,7 @@
 ;; "Mo 07.30-11.30; Tu 07.30-11.30; We 07.30-11.30; Th 07.30-11.30; Fr 07.30-10.00"
 (parse-working-hours
  "08.00-19.00, субота:08.00-19.00, недеља:08.00-19.00, празник:08.00-15.00")
+;; [["Mo-Fr" "08.00-19.00"] ["Sa" "08.00-19.00"] ["Su" "08.00-19.00"] ["PH" "08.00-15.00"]]
 ;; "Mo-Fr 08.00-19.00; Sa 08.00-19.00; Su 08.00-19.00; PH 08.00-15.00"
 
 (count (into #{} (map :hours import-seq)))
@@ -679,6 +795,22 @@
 (defn html-href [title url]
   (str "<a href='" url "' target='_blank'>" title "</a>"))
 
+(defn html-href-id [longitude latitude]
+  (str
+   "<a href='https://preview.ideditor.com/release/#map=18/"
+   latitude
+   "/"
+   longitude
+   "' target='_blank'>iD</a>"))
+
+(defn html-href-id-localhost [longitude latitude]
+  (str
+   "<a href='http://localhost:8080/#map=18/"
+   latitude
+   "/"
+   longitude
+   "' target='_blank'>iD (localhost)</a>"))
+
 (defn html-br []
   "<br/>")
 
@@ -738,10 +870,134 @@
                        (clojure.string/join
                         "<br/>"
                         (map #(str (first %) " = " (second %)) (:tags post)))
+                       "<br/>"
+                       (html-href-id (:longitude post) (:latitude post))
+                       "<br/>"
+                       (html-href-id-localhost (:longitude post) (:latitude post))
                        "<br/><br/><br/>"
                        (:raw post))
          :marker-color "#0000FF"}))
-     sample-100))))
+     sample-100))
+   true))
+
+(run!
+ println
+ (map
+  #(str (:hours-raw %) "->" (get-in % [:tags "opening_hours"]))
+  sample-100))
+
+(first sample-100)
+
+(run!
+ #(println (get-in % [:tags "name"]))
+ (filter #(= (get-in % [:tags "place"]) "city") (deref place-seq)))
+
+(run!
+ #(println (get-in % [:tags "name"]))
+ (filter #(= (get-in % [:tags "place"]) "town") (deref place-seq)))
+
+(first (deref place-seq))
+{:type :node, :id 30902071, :longitude 22.6605956, :latitude 42.872804, :user "", :timestamp 1619140606, :tags {"is_in:municipality" "Трън", "place" "village", "wikidata" "Q19601699", "is_in" "Трън,Перник,България", "ekatte" "04697", "name" "Богойна", "population" "6", "is_in:region" "Перник", "int_name" "Bogoyna", "is_in:country" "България", "name:en" "Bogoyna"}}
+
+(println "test")
+(def find-count (atom 0))
+(let [cities (concat
+              (filter #(= (get-in % [:tags "place"]) "city") (deref place-seq))
+              (filter #(= (get-in % [:tags "place"]) "town") (deref place-seq))
+              (filter #(= (get-in % [:tags "place"]) "village") (deref place-seq)))]
+  (doseq [x (range 282 (inc 288))]
+   (doseq [y (range 181 (inc 188))]
+     (let [[min-longitude max-longitude min-latitude max-latitude]
+           (tile-math/tile->location-bounds [9 x y])]
+       (let [place (get-in
+                    (first (filter (partial tile-math/location-in-tile? [9 x y]) cities))
+                    [:tags "name"])
+             post-seq (filter (partial tile-math/location-in-tile? [9 x y]) import-seq)]
+         (when (> (count post-seq) 0)
+           (with-open [os (fs/output-stream (path/child dataset-path "tile-split" (str 9 "-" x "-" y ".geojson")))]
+             (json/write-pretty-print
+              (trek-mate.integration.geojson/geojson
+               (map
+                (fn [post]
+                  (trek-mate.integration.geojson/point
+                   (:longitude post)
+                   (:latitude post)
+                   (:tags post)))
+                post-seq))
+              (io/output-stream->writer os)))
+           (with-open [os (fs/output-stream (path/child dataset-path "tile-split" (str 9 "-" x "-" y ".html")))]
+             (io/write-string
+              os
+              (map/render-raw
+               [
+                (map/tile-layer-osm)
+                (map/tile-layer-bing-satellite false)
+                (map/geojson-style-marker-layer
+                 "poste"
+                 (trek-mate.integration.geojson/geojson
+                  (map
+                   (fn [post]
+                     (trek-mate.integration.geojson/point
+                      (:longitude post)
+                      (:latitude post)
+                      {
+                       :marker-body (str
+                                     (clojure.string/join
+                                      "<br/>"
+                                      (map #(str (first %) " = " (second %)) (:tags post)))
+                                     "<br/>"
+                                     (html-href-id (:longitude post) (:latitude post))
+                                     "<br/>"
+                                     (html-href-id-localhost (:longitude post) (:latitude post))
+                                     "<br/><br/><br/>"
+                                     (:raw post))
+                       :marker-color "#0000FF"}))
+                   post-seq))
+                 true)])))
+           (println x y (count post-seq) place)))))))
+
+(with-open [os (fs/output-stream (path/child dataset-path "poste-iD.geojson"))]
+  (json/write-to-stream
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [post]
+       (trek-mate.integration.geojson/point
+        (:longitude post)
+        (:latitude post)
+        (:tags post)))
+     import-seq))
+   os))
+
+(with-open [os (fs/output-stream (path/child dataset-path "poste.html"))]
+  (io/write-string
+   os
+   (map/render-raw
+    [
+     (map/tile-layer-osm)
+     (map/tile-layer-bing-satellite false)
+     (map/geojson-style-marker-layer
+      "poste"
+      (trek-mate.integration.geojson/geojson
+       (map
+        (fn [post]
+          (trek-mate.integration.geojson/point
+           (:longitude post)
+           (:latitude post)
+           {
+            :marker-body (str
+                          (clojure.string/join
+                           "<br/>"
+                           (map #(str (first %) " = " (second %)) (:tags post)))
+                          "<br/>"
+                          (html-href-id (:longitude post) (:latitude post))
+                          "<br/>"
+                          (html-href-id-localhost (:longitude post) (:latitude post))
+                          "<br/><br/><br/>"
+                          (:raw post))
+            :marker-color "#0000FF"}))
+        import-seq))
+      true)])))
+
 
 (with-open [os (fs/output-stream (path/child dataset-path "sample-100.geojson"))]
   (json/write-pretty-print
@@ -754,6 +1010,18 @@
         (assoc
          (:tags post)
          :desciption (:raw post))))
+     sample-100))
+   (io/output-stream->writer os)))
+
+(with-open [os (fs/output-stream (path/child dataset-path "sample-100-iD.geojson"))]
+  (json/write-pretty-print
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [post]
+       (trek-mate.integration.geojson/point
+        (:longitude post)
+        (:latitude post)
+        (:tags post)))
      sample-100))
    (io/output-stream->writer os)))
 
