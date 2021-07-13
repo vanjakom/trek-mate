@@ -276,6 +276,30 @@
   (l 19.96823, 44.05323 "dani planinara 2019")
   (l 19.99568, 44.09190 tag/tag-todo tag/tag-hike "povezati deo staze koji nedostaje")
 
+  (l 19.98394, 44.02032
+     tag/tag-hike
+     "postoji put koji se odvaja na desno i markacija na njemu"
+     "pretpostavka da se spaja sa 19.97353, 44.03388")
+  (l 19.97353, 44.03388
+     tag/tag-hike
+     "markacija ide gore u brdo, mozda se spaja sa 19.98394, 44.02032")
+  (l 19.96420, 44.06394
+     tag/tag-hike
+     "staza Skakavci - Veliki Kozomor")
+  (l 19.96990, 44.06801
+     tag/tag-todo
+     "mapirati put do kraja, lep gravel, moze za auto od Divcibara do Rosica jezera")
+  (l 19.98518, 44.07966
+     tag/tag-todo
+     "proverit da li ovuda ide Skakavci - Crni vrh, pratio do 19.976559, 44.074741")
+
+
+  ;; zabeleske sa mapiranja
+  (l 22.06062, 42.98452
+     "#mapping"
+     "Стајковце"
+     "пошта и школа се налазе у истој згради")
+  
 (l 20.06990, 44.11230 tag/tag-todo "bajs ili hajk Veliki Maljen, izvideti okolo")
   
   (l 19.96136, 44.06600 "Rosici jezero" "mapirati")
@@ -738,6 +762,10 @@
 (q 27559501 tag/tag-hike) ;; "!Радоштак"
 (w 108314432 tag/tag-visit) ;; "!Tvrđava Kom"
 (w 616292680) ;; "!Sveti Ilija"
+
+(l 19.02891, 42.35531 tag/tag-camp tag/tag-sleep "!Auto kamp Rijeka Crnojevica")
+(l 19.27418, 41.90259  tag/tag-camp tag/tag-sleep "!Auto kamp Tropicana")
+
 
 ;; loznica
 (n 8839704579) ;; "!Stobex"

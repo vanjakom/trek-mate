@@ -267,7 +267,7 @@
     "<html>\n"
     "\t<head>\n"
     (indent (indent (tag "meta" {"charset" "UTF-8"})))
-    (indent (indent (tag "title" {} name)))
+    (indent (indent (tag "title" {} "a map")))
     (indent (indent (tag
                      "link"
                      {

@@ -424,6 +424,15 @@
 	      bounds: [[-90,-180],[90,180]],
 	      noWrap: true
 	  })
+
+      var googleSatelliteTile = L.tileLayer(
+	  'http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}',
+	  {
+	      attribution: '&copy; Google',
+	      maxZoom: 21,
+	      bounds: [[-90,-180],[90,180]],
+	      noWrap: true
+	  })
       
       var BingLayer = L.TileLayer.extend({
 	  getTileUrl: function (tilePoint) {
@@ -668,6 +677,7 @@
 	  "mapbox outdoor": mapboxOutdoorTile,
 	  "mapbox basic": mapboxBasicTile,
 	  "mapbox satellite": mapboxSatelliteTile,
+	  "google satellite": googleSatelliteTile,
 	  "bing aerial": bingAerialTile,
 	  "ustopo 50": usTopoTile,
 	  "empty white tile": emptyWhiteTile,

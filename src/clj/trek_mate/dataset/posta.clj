@@ -17,6 +17,7 @@
    [clj-common.json :as json]
    [clj-common.jvm :as jvm]
    [clj-common.http :as http]
+   [clj-common.http-server :as http-server]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
@@ -49,22 +50,6 @@
 (def dataset-official-path (path/child env/*dataset-cloud-path* "posta.rs"))
 
 (def beograd (wikidata/id->location :Q3711))
-
-(def osm-seq (map
-              (fn [entry]
-                (assoc
-                 entry
-                 :longitude
-                 (as/as-double (:longitude entry))
-                 :latitude
-                 (as/as-double (:latitude entry))))
-              (let [dataset (overpass/query->dataset
-                             "nwr[amenity=post_office](area:3601741311);")]
-                (concat
-                 (vals (:nodes dataset))
-                 (vals (:ways dataset))))))
-#_(count osm-seq)
-;; 20210610 463
 
 ;; extract places and addresses from osm
 
@@ -213,21 +198,6 @@
     (deref place-seq))))
 
 
-
-(run!
- #(println (:address-raw %))
- (take
-  10
-  tip1-posta-seq))
-
-(first (map tip1-posta-seq))
-
-(run!
- #(println (:address %) "->" (extract-address (:address %)))
- sample-100)
-
-
-
 ;; taken from source https://www.posta.rs/cir/alati/lokacije.aspx
 ;; id="cphMain_lokacijeusercontrol_pom1" class="pom1"
 (def official-seq
@@ -282,6 +252,41 @@
                        (dec (count description-raw))))]
     description))
 
+;; called in  case metadata is refreshed
+#_(with-open [os (fs/output-stream (path/child dataset-path "metadata-cache.edn"))]
+  (edn/write-object os (deref metadata-map)))
+
+(with-open [is (fs/input-stream (path/child dataset-path "metadata-cache.edn"))]
+  (let [metadata (edn/read-object is)]
+    (swap! metadata-map (constantly metadata))
+    nil))
+
+(defn parse-metadata [post]
+  (let [description (clean-metadata post)]
+    (when description
+      (let [pattern (java.util.regex.Pattern/compile
+                     "<b>Локација: <\\/b>(.+?)<br\\/><b>Назив:  <\\/b>(.+?)<br\\/><b>Адреса: <\\/b>(.+?)<br\\/><b>ПАК: <\\/b>(.+?)<br\\/><b>Радно време: <\\/b>(.+?)<br\\/><b>Телефон:  <\\/b>(.+?)<br\\/>")
+            matcher (.matcher pattern description)]
+        (when (.find matcher)
+          (let [location (.group matcher 1)
+                name-raw (.group matcher 2)
+                ref (first (.split name-raw " "))
+                address-raw (.group matcher 3)
+                pak (.group matcher 4)
+                hours-raw (.replace (.group matcher 5) "<br/>" ", ")                
+                phone-raw (.group matcher 6)]
+            {
+              :posta-id (:id post)
+              :longitude (:longitude post)
+              :latitude (:latitude post)
+              :location location
+              :ref ref
+              :name-raw name-raw
+              :address-raw address-raw
+              :pak pak
+              :hours-raw hours-raw
+              :phone-raw phone-raw
+              :raw description}))))))
 
 (def name-fix-map
   {
@@ -478,67 +483,65 @@
        serialized
        (str serialized "; PH off")))))
 
-(serialize-working-hours
+#_(serialize-working-hours
  (optimize-working-hours
   (parse-working-hours
    "07.00-11.00")))
 
+(defn extract-address [address-raw]
+  (when (not (empty? address-raw))
+    (let [last-space (.lastIndexOf address-raw " ")
+          street-raw (.substring address-raw 0 last-space)
+          street-number (.substring address-raw (inc last-space))
+          street (first (filter
+                         #(= (.toUpperCase %) street-raw)
+                         address-name-seq))]      
+      (when street
+        [street street-number]))))
 
-(defn parse-metadata [post]
-  (let [description (clean-metadata post)]
-    (when description
-      (let [pattern (java.util.regex.Pattern/compile
-                     "<b>Локација: <\\/b>(.+?)<br\\/><b>Назив:  <\\/b>(.+?)<br\\/><b>Адреса: <\\/b>(.+?)<br\\/><b>ПАК: <\\/b>(.+?)<br\\/><b>Радно време: <\\/b>(.+?)<br\\/><b>Телефон:  <\\/b>(.+?)<br\\/>")
-            matcher (.matcher pattern description)]
-        (when (.find matcher)
-          (let [location (.group matcher 1)
-                name-raw (.group matcher 2)
-                ref (first (.split name-raw " "))
-                address-raw (.group matcher 3)
-                pak (.group matcher 4)
-                hours-raw (.replace (.group matcher 5) "<br/>" ", ")                
-                phone-raw (.group matcher 6)]
-            (let [name (normalize-name name-raw)
-                  phone (extract-phone phone-raw)
-                  hours (try
-                          (serialize-working-hours
-                           (optimize-working-hours
-                            (parse-working-hours hours-raw)))
-                          (catch Exception e
-                            (throw
-                             (ex-info
-                              "Error parsing working hours"
-                              {:ref ref :hours-raw hours-raw}
-                              e))))
-                  [street street-number] (extract-address address-raw)]
-             {
-              :posta-id (:id post)
-              :longitude (:longitude post)
-              :latitude (:latitude post)
-              :location location
-              :ref ref
-              :name-raw name-raw
-              :name name
-              :address-raw address-raw
-              :pak pak
-              :hours-raw hours-raw
-              :phone-raw phone-raw
-              :raw description
-              :tags (into
-                     {}
-                     (filter
-                      #(some? (second %))
-                      [
-                       ["amenity" "post_office"]
-                       ["name" name]
-                       ["name:sr" name]
-                       ["name:sr-Latn" (cyrillic->latin name)]
-                       ["ref" ref]
-                       ["opening_hours" hours]
-                       ["phone" phone]
-                       ["addr:street" street]
-                       ["addr:housenumber" street-number]
-                       ["addr:pak" pak]]))})))))))
+#_(run!
+ #(let [address-raw (:address-raw (parse-metadata (ensure-metadata %)))]
+    (println address-raw "->" (extract-address address-raw)))
+ (take 100 tip1-posta-seq))
+
+(defn extract-tags [post]
+  "Works on result of parse-metadata"
+  (try
+    (let [name (normalize-name (:name-raw post))
+          phone (extract-phone (:phone-raw post))
+          hours (try
+                  (serialize-working-hours
+                   (optimize-working-hours
+                    (parse-working-hours (:hours-raw post))))
+                  (catch Exception e
+                    (throw
+                     (ex-info
+                      "Error parsing working hours"
+                      {:ref ref :hours-raw (:hours-raw post)}
+                      e))))
+          [street street-number] (extract-address (:address-raw post))
+          ref (:ref post)
+          pak (:pak post)]
+      (assoc
+       post
+       :tags
+       (into
+        {}
+        (filter
+         #(some? (second %))
+         [
+          ["amenity" "post_office"]
+          ["name" name]
+          ["name:sr" name]
+          ["name:sr-Latn" (cyrillic->latin name)]
+          ["ref" ref]
+          ["opening_hours" hours]
+          ["phone" phone]
+          ["addr:street" street]
+          ["addr:housenumber" street-number]
+          ["addr:pak" pak]]))))
+    (catch Exception e
+      (throw (ex-info "extraction failed" post e)))))
 
 (def import-seq
   (doall
@@ -547,41 +550,17 @@
     (map
      (fn [post]
        (let [metadata (parse-metadata (ensure-metadata post))]
-         (when (nil? metadata)
-           (println "[error]" post))
-         metadata))
+         (if (nil? metadata)
+           (println "[error]" post)
+           (extract-tags metadata))))
      tip1-posta-seq))))
 
-(count tip1-posta-seq) ;; 1481
-(count import-seq) ;; 1475
+(def sample-100 (take 100 (shuffle import-seq)))
 
+#_(count tip1-posta-seq) ;; 1481
+#_(count import-seq) ;; 1475
 
-(retrieve-metadata {:longitude 20.375656062071098, :latitude 44.8494206286842, :id 2002, :type 1})
-
-(count (filter #(nil? (:ref %)) import-seq)) ;; 6
-
-
-(run!
- #(let [phone (extract-phone (:phone-raw %))]
-    (println (:phone-raw %) " -> " phone))
- (take
-  100
-  import-seq))
-
-
-x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq))))
-
-(serialize-working-hours
- (optimize-working-hours
-  (extract-working-splits
-   (parse-working-hours "08.00-14.00"))))
-
-(count tip1-posta-seq) ;; 1481
-(count import-seq) ;; 1481
-
-(first import-seq)
-
-(do
+#_(do
   (println "fresh")
   (run!
    (partial println "\t")
@@ -594,38 +573,7 @@ x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq)
         (filter #(not (empty? %)) (map #(.trim %) (.split (.replace line "," "") " ")))))
      (filter some? (into #{} (map :hours import-seq)))))))
 
-
-;; old
-#_(defn parse-working-hours [raw]
-  (let [splits (extract-working-splits raw)]
-    (println "start" splits)
-    (let [[result day times] (reduce
-                              (fn [[result day times] split]
-                                (println "step" result day times split)
-                                (if (contains? #{"Mo" "Tu" "We" "Th" "Fr" "Sa" "Su" "PH"} split)
-                                  (if (not (empty? times))
-                                    [
-                                     (if (empty? result)
-                                       (str day " " (clojure.string/join "," times))
-                                       (str result "; " (str day " " (clojure.string/join "," times))))
-                                     split
-                                     []]
-                                    [result split []]
-                                    )
-                                  (if (some? day)
-                                    [result day (conj times split)]
-                                    [result "Mo-Fr" (conj times split)])))
-                              ["" nil []]
-                              splits)]
-      (if (not (empty? times))
-        (if (empty? result)
-          (str day " " (clojure.string/join "," times))
-          (str result "; " (str day " " (clojure.string/join "," times))))
-        result))))
-
-
-
-(run!
+#_(run!
  (fn [hours]
    (let [final-hours (serialize-working-hours
                       (optimize-working-hours
@@ -691,13 +639,6 @@ x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq)
 #_{:location "БЕОГРАД-САВСКИ ВЕНАЦ", :ref "11000", :name "11000 БЕОГРАД 6", :address "САВСКА 2", :pak "111101", :hours "08.00-19.00, субота:08.00-19.00, недеља:08.00-19.00, празник:08.00-15.00", :phone "011/3643-071 011/3643-117 011/3643-118"}
 
 
-#_(with-open [os (fs/output-stream (path/child dataset-path "metadata-cache.edn"))]
-  (edn/write-object os (deref metadata-map)))
-
-(with-open [is (fs/input-stream (path/child dataset-path "metadata-cache.edn"))]
-  (let [metadata (edn/read-object is)]
-    (swap! metadata-map (constantly metadata))
-    nil))
 
 
 
@@ -746,7 +687,7 @@ x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq)
 (count (deref metadata-map))
 
 
-(def sample-100 (take 100 (shuffle import-seq)))
+
 
 
 (def temp (deref metadata-map))
@@ -814,94 +755,10 @@ x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq)
 (defn html-br []
   "<br/>")
 
-(map/define-map
-  "poste"
-  (map/tile-layer-osm)
-  (map/tile-layer-bing-satellite false)
-  (map/geojson-style-marker-layer
-   "osm"
-   (trek-mate.integration.geojson/geojson
-    (map
-     (fn [post]
-       (let [description (str
-                          (reduce
-                           (fn [state [key value]]
-                             (str state key " = " value "<br/>"))
-                           ""
-                           (sort-by first (:tags post)))
-                          (html-br)
-                          (html-href "osm" (url-osm (:type post) (:id post)))
-                          (html-br)
-                          (html-href "history" (url-history (:type post) (:id post))))]
-         (trek-mate.integration.geojson/point
-          (:longitude post)
-          (:latitude post)
-          {
-           :marker-body description
-           :marker-color "#00FF00"})))
-     sample-osm-seq)))
-  (map/geojson-style-marker-layer
-   "posta srbije"
-   (trek-mate.integration.geojson/geojson
-    (map
-     (fn [post]
-       (trek-mate.integration.geojson/point
-        (:longitude post)
-        (:latitude post)
-        {
-         :marker-body (:raw post)
-         :marker-color "#0000FF"}))
-     import-seq))))
 
-(map/define-map
-  "poste-100"
-  (map/tile-layer-osm)
-  (map/tile-layer-bing-satellite false)
-  (map/geojson-style-marker-layer
-   "poste srbije 100"
-   (trek-mate.integration.geojson/geojson
-    (map
-     (fn [post]
-       (trek-mate.integration.geojson/point
-        (:longitude post)
-        (:latitude post)
-        {
-         :marker-body (str
-                       (clojure.string/join
-                        "<br/>"
-                        (map #(str (first %) " = " (second %)) (:tags post)))
-                       "<br/>"
-                       (html-href-id (:longitude post) (:latitude post))
-                       "<br/>"
-                       (html-href-id-localhost (:longitude post) (:latitude post))
-                       "<br/><br/><br/>"
-                       (:raw post))
-         :marker-color "#0000FF"}))
-     sample-100))
-   true))
-
-(run!
- println
- (map
-  #(str (:hours-raw %) "->" (get-in % [:tags "opening_hours"]))
-  sample-100))
-
-(first sample-100)
-
-(run!
- #(println (get-in % [:tags "name"]))
- (filter #(= (get-in % [:tags "place"]) "city") (deref place-seq)))
-
-(run!
- #(println (get-in % [:tags "name"]))
- (filter #(= (get-in % [:tags "place"]) "town") (deref place-seq)))
-
-(first (deref place-seq))
-{:type :node, :id 30902071, :longitude 22.6605956, :latitude 42.872804, :user "", :timestamp 1619140606, :tags {"is_in:municipality" "Трън", "place" "village", "wikidata" "Q19601699", "is_in" "Трън,Перник,България", "ekatte" "04697", "name" "Богойна", "population" "6", "is_in:region" "Перник", "int_name" "Bogoyna", "is_in:country" "България", "name:en" "Bogoyna"}}
-
-(println "test")
 (def find-count (atom 0))
-(let [cities (concat
+;; prepare tile splits, plan for sync over wiki page, before Tasking Manager
+#_(let [cities (concat
               (filter #(= (get-in % [:tags "place"]) "city") (deref place-seq))
               (filter #(= (get-in % [:tags "place"]) "town") (deref place-seq))
               (filter #(= (get-in % [:tags "place"]) "village") (deref place-seq)))]
@@ -1066,10 +923,97 @@ x(parse-metadata (ensure-metadata (first (filter #(= (:id %) 13) tip1-posta-seq)
                            (str (get % :id))
                            (str "type: "(get % :type))})
                        official-seq))])})
-(web/create-server)
+
+(http-server/create-server
+ 11000
+ (compojure.core/routes
+  (compojure.core/GET
+   "/proxy/:task-id/data.geojson"
+   [task-id]
+   (if-let [task (first (filter
+                         #(= (:taskId (:properties %)) (as/as-long task-id))
+                         (:features
+                          (:tasks
+                           (json/read-keyworded
+                            (http/get-as-stream
+                             "https://tasks.osm-hr.org/api/v1/project/18?abbreviated=true"))))))]
+     (let [{x :taskX y :taskY zoom :taskZoom} (:properties task)
+           ;; fix inverted y
+           y (int (- (dec (Math/pow 2 zoom)) y))
+           [min-longitude max-longitude min-latitude max-latitude]
+           (tile-math/tile->location-bounds [zoom x y])]
+       (println task-id zoom x y)
+       (let [post-seq (filter (partial tile-math/location-in-tile? [zoom x y]) import-seq)]
+         {
+          :status 200
+          :headers {
+                    "Access-Control-Allow-Origin" "*"
+                    "Content-Type" "application/json"
+                    }
+          :body (json/write-to-string
+                 (trek-mate.integration.geojson/geojson
+                  (map
+                   (fn [post]
+                     (trek-mate.integration.geojson/point
+                      (:longitude post)
+                      (:latitude post)
+                      (:tags post)))
+                   post-seq)))}))))))
 
 
-(retrive-metadata {:id 2002 :type 1})
+;; #id #taskingmanager prepare for iD editor tasks 
+#_(doseq [task (:features
+              (:tasks
+               (json/read-keyworded
+                (http/get-as-stream
+                 "https://tasks.osm-hr.org/api/v1/project/18?abbreviated=true"))))]
+  (let [task-id (:taskId (:properties task))
+        {x :taskX y :taskY zoom :taskZoom} (:properties task)
+        ;; fix inverted y
+        y (int (- (dec (Math/pow 2 zoom)) y))
+        [min-longitude max-longitude min-latitude max-latitude]
+        (tile-math/tile->location-bounds [zoom x y])]
+    (println task-id zoom x y)
+    (let [post-seq (filter (partial tile-math/location-in-tile? [zoom x y]) import-seq)]
+      (with-open [os (fs/output-stream ["Users" "vanja" "projects" "zanimljiva-geografija"
+                                        "projects" "osm-poste-import" "task-split"
+                                        (str task-id ".geojson")])]
+        (json/write-to-stream
+         (trek-mate.integration.geojson/geojson
+          (map
+           (fn [post]
+             (trek-mate.integration.geojson/point
+                   (:longitude post)
+                   (:latitude post)
+                   (:tags post)))
+           post-seq))
+         os)))))
+
+
+;; quality control
+(def osm-seq (map
+              (fn [entry]
+                (assoc
+                 entry
+                 :longitude
+                 (as/as-double (:longitude entry))
+                 :latitude
+                 (as/as-double (:latitude entry))))
+              (let [dataset (overpass/query->dataset
+                             "nwr[amenity=post_office](area:3601741311);")]
+                (concat
+                 (vals (:nodes dataset))
+                 (vals (:ways dataset))))))
+
+#_(count osm-seq)
+;; 20210708 773
+;; 20210610 463
+
+(first osm-seq)
+
+
+
+#_(retrive-metadata {:id 2002 :type 1})
 
 #_(do
   (def posta-seq (overpass/query-string

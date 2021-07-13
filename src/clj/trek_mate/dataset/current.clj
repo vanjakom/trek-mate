@@ -32,6 +32,7 @@
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.osmeditor :as osmeditor]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.map :as map]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
    [trek-mate.util :as util]
@@ -133,8 +134,50 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210705
+;; subjel bajsom za 4. jul :P
+(map/define-map
+  "20210705"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210704"
+                                   "subjel-divchibare.gpx"))]
+    (map/geojson-gpx-layer "put do Subjela"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210704"
+                                   "Mionica - Skakavci - 4.8km.gpx"))]
+    (map/geojson-gpx-layer "put za nazad"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210704"
+                                   "donji-skakavci.gpx"))]
+    (map/geojson-gpx-layer "varijante za nazad"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210704"
+                                   "maljen-vodopad-skakavac-vrh-vuciji-mramor-vrh-veliko-brdo-vr.gpx"))]
+    (map/geojson-gpx-layer "varijante za nazad"  is)))
+
+;; 20210705
+(l 19.88670, 44.26969 tag/tag-todo "Turisticka organizacija Valjevo" "Prote Mateja 1")
+(l 19.87859, 44.26776 tag/tag-todo "Kej")
+(l 19.89073, 44.27006 tag/tag-todo "PD Magles" "Sindjeliceva 14")
+(l 19.88402, 44.27130 tag/tag-todo "Katastar" "Vojvode Misica 39")
+
+(storage/import-location-v2-seq-handler
+ (map
+  #(t % "@divcibare20210706")
+  (vals (deref dataset))))
+
 ;; 20210528
-(n6428859685)
+#_(n 6428859685)
 
 ;; 20210403
 ;; divcibare voznja
