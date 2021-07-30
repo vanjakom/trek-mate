@@ -134,9 +134,78 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210719
+(map/define-map
+  "tepui2021"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "tepui2021"
+                                   "Meljine-Crkvice.gpx"))]
+    (map/geojson-gpx-layer "bajs"  is)))
+
+;; 20210728
+#_(map/define-map
+  "20210728"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210728"
+                                   "20210728-1.gpx"))]
+    (map/geojson-gpx-layer "segment 1"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210728"
+                                   "20210728-2.gpx"))]
+    (map/geojson-gpx-layer "segment 2"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210728"
+                                   "20210728-3.gpx"))]
+    (map/geojson-gpx-layer "segment 3"  is)))
+#_(with-open [os (fs/output-stream ["Users" "vanja" "projects"
+                                    "zanimljiva-geografija" "prepare"
+                                    "20210728.html"])]
+  (io/write-string os (map/render "20210728")))
+
+;; 20210715
+#_(map/define-map
+  "20210715"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210715"
+                                   "20210715-1.gpx"))]
+    (map/geojson-gpx-layer "segment 1"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210715"
+                                   "20210715-2.gpx"))]
+    (map/geojson-gpx-layer "segment 2"  is))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "mine"
+                                   "20210715"
+                                   "20210715-3.gpx"))]
+    (map/geojson-gpx-layer "segment 3"  is)))
+#_(with-open [os (fs/output-stream ["Users" "vanja" "projects"
+                                    "zanimljiva-geografija" "prepare"
+                                    "20210715.html"])]
+  (io/write-string os (map/render "20210715")))
+
+
 ;; 20210705
 ;; subjel bajsom za 4. jul :P
-(map/define-map
+#_(map/define-map
   "20210705"
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)

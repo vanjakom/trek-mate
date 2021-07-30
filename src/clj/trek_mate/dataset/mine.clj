@@ -229,6 +229,9 @@
    (tag/url-tag "youtube " "https://www.youtube.com/watch?v=c8_vUb8STPI"))
   
 
+  (n 8918938694) ;; "!Dubrašnica"
+
+  
   ;; divcibare
   ;; todo
   (l 19.99937, 44.12823 tag/tag-bike "marijana ideja" "dodjem bajsom u Krcmar ona me pokupi, E7, istrazivanje")
@@ -239,12 +242,12 @@
   (l 20.00648, 44.12680 tag/tag-todo "mapirati put")
   (l 20.02530, 44.12864 tag/tag-todo "planinarska staza, gde vodi, vodopad?")
 
-  (l 19.99036, 44.11771 tag/tag-todo tag/tag-history)
-  (l 19.98903, 44.11855 tag/tag-todo tag/tag-hike "uska stasa izvideti gde vodi")
+  (l 19.99036, 44.11771 tag/tag-todo tag/tag-history "stara kuca")
+  ;; (l 19.98903, 44.11855 tag/tag-todo tag/tag-hike "uska stasa izvideti gde vodi") ;; done
   (l 20.00149, 44.09104 tag/tag-hike "videti da li staza ide do vrazijeg vira")
-  (l 19.98630, 44.12002 tag/tag-hike "izvideti gde dalje vodi staza")
+  ;; (l 19.98630, 44.12002 tag/tag-hike "izvideti gde dalje vodi staza") ;; done
   (l 19.98730, 44.12025 tag/tag-hike "ostar spust, izvideti gde vodi")
-  (l 19.98724, 44.11796 tag/tag-hike "izvideti gde dalje vodi staza")
+  ;; (l 19.98724, 44.11796 tag/tag-hike "izvideti gde dalje vodi staza") ;; done
   
   (l 19.990806 44.130214 tag/tag-todo "markacija")
   (l 19.989611 44.129356 tag/tag-todo "markacija")
@@ -252,7 +255,7 @@
   (l 20.00183, 44.12677 tag/tag-todo "evropski put markacija" "E7")
   (l 20.0018167 44.1311806 tag/tag-todo tag/tag-hike "znak za veliko brdo")
   (l 19.99069, 44.09845 tag/tag-todo "Charter #16104" "little free library")
-  (l 19.97735, 44.11711 tag/tag-todo "istraziti gde vodi staza")
+  ;; (l 19.97735, 44.11711 tag/tag-todo "istraziti gde vodi staza") ;; done
 
   (l 19.94486, 44.08989 tag/tag-todo "Rosica jezero, PSK Balkan staza" "#pskbalkan")
   (l 19.94498, 44.08964 tag/tag-todo "Subjel, PSK Balkan" "#pskbalkan")
@@ -276,6 +279,19 @@
   (l 19.96823, 44.05323 "dani planinara 2019")
   (l 19.99568, 44.09190 tag/tag-todo tag/tag-hike "povezati deo staze koji nedostaje")
 
+  ;; @tepui2021
+  (q 25426045 "#tepui2021")
+
+  (l 19.55908, 43.28861
+     tag/tag-todo
+     "#tepui2021"
+     "Свети бор на Каменој Гори"
+     (tag/url-tag "wikipedia uopsteno" "https://sr.wikipedia.org/wiki/Црни_бор")
+     (tag/url-tag "turizam prijepolje" "http://www.turizamprijepolje.co.rs/index.php/znamenitosti/prirodna-dobra/103-spomenik-prirode-sveti-bor"))
+  
+  (l 21.95155, 43.47105
+     tag/tag-todo "prirodni bazeni Popšica")
+  
   (l 19.98394, 44.02032
      tag/tag-hike
      "postoji put koji se odvaja na desno i markacija na njemu"
@@ -293,6 +309,7 @@
      tag/tag-todo
      "proverit da li ovuda ide Skakavci - Crni vrh, pratio do 19.976559, 44.074741")
 
+  
 
   ;; zabeleske sa mapiranja
   (l 22.06062, 42.98452
@@ -366,8 +383,12 @@
   (l 19.87249, 44.26020 tag/tag-todo "obici planinarske staze koje krecu sa parkinga ispred kafane")
 
   (l 19.96911, 44.13528 tag/tag-todo "извидети Е7 до краја, требало би да иде у Бачевце")
-  (l 19.98885, 44.08259 tag/tag-todo "стаза Вучји мрамор")
+  ;; (l 19.98885, 44.08259 tag/tag-todo "стаза Вучји мрамор") ;; done
 
+  (l 20.02294, 44.10018
+     tag/tag-bike
+     "тура преко Велике плећи ка Вражјем виру, па испитати маркирану стазу"
+     "стаза лево не постоји, утврдити где се маркирана спаја")
   
   (n 2494127108 tag/tag-cave "Дражина пећина")
   
@@ -550,15 +571,15 @@
   ;; divcibare
   (r 11161806)
   (l 19.99271, 44.10312 tag/tag-hike "kružna staza i vrhovi")
-  (r 11144136)
+  ;;(r 11144136) ;; done
   (l 20.06305, 44.04608 "!ranc orlovo gnezdo")
   (l 20.04275, 43.94822 (tag/url-tag "suma 200A, 15k" "https://www.halooglasi.com/nekretnine/prodaja-zemljista/suma-na-prodaju/5425634557889?kid=1"))
   #_(l 19.98614, 44.09825 "da li je ovo Vila Narcis, Upoznaj Divcibare 58" "nije")
   (l 19.99470, 44.08590 tag/tag-bike "rastovac, survey putevi")
-  (l 20.00089, 44.11551 tag/tag-todo "ispitati da li postoji staza")
+  ;; (l 20.00089, 44.11551 tag/tag-todo "ispitati da li postoji staza") ;; done
 
   (l 19.98445, 44.10082 tag/tag-todo "videti kakvu mapu planinarskih staza imaju")
-  (l 19.98926, 44.11836 tag/tag-todo "istraziti gde dalje putevi vode")
+  ;; (l 19.98926, 44.11836 tag/tag-todo "istraziti gde dalje putevi vode") ;; done
   
   (l 20.08336, 44.06834
      tag/tag-todo
@@ -569,7 +590,19 @@
 
   (l 20.02022, 44.10676 tag/tag-todo tag/tag-hike "Vrazji vir - Kraljev sto, izvideti stazu")
   (l 20.00170, 44.09862 tag/tag-todo "izvideti gde vodi put")
-  (l 20.01079, 44.10601 tag/tag-todo "da li se putevi spajaju")
+  ;; (l 20.01079, 44.10601 tag/tag-todo "da li se putevi spajaju") ;; done
+
+
+  (l 19.94242, 44.08315 tag/tag-bike "Veliki Kozomor -> Rosici, naisli ranije na table")
+  (l 19.96362, 44.14546
+     tag/tag-todo
+     "sinpe video znak za E7"
+     (tag/url-tag "wikiloc" "https://www.wikiloc.com/hiking-trails/ps-magljes-171202-krcmar-pejar-poljane-divcibare-21433904#wp-21433910"))
+
+  (l 20.00346, 44.11973
+     tag/tag-hike
+     "negde ovde stoji markacija pored puta, ne znam gde vodi")
+
   
   ;; zlatibor
   (q 83166) ;; "!Stari grad Užice"
@@ -758,6 +791,9 @@
   (l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
   (l 19.39173, 43.31656 tag/tag-todo "meanderi ćehotine")
   (l 18.83574, 42.28090 tag/tag-eat "~" "!Branka" "poslasticarnica iz 1968")
+  (w 441379884 tag/tag-todo "пресуши у мају" "Петар био")
+  (n 8836596017 tag/tag-todo "Петар био")
+  
 (l 19.13327, 42.09363 tag/tag-eat tag/tag-sleep "!Stara Carsija" (tag/url-tag "website" "https://staracarsija.me"))
 (q 27559501 tag/tag-hike) ;; "!Радоштак"
 (w 108314432 tag/tag-visit) ;; "!Tvrđava Kom"
@@ -765,7 +801,7 @@
 
 (l 19.02891, 42.35531 tag/tag-camp tag/tag-sleep "!Auto kamp Rijeka Crnojevica")
 (l 19.27418, 41.90259  tag/tag-camp tag/tag-sleep "!Auto kamp Tropicana")
-
+(n 4889054822 "cicvara, zeljko preporuka") ;; "!Savardak"
 
 ;; loznica
 (n 8839704579) ;; "!Stobex"

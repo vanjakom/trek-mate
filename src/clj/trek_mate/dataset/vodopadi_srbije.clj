@@ -16,7 +16,6 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.math.core :as math]
-   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
@@ -24,9 +23,11 @@
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
+   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.map :as map]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
    [trek-mate.util :as util]
@@ -134,7 +135,7 @@
                          second (as/as-double (get fields 2))]
                      (math/degree-minute-second->degree  degree minute second)))
       waterfall-seq (with-open [is (fs/input-stream (path/child
-                                                     env/*global-my-dataset-path*
+                                                     env/*dataset-cloud-path*
                                                      "vodopadi_srbije.tsv"))]
                       (doall
                        (filter
@@ -188,13 +189,14 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
-(web/register-map
- "vodopadi"
- {
-  :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
-                  :zoom 8}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (vals (deref dataset)))])})
+(map/define-map
+  "vodopadi"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/geojson-style-layer
+   "lokacije"
+   (geojson/geojson
+    (map
+     geojson/location->point
+     (vals (deref dataset))))))
+

@@ -31,6 +31,7 @@
    [clj-scraper.scrapers.org.wikipedia :as wikipedia]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
+   [trek-mate.dataset.mapping :as mapping]
    [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -62,7 +63,7 @@
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
 (def place-seq (atom nil))
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -112,7 +113,7 @@
 (count place-name-seq) ;; 4450 ;; 4380
 
 (def address-seq (atom nil))
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
   (osm/read-osm-pbf-go
@@ -180,7 +181,7 @@
    ensure-metadata)
   (take 100 tip1-posta-seq)))
 
-(into #{} (map #(get-in % [:tags "place"]) (deref place-seq)))
+#_(into #{} (map #(get-in % [:tags "place"]) (deref place-seq)))
 
 ;;places without name:sr 
 #_(run!
@@ -200,8 +201,10 @@
 
 ;; taken from source https://www.posta.rs/cir/alati/lokacije.aspx
 ;; id="cphMain_lokacijeusercontrol_pom1" class="pom1"
+;; 1450 added to pom1 between start of project and end 20210726
+
 (def official-seq
-  (with-open [is (fs/input-stream (path/child dataset-official-path "pom1.json"))]
+  (with-open [is (fs/input-stream (path/child dataset-official-path "pom1-20210726.json"))]
     (doall
      (map
       (fn [entry]
@@ -212,13 +215,27 @@
          :type (:tip entry)})
       (json/read-keyworded is)))))
 
+;; with pom1
+;; 20210726
+#_(count official-seq) ;; 1695
+#_(count (into #{} (map :id official-seq)))  ;; 1695
+;; < 20210726
 #_(count official-seq) ;; 1696
 #_(count (into #{} (map :id official-seq)))  ;; 1696
 
+;; with pom
+#_(count official-seq) ;; 1725
+#_(count (into #{} (map :id official-seq)))  ;; 1725
+
 (def tip1-posta-seq (filter #(= (:type %) 1) official-seq))
 
+;; pom1 20210726
+#_(count tip1-posta-seq) ;; 1483
+;; pom1 < 20210726
 #_(count tip1-posta-seq) ;; 1481
 
+;; pom
+#_(count tip1-posta-seq) ;; 1505
 
 (defn retrieve-metadata [post]
   (println "[RETRIEVE] " (:id post))
@@ -229,6 +246,17 @@
     :id (:id post)
     :tip (:type post)
     :lokstranice "cir"}))
+
+;; to retrieve single post
+;; curl \
+;; 	-s \
+;; 	--output -\
+;; 	-H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
+;; 	-H "Accept-Encoding: gzip, deflate, br" \
+;; 	-d 'id=1&tip=1&lokstranice=cir' \
+;; 	'https://www.posta.rs/alati/pronadji/lokacije-user-control-data.aspx' \
+;; 	| gunzip
+
 
 (def metadata-map (atom {}))
 
@@ -260,6 +288,8 @@
   (let [metadata (edn/read-object is)]
     (swap! metadata-map (constantly metadata))
     nil))
+
+#_(count (deref metadata-map)) ;; 1481
 
 (defn parse-metadata [post]
   (let [description (clean-metadata post)]
@@ -319,55 +349,6 @@
                       place-name-seq))]
      (.replace raw (.toUpperCase match) match))))
 
-(defn cyrillic->latin
-  [name]
-  (let [translate-map {
-                       \а \a
-                       \б \b
-                       \в \v
-                       \г \g
-                       \д \d
-                       \ђ \đ
-                       \е \e
-                       \ж \ž
-                       \з \z
-                       \и \i
-                       \ј \j
-                       \к \k
-                       \л \l
-                       \љ "lj"
-                       \м \m
-                       \н \n
-                       \њ "nj"
-                       \о \o
-                       \п \p
-                       \р \r
-                       \с \s
-                       \т \t
-                       \ћ \ć
-                       \у \u
-                       \ф \f
-                       \х \h
-                       \ц \c
-                       \ч \č
-                       \џ "dž"
-                       \ш \š}]
-    (apply
-     str
-     (map
-      (fn [c]
-        (if-let [t (get translate-map (Character/toLowerCase ^char c))]
-          (if (Character/isUpperCase ^char c)
-            (cond
-              (= c \Љ)
-              "Lj"
-              (= c \Њ)
-              "Nj"
-              :else
-              (.toUpperCase (str t)))
-            t)
-          c))
-      name))))
 
 (defn extract-phone [raw]
   (when (not (empty? raw))
@@ -533,7 +514,7 @@
           ["amenity" "post_office"]
           ["name" name]
           ["name:sr" name]
-          ["name:sr-Latn" (cyrillic->latin name)]
+          ["name:sr-Latn" (mapping/cyrillic->latin name)]
           ["ref" ref]
           ["opening_hours" hours]
           ["phone" phone]
@@ -556,6 +537,9 @@
      tip1-posta-seq))))
 
 (def sample-100 (take 100 (shuffle import-seq)))
+
+#_(filter #(= (:id %) 1450) tip1-posta-seq)
+#_(first tip1-posta-seq)
 
 #_(count tip1-posta-seq) ;; 1481
 #_(count import-seq) ;; 1475
@@ -590,7 +574,7 @@
   (mapcat extract-working-splits (map :hours import-seq))))
 
 ;; find line per split
-(println
+#_(println
  (first
   (filter
    (fn [post]
@@ -598,27 +582,27 @@
        (contains? splits "00.00-19.0019.10-24.00")))
    import-seq)))
 
-(extract-working-splits "08.00-19.00, субота:08.00-14.00")
-(parse-working-hours
+#_(extract-working-splits "08.00-19.00, субота:08.00-14.00")
+#_(parse-working-hours
  "08.00-19.00, субота:08.00-14.00")
 ;; "Mo-Fr 08.00-19.00; Sa 08.00-14.00"
-(parse-working-hours
+#_(parse-working-hours
  " пон.  07.30-11.30 уто. 07.30-11.30 сре.  07.30-11.30 чет.  07.30-11.30 пет.  07.30-10.00")
 ;; "Mo 07.30-11.30; Tu 07.30-11.30; We 07.30-11.30; Th 07.30-11.30; Fr 07.30-10.00"
-(parse-working-hours
+#_(parse-working-hours
  "08.00-19.00, субота:08.00-19.00, недеља:08.00-19.00, празник:08.00-15.00")
 ;; [["Mo-Fr" "08.00-19.00"] ["Sa" "08.00-19.00"] ["Su" "08.00-19.00"] ["PH" "08.00-15.00"]]
 ;; "Mo-Fr 08.00-19.00; Sa 08.00-19.00; Su 08.00-19.00; PH 08.00-15.00"
 
-(count (into #{} (map :hours import-seq)))
+#_(count (into #{} (map :hours import-seq)))
 
-(run!
+#_(run!
  println
  (take 10
        (into #{} (map :hours import-seq))))
 
 
-(do
+#_(do
   (println "fresh run")
   (run!
    (fn [post]
@@ -677,22 +661,16 @@
    metadata-map
    (constantly data)))
 
-(first (deref metadata-map))
+#_(first (deref metadata-map))
 
 ;; ensure all metadata is retrieved
-(run!
+#_(run!
  ensure-metadata
  (take 2000 tip1-posta-seq))
 
-(count (deref metadata-map))
+#_(count (deref metadata-map))
 
-
-
-
-
-(def temp (deref metadata-map))
-
-(run!
+#_(run!
  println
  (map
   :name
@@ -813,8 +791,8 @@
                  true)])))
            (println x y (count post-seq) place)))))))
 
-(with-open [os (fs/output-stream (path/child dataset-path "poste-iD.geojson"))]
-  (json/write-to-stream
+#_(with-open [os (fs/output-stream (path/child dataset-path "poste-iD.geojson"))]
+  (json/write-pretty-print
    (trek-mate.integration.geojson/geojson
     (map
      (fn [post]
@@ -823,9 +801,9 @@
         (:latitude post)
         (:tags post)))
      import-seq))
-   os))
+   (io/output-stream->writer os)))
 
-(with-open [os (fs/output-stream (path/child dataset-path "poste.html"))]
+#_(with-open [os (fs/output-stream (path/child dataset-path "poste.html"))]
   (io/write-string
    os
    (map/render-raw
@@ -856,7 +834,7 @@
       true)])))
 
 
-(with-open [os (fs/output-stream (path/child dataset-path "sample-100.geojson"))]
+#_(with-open [os (fs/output-stream (path/child dataset-path "sample-100.geojson"))]
   (json/write-pretty-print
    (trek-mate.integration.geojson/geojson
     (map
@@ -870,7 +848,7 @@
      sample-100))
    (io/output-stream->writer os)))
 
-(with-open [os (fs/output-stream (path/child dataset-path "sample-100-iD.geojson"))]
+#_(with-open [os (fs/output-stream (path/child dataset-path "sample-100-iD.geojson"))]
   (json/write-pretty-print
    (trek-mate.integration.geojson/geojson
     (map
@@ -882,8 +860,13 @@
      sample-100))
    (io/output-stream->writer os)))
 
-(with-open [os (fs/output-stream (path/child dataset-path "sample-100.html"))]
+#_(with-open [os (fs/output-stream (path/child dataset-path "sample-100.html"))]
   (io/write-string os (map/render "poste-100")))
+
+(filter
+      (fn [post]
+        (= (:ref post) "11162"))
+      import-seq)
 
 ;; used for debug of single post
 (map/define-map
@@ -903,26 +886,25 @@
          :marker-color "#0000FF"}))
      (filter
       (fn [post]
-        (= (:ref post) "11180"))
+        (= (:ref post) "18225"))
       import-seq)))))
 
-(web/register-map
- "poste-official"
- {
-  :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
-                  :zoom 10}
-  :vector-tile-fn (web/tile-vector-dotstore-fn
-                   [(fn [_ _ _ _]
-                      (map
-                       #(assoc
-                         %
-                         :tags
-                         #{
-                           (str (get % :id))
-                           (str "type: "(get % :type))})
-                       official-seq))])})
+(map/define-map
+  "poste"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/geojson-style-marker-layer
+   "poste"
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [post]
+       (trek-mate.integration.geojson/point
+        (:longitude post)
+        (:latitude post)
+        {
+         :marker-body (:raw post)
+         :marker-color "#0000FF"}))
+     import-seq))))
 
 (http-server/create-server
  11000
@@ -989,8 +971,9 @@
            post-seq))
          os)))))
 
-
+;; validation
 ;; quality control
+
 (def osm-seq (map
               (fn [entry]
                 (assoc
@@ -1005,12 +988,221 @@
                  (vals (:nodes dataset))
                  (vals (:ways dataset))))))
 
-#_(count osm-seq)
+#_(count osm-seq) 
+;; 20210728 1437
+;; 20210723 1443
+;; 20210725 1446
+;; 20210724 1456
+;; 20210723 1456
+;; 20210721 1434
+;; 20210713 948
 ;; 20210708 773
 ;; 20210610 463
 
-(first osm-seq)
+#_(take 5 osm-seq)
 
+;; number of posts not connected
+#_(count (filter #(nil? (get-in % [:tags "ref"] )) osm-seq)) ;; 284
+;; number of connected posts
+#_(count (filter #(some? (get-in % [:tags "ref"] )) osm-seq)) ;; 664
+
+
+;; useful
+;; finds dupliate ref
+(do
+  (println "duplicate ref")
+  (run!
+   #(when (> (count (second %)) 1)
+      (println (first %))
+      (doseq [post (second %)]
+        (println "\t" (name (:type post)) (:id post))
+        (println "\t\t" post)))
+   (group-by
+    #(get-in % [:tags "ref"])
+    (filter #(some? (get-in % [:tags "ref"] )) osm-seq))))
+
+;; find posts without ref
+(do
+  (println "posts without ref")
+  (run!
+   #(do
+      (println  (name (:type %)) (:id %))
+      (println "\t" %))
+   (filter #(nil? (get-in % [:tags "ref"] )) osm-seq)))
+
+;; parse notes from wiki
+(def note-map
+  (into
+   {}
+   (map
+    #(vector (second %) (nth % 2))
+    (partition
+     3
+     3
+     nil
+     (map
+      #(.substring % 1)
+      (drop
+       6
+       (drop-last
+        (.split
+         (get-in
+          (json/read-keyworded
+           (http/get-as-stream
+            "https://wiki.openstreetmap.org/w/api.php?action=parse&page=Serbia/Projekti/Mapiranje_pošta&prop=wikitext&formatversion=2&section=7&format=json"))
+          [:parse :wikitext])
+         "\n"))))))))
+
+;; find missing posts
+(def missing-ignore-set
+  #{
+    ;; Sastavci, enklava Republike Srpske
+    "31335"
+    ;; Glavna posta Novi Sad, relacija
+    "21101"})
+(def missing-seq
+  (let [osm-set (into #{} (map #(get-in % [:tags "ref"]) osm-seq))]
+    (filter
+     #(let [ref (get-in % [:tags "ref"])]
+        (and
+         (not (contains? osm-set ref))
+         (not (contains? note-map ref))
+         (not (contains? missing-ignore-set ref))))
+     import-seq)))
+#_(count missing-seq) ;; 0
+
+(do
+  (println "missing posts")
+  (doseq [post missing-seq]
+    (println (:tags post))))
+
+;; prepare missing posts geojson
+(let [osm-set (into #{} (map #(get-in % [:tags "ref"]) osm-seq))]
+  (with-open [os (fs/output-stream ["Users" "vanja" "projects" "zanimljiva-geografija"
+                                   "projects" "osm-poste-import" "missing-posts.geojson"])]
+   (json/write-pretty-print
+    (trek-mate.integration.geojson/geojson
+     (map
+      (fn [post]
+        (trek-mate.integration.geojson/point
+         (:longitude post)
+         (:latitude post)
+         (:tags post)))
+      missing-seq ))
+    (io/output-stream->writer os))))
+
+;; prepare additional posts
+(def additional-ignore-set
+  #{
+    ;; dodatne poste koje nisu na spisku ili mapi Posta Srbije
+    "n4915744657"
+    "n4612691191"
+    "n3061023599"
+    "n4524500729"
+    "n8948574464"
+    "n8948652814"
+    "n925358052"
+    "n4236363190"
+    "n8731858064"
+    "n1262683087"
+    "n5899124968"
+    ;; dva saltera poste u majdanpeku
+    "n8065987201"
+    "n2735510264"
+    ;; kurirske sluzbe
+    "n8560309617"
+    "n3175730238"
+    "n7055671009"
+    "n4175968110"})
+
+(def additional-seq
+  (let [import-set (into #{} (map #(get-in % [:tags "ref"]) import-seq))]
+    (filter
+     (fn [post]
+       ;; use when-let to see additonal posts only with ref
+        (let [ref (get-in post [:tags "ref"])]
+          (and
+           (not (contains? import-set ref))
+           (not (contains?
+                 additional-ignore-set
+                 (str (first (name (:type post))) (:id post)))))))
+      osm-seq)))
+
+#_(count additional-seq)
+;;  20210724 40
+;; <20210724 46
+
+(do
+  (println "additional posts")
+  (doseq [post additional-seq]
+    (println (first (name (:type post))) (:id post))
+    (doseq [[key value] (:tags post)]
+      (println "\t" key "=" value))))
+
+(map/define-map
+  "poste-dodatne"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/geojson-style-marker-layer
+   "dodatne"
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [post]
+       (trek-mate.integration.geojson/point
+        (:longitude post)
+        (:latitude post)
+        {
+         :marker-body (str
+                       (map/osm-tags->html (:tags post))
+                       "<br/>"
+                       "<br/>"
+                       (str (first (name (:type post))) (:id post))
+                       "<br/>"
+                       (map/osm-link (:type post) (:id post))
+                       (map/localhost-history-link (:type post) (:id post)))
+         :marker-color "#FF0000"}))
+     additional-seq)))
+  (map/geojson-style-marker-layer
+   "poste"
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [post]
+       (trek-mate.integration.geojson/point
+        (:longitude post)
+        (:latitude post)
+        {
+         :marker-body (:raw post)
+         :marker-color "#0000FF"}))
+     import-seq))
+   false
+   false))
+
+
+(with-open [os (fs/output-stream ["Users" "vanja" "projects" "zanimljiva-geografija"
+                                  "projects" "osm-poste-import" "additional-posts.html"])]
+  (io/write-string
+   os
+   (map/render "poste-dodatne")))
+
+(with-open [os (fs/output-stream ["Users" "vanja" "projects" "zanimljiva-geografija"
+                                  "projects" "osm-poste-import" "additional-posts.geojson"])]
+  (json/write-pretty-print
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [post]
+       (trek-mate.integration.geojson/point
+        (:longitude post)
+        (:latitude post)
+        (:tags post)))
+     additional-seq))
+   (io/output-stream->writer os)))
+
+
+
+
+
+(filter #(= "11234" (get-in % [:tags "ref"])) import-seq)
+(println (filter #(= "11234" (get-in % [:tags "ref"])) osm-seq))
 
 
 #_(retrive-metadata {:id 2002 :type 1})

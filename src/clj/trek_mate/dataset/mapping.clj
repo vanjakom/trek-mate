@@ -228,7 +228,7 @@
 #_(let [track-seq
       (or
        ;; trek-mate
-       #_(let [track-id 1624175348]
+       #_(let [track-id 1626614428]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -237,7 +237,7 @@
                           (str track-id ".json")))]
            [(:locations (json/read-keyworded is))]))
        ;; garmin
-       (let [track-id "Track_2021-07-05 170832"]
+       (let [track-id "Track_2021-07-28 110928"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -259,7 +259,7 @@
        #_(storage/location-request-file->location-seq
         (storage/location-request-last-file env/*trek-mate-user*))
        ;; garmin
-       (let [waypoint-file-name "Waypoints_05-JUL-21.gpx"]
+       (let [waypoint-file-name "Waypoints_28-JUL-21.gpx"]
          (mine/garmin-waypoint-file->location-seq
           (path/child
            env/*global-my-dataset-path*
@@ -401,6 +401,8 @@
               "Lj"
               (= c \Њ)
               "Nj"
+              (= c \Џ)
+              "Dž"
               :else
               (.toUpperCase (str t)))
             t)
@@ -418,15 +420,15 @@
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
 #_(prepare-name-tags "Црква Свете Петке")
-#_(prepare-name-tags "32312 Бољковци")
-#_(prepare-name-tags "Чика Душкове рајачке стазе")
+#_(prepare-name-tags "11149 Београд 64")
+#_(prepare-name-tags "Етно село Азбука")
 #_(prepare-name-tags "Запис липа у манастиру")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
 #_(prepare-name-tags "Шабачки пут")
 #_(prepare-name-tags "Месна заједница Бешеновачки Прњавор")
-#_(prepare-name-tags "Видиковац - Равне / Први шумар - Питине стијене")
+#_(prepare-name-tags "Капела Св. Пантелејмона")
 #_(prepare-name-tags "Дом здравља Ваљево")
-#_(prepare-name-tags "Чесма ПД „Маглеш”")
+#_(prepare-name-tags "Пекара Бред Пита")
 #_(prepare-name-tags "Скакавци - Велики Козомор")
 
 

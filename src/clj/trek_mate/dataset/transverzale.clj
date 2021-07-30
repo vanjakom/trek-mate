@@ -754,3 +754,17 @@
         (>= (:latitude %) min-latitude)
         (<= (:latitude %) max-latitude))
       (vals (deref dataset))))))
+
+(define-map
+  "transverzale"
+  (tile-layer-osm)
+  (tile-layer-bing-satellite false)
+  (binding [geojson/*stroke-color* "#FF0000"]
+    (geojson-hiking-relation-layer "dataLayer" 12693206))
+  #_(geojson-style-layer "dataLayer" (geojson/geojson [(geojson/point 20.50529479980469 44.82763029742812 "Belgrade")]))
+  (with-open [is (fs/input-stream (path/child
+                                   env/*dataset-cloud-path*
+                                   "transverzale"
+                                   "cika_duskove_rajacke_staze"
+                                   "itt.rs-track.gpx"))]
+    (geojson-gpx-layer "gpxLayer" is)))

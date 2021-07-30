@@ -27,6 +27,24 @@
   ([name]
    (tag name nil nil)))
 
+(defn osm-tags->html [tags]
+  (clojure.string/join
+   "<br/>"
+   (map
+    #(str (first %) " = " (second %))
+    tags)))
+
+(defn osm-link [type id]
+  (str "<a href='https://osm.org/" (name type) "/" id "' target='_blank'>osm</a><br/>"))
+
+(defn localhost-history-link [type id]
+  (str
+   "<a href='http://localhost:7077/view/osm/history/"
+   (name type)
+   "/"
+   id
+   "' target='_blank'>history</a><br/>"))
+
 (def last-var-id (atom 0))
 
 (defn unique-var-name [prefix]
@@ -137,7 +155,7 @@
 (defn geojson-style-marker-layer
   "Addition to mapbox simple style, support marker-body, html that will be added
   to marker popup"
-  ([name data zoom-to]
+  ([name data zoom-to activate]
    (let [var-name (unique-var-name "layer")]
      (str
       "\n"
@@ -154,13 +172,14 @@
       "\t\t\t\t\t\treturn marker\n"
       "\t\t\t\t\t}\n"
       "\t\t\t\t})\n"
-      "\t\t\t" var-name ".addTo(map)\n"
+      (when activate
+        "\t\t\t" var-name ".addTo(map)\n")
       "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
       (when zoom-to
         (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
       "\n")))
   ([name data]
-   (geojson-style-marker-layer name data false)))
+   (geojson-style-marker-layer name data false true)))
 
 (defn geojson-hiking-relation-layer [name relation-id]
   (let [dataset (osmapi/relation-full relation-id)
@@ -199,6 +218,20 @@
    "\t\t\tL.control.scale({imperial: false}).addTo(map)\n"
    "\t\t\tvar layers = L.control.layers()\n"
    "\t\t\tlayers.addTo(map)\n"
+   "\t\t\tnew L.Control.Geocoder({\n"
+   "\t\t\t\tgeocoder: L.Control.Geocoder.nominatim(),\n"
+   "\t\t\t\tdefaultMarkGeocode: false}).on(\n"
+   "\t\t\t\t\t'markgeocode',\n"
+   "\t\t\t\t\tfunction(e) {\n"
+   "\t\t\t\t\t\tvar bbox = e.geocode.bbox\n"
+   "\t\t\t\t\t\tvar poly = L.polygon([\n"
+   "\t\t\t\t\t\t\tbbox.getSouthEast(),\n"
+   "\t\t\t\t\t\t\tbbox.getNorthEast(),\n"
+   "\t\t\t\t\t\t\tbbox.getNorthWest(),\n"
+   "\t\t\t\t\t\t\tbbox.getSouthWest()])\n"
+   "\t\t\t\t\t\tmap.fitBounds(poly.getBounds())\n"
+   "\t\t\t\t\t}).addTo(map)\n"
+      
    ;; global vars
    "\n"
    "\t\t\tvar defaultBounds = null\n"
@@ -246,7 +279,9 @@
    "\t\t\t\t\t\t\t\t\t'<a href=\"http://openstreetmap.org/#map=16/' + e.latlng.lat + '/' + e.latlng.lng + '\" target=\"_blank\">osm</a></br>' + \n"
    "\t\t\t\t\t\t\t\t\t'<a href=\"https://preview.ideditor.com/release/#map=16/' + e.latlng.lat + '/' + e.latlng.lng + '\" target=\"_blank\">iD</a></br>' + \n"
    "\t\t\t\t\t\t\t\t\t'<a href=\"http://localhost:8080/#map=16/' + e.latlng.lat + '/' + e.latlng.lng + '\" target=\"_blank\">iD (localhost)</a></br>' + \n"
-   "\t\t\t\t\t\t\t\t\t'<a href=\"https://www.mapillary.com/app/?focus=map&z=16&lat=' + e.latlng.lat + '&lng=' + e.latlng.lng + '\" target=\"_blank\">mapillary</a></br>'\n"
+   "\t\t\t\t\t\t\t\t\t'<a href=\"https://www.mapillary.com/app/?focus=map&z=16&lat=' + e.latlng.lat + '&lng=' + e.latlng.lng + '\" target=\"_blank\">mapillary</a></br>' + \n"
+   "\t\t\t\t\t\t\t\t\t'<a href=\"https://kartaview.org/map/@' + e.latlng.lat + ',' + e.latlng.lng + ',16z\" target=\"_blank\">kartaview</a></br>' + \n"
+   "\t\t\t\t\t\t\t\t\t'<a href=\"https://www.google.com/maps/@' + e.latlng.lat + ',' + e.latlng.lng + ',16z\" target=\"_blank\">google maps</a></br>' \n"
    "\t\t\t\t\t\t\t\t\t)\n"
    "\t\t\t\t\t\t\t\t.openOn(map)},\n"
    "\t\t\t\t\t\t500)})\n"
@@ -285,6 +320,16 @@
                      "script"
                      {
                       "src" "https://unpkg.com/leaflet-simplestyle"})))
+    (indent (indent (tag
+                     "script"
+                     {
+                      "src" "https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.js"
+                      "crossorigin" ""})))
+    (indent (indent (tag
+                     "link"
+                     {
+                      "rel" "stylesheet"
+                      "href" "https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.css"})))
     "\t\t<style>\n"
     "\t\t\t::-webkit-scrollbar {display: none;}\n"
     "\t\t\t.content {white-space: nowrap;overflow: hidden;}\n"
@@ -321,24 +366,7 @@
    layers)
   nil)
 
-(define-map
-  "map"
-  (tile-layer-osm)
-  (tile-layer-bing-satellite false)
-  (binding [geojson/*stroke-color* "#FF0000"]
-    (geojson-hiking-relation-layer "dataLayer" 12693206))
-  #_(geojson-style-layer "dataLayer" (geojson/geojson [(geojson/point 20.50529479980469 44.82763029742812 "Belgrade")]))
-  (with-open [is (fs/input-stream (path/child
-                                   env/*dataset-cloud-path*
-                                   "transverzale"
-                                   "cika_duskove_rajacke_staze"
-                                   "itt.rs-track.gpx"))]
-    (geojson-gpx-layer "gpxLayer" is)))
 
-
-(define-map
-  "test"
-   (tile-layer-bing-satellite true))
 
 ;; ideas for declaration
 #_(map
@@ -347,8 +375,6 @@
   "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
   "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"))
 
-;; cika duskove rajacke staze 
-
 (server/create-server
  7071
  (compojure.core/routes
@@ -356,5 +382,3 @@
    "/view/:map"
    [map]
    (render map))))
-
-(get (deref maps) "zavrni-rukave-4")

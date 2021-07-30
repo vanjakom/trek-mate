@@ -3,7 +3,6 @@
    clj-common.clojure)
   (:require
    [clojure.core.async :as async]
-   [net.cgrand.enlive-html :as html]
    
    [clj-common.2d :as draw]
    [clj-common.as :as as]
