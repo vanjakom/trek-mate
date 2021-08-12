@@ -349,7 +349,6 @@
                       place-name-seq))]
      (.replace raw (.toUpperCase match) match))))
 
-
 (defn extract-phone [raw]
   (when (not (empty? raw))
     (clojure.string/join
@@ -536,7 +535,7 @@
            (extract-tags metadata))))
      tip1-posta-seq))))
 
-(def sample-100 (take 100 (shuffle import-seq)))
+#_(def sample-100 (take 100 (shuffle import-seq)))
 
 #_(filter #(= (:id %) 1450) tip1-posta-seq)
 #_(first tip1-posta-seq)
@@ -622,11 +621,7 @@
   tip1-posta-seq))
 #_{:location "БЕОГРАД-САВСКИ ВЕНАЦ", :ref "11000", :name "11000 БЕОГРАД 6", :address "САВСКА 2", :pak "111101", :hours "08.00-19.00, субота:08.00-19.00, недеља:08.00-19.00, празник:08.00-15.00", :phone "011/3643-071 011/3643-117 011/3643-118"}
 
-
-
-
-
-(web/register-dotstore
+#_(web/register-dotstore
  "current"
  (fn [zoom x y]
    (let [[min-longitude max-longitude min-latitude max-latitude]
@@ -639,7 +634,7 @@
         (<= (:latitude %) max-latitude))
       tip1-posta-seq))))
 
-(def sample-seq
+#_(def sample-seq
   (filter
    #(let [[_ x y] (tile-math/zoom->location->tile 13 %)]
       (and
@@ -648,8 +643,6 @@
    tip1-posta-seq))
 
 #_(count sample-seq) ;; 27
-
-
 
 ;; one time
 #_(let [data (reduce
@@ -863,7 +856,7 @@
 #_(with-open [os (fs/output-stream (path/child dataset-path "sample-100.html"))]
   (io/write-string os (map/render "poste-100")))
 
-(filter
+#_(filter
       (fn [post]
         (= (:ref post) "11162"))
       import-seq)
@@ -906,7 +899,7 @@
          :marker-color "#0000FF"}))
      import-seq))))
 
-(http-server/create-server
+#_(http-server/create-server
  11000
  (compojure.core/routes
   (compojure.core/GET
@@ -988,7 +981,8 @@
                  (vals (:nodes dataset))
                  (vals (:ways dataset))))))
 
-#_(count osm-seq) 
+#_(count osm-seq)
+;; 20210804 1437
 ;; 20210728 1437
 ;; 20210723 1443
 ;; 20210725 1446
@@ -1198,12 +1192,95 @@
    (io/output-stream->writer os)))
 
 
+;; log file
+;; what was prepared from Posta data vs OSM db
+(with-open [os (fs/output-stream ["Users" "vanja" "projects" "zanimljiva-geografija"
+                                  "projects" "osm-poste-import" "diff.html"])]
+  (let [report-diff (fn [osm import]
+                     (println
+                      (get-in import [:tags "ref"])
+                      (get-in osm [:tags "ref"])
+                      (when (some? osm) (str (first (name (:type osm))) (:id osm)))
+                      (get
+                       note-map
+                       (or
+                        (get-in osm [:tags "ref"])
+                        (get-in import [:tags "ref"]))))
+                     (let [tags-merge (reduce
+                                       (fn [state [tag osm import]]
+                                         (update-in
+                                          state
+                                          [tag]
+                                          #(vector
+                                            (or (first %) osm)
+                                            (or (second %) import))))
+                                       {}
+                                       (concat
+                                        (map
+                                         #(vector (first %) nil (second %))
+                                         (:tags import))
+                                        (map
+                                         #(vector (first %) (second %) nil)
+                                         (:tags osm))))]
+                       (doseq [[tag [osm import]] tags-merge]
+                         (cond
+                           (nil? osm)
+                           (println "\t-" tag import)
+                           (nil? import)
+                           (println "\t+" tag osm)
+                           (not (= osm import))
+                           (println "\t*" tag osm import)
+                           :else
+                           nil))))]
+   (loop [osm-seq (sort-by #(get-in % [:tags "ref"]) osm-seq)
+          import-seq (sort-by #(get-in % [:tags "ref"]) import-seq)]
+     (let [osm (first osm-seq)
+           import (first import-seq)]
+       (cond
+         (and (nil? osm) (nil? import))
+         (println "finish")
+         (and (nil? osm) some? import)
+         (do
+           (report-diff osm import)
+           (recur (rest osm-seq) (rest import-seq)))
+         (and (some? osm) (nil? import))
+         (do
+           (report-diff osm import)
+           (recur (rest osm-seq) (rest import-seq)))
+         (= (get-in osm [:tags "ref"]) (get-in import [:tags "ref"]))
+         (do
+           (report-diff osm import)
+           (recur (rest osm-seq) (rest import-seq)))
+         (<
+          (as/as-long (get-in osm [:tags "ref"]))
+          (as/as-long (get-in import [:tags "ref"])))
+         (do
+           (report-diff osm nil)
+           (recur (rest osm-seq) import-seq))
+         (>
+          (as/as-long (get-in osm [:tags "ref"]))
+          (as/as-long (get-in import [:tags "ref"])))
+         (do
+           (report-diff nil import)
+           (recur osm-seq (rest import-seq)))
+         :else
+         (do
+           (println "unknown case")
+           (println osm)
+           (println import)))))))
 
 
+(:tags (first import-seq))
+{"name:sr" "11000 Београд 6", "opening_hours" "Mo-Su 08:00-19:00; PH 08:00-15:00", "addr:housenumber" "2", "name" "11000 Београд 6", "amenity" "post_office", "phone" "+381 11 3643-071;+381 11 3643-117;+381 11 3643-118", "ref" "11000", "name:sr-Latn" "11000 Beograd 6", "addr:pak" "111101", "addr:street" "Савска"}
 
-(filter #(= "11234" (get-in % [:tags "ref"])) import-seq)
-(println (filter #(= "11234" (get-in % [:tags "ref"])) osm-seq))
+(first osm-seq)
+{:id 8935538647, :type :node, :version 1, :changeset 108310173, :longitude 20.360257, :latitude 44.8283142, :tags {"name:sr" "11199 Београд 124", "opening_hours" "Mo-Fr 08:00-15:00; PH off", "addr:housenumber" "ББ", "name" "11199 Београд 124", "amenity" "post_office", "phone" "+381 11 3718-023", "ref" "11199", "name:sr-Latn" "11199 Beograd 124", "addr:pak" "193198", "addr:street" "Аутопут за Нови Сад"}}
 
+
+;; debugging
+
+#_(filter #(= "11234" (get-in % [:tags "ref"])) import-seq)
+#_(println (filter #(= "11234" (get-in % [:tags "ref"])) osm-seq))
 
 #_(retrive-metadata {:id 2002 :type 1})
 

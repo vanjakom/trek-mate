@@ -309,7 +309,13 @@
      tag/tag-todo
      "proverit da li ovuda ide Skakavci - Crni vrh, pratio do 19.976559, 44.074741")
 
-  
+
+  (l 21.41690, 44.89942
+     tag/tag-todo
+     tag/tag-bike
+     "staza bistrih reka, video kod boyanayow na instagramu 20210730"
+     (tag/url-tag "youtube" "https://www.youtube.com/watch?v=6zniMKcJRfk")
+     (tag/url-tag "vest1" "http://infobc.rs/staza-bistrih-voda-biciklom-od-bele-crkve-stare-palanke-video/"))
 
   ;; zabeleske sa mapiranja
   (l 22.06062, 42.98452

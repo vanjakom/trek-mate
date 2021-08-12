@@ -134,6 +134,10 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210730
+(n 8963008929 "#tepui2021") "!Filipov breg"
+
+
 ;; 20210719
 (map/define-map
   "tepui2021"

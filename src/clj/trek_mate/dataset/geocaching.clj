@@ -165,8 +165,23 @@
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)]
   (geocaching/pocket-query-go
-   (context/wrap-scope context "read")
+   (context/wrap-scope context "in-1")
    (path/child pocket-query-path "23387302_serbia-not-found.gpx")
+   (channel-provider :filter-my-finds)
+   #_(channel-provider :in-1))
+  #_(geocaching/pocket-query-go
+   (context/wrap-scope context "in-2")
+   (path/child pocket-query-path "23434605_montenegro-not-found.gpx")
+   (channel-provider :in-2))
+  #_(geocaching/pocket-query-go
+   (context/wrap-scope context "in-3")
+   (path/child pocket-query-path "23928739_bosnia-not-found.gpx")
+   (channel-provider :in-3))
+  #_(pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :in-1)
+    (channel-provider :in-2)
+    (channel-provider :in-3)]
    (channel-provider :filter-my-finds))
   (pipeline/transducer-stream-go
    (context/wrap-scope context "filter-my-finds")
@@ -195,7 +210,7 @@
    (var geocache-not-found-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-
+#_(count geocache-not-found-seq) ;; 267
 
 (web/register-dotstore
  "geocache-not-found"
@@ -218,7 +233,7 @@
 ;; change date to date of import to be able to filter out
 #_(storage/import-location-v2-seq-handler
  (map
-  #(add-tag % "#geocache-not-found-20210528")
+  #(add-tag % "#geocache-not-found-20210811")
   (vals
    (reduce
     (fn [location-map location]
