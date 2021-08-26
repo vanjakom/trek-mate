@@ -1197,84 +1197,161 @@
 (with-open [os (fs/output-stream ["Users" "vanja" "projects" "zanimljiva-geografija"
                                   "projects" "osm-poste-import" "diff.html"])]
   (let [report-diff (fn [osm import]
-                     (println
-                      (get-in import [:tags "ref"])
-                      (get-in osm [:tags "ref"])
-                      (when (some? osm) (str (first (name (:type osm))) (:id osm)))
-                      (get
-                       note-map
-                       (or
-                        (get-in osm [:tags "ref"])
-                        (get-in import [:tags "ref"]))))
-                     (let [tags-merge (reduce
-                                       (fn [state [tag osm import]]
-                                         (update-in
-                                          state
-                                          [tag]
-                                          #(vector
-                                            (or (first %) osm)
-                                            (or (second %) import))))
-                                       {}
-                                       (concat
-                                        (map
-                                         #(vector (first %) nil (second %))
-                                         (:tags import))
-                                        (map
-                                         #(vector (first %) (second %) nil)
-                                         (:tags osm))))]
-                       (doseq [[tag [osm import]] tags-merge]
-                         (cond
-                           (nil? osm)
-                           (println "\t-" tag import)
-                           (nil? import)
-                           (println "\t+" tag osm)
-                           (not (= osm import))
-                           (println "\t*" tag osm import)
-                           :else
-                           nil))))]
-   (loop [osm-seq (sort-by #(get-in % [:tags "ref"]) osm-seq)
-          import-seq (sort-by #(get-in % [:tags "ref"]) import-seq)]
-     (let [osm (first osm-seq)
-           import (first import-seq)]
-       (cond
-         (and (nil? osm) (nil? import))
-         (println "finish")
-         (and (nil? osm) some? import)
-         (do
-           (report-diff osm import)
-           (recur (rest osm-seq) (rest import-seq)))
-         (and (some? osm) (nil? import))
-         (do
-           (report-diff osm import)
-           (recur (rest osm-seq) (rest import-seq)))
-         (= (get-in osm [:tags "ref"]) (get-in import [:tags "ref"]))
-         (do
-           (report-diff osm import)
-           (recur (rest osm-seq) (rest import-seq)))
-         (<
-          (as/as-long (get-in osm [:tags "ref"]))
-          (as/as-long (get-in import [:tags "ref"])))
-         (do
-           (report-diff osm nil)
-           (recur (rest osm-seq) import-seq))
-         (>
-          (as/as-long (get-in osm [:tags "ref"]))
-          (as/as-long (get-in import [:tags "ref"])))
-         (do
-           (report-diff nil import)
-           (recur osm-seq (rest import-seq)))
-         :else
-         (do
-           (println "unknown case")
-           (println osm)
-           (println import)))))))
+                      (let [tags-merge (reduce
+                                        (fn [state [tag osm import]]
+                                          (update-in
+                                           state
+                                           [tag]
+                                           #(vector
+                                             (or (first %) osm)
+                                             (or (second %) import))))
+                                        {}
+                                        (concat
+                                         (map
+                                          #(vector (first %) nil (second %))
+                                          (:tags import))
+                                         (map
+                                          #(vector (first %) (second %) nil)
+                                          (:tags osm))))
+                            tags-diff (filter
+                                       some?
+                                       (map
+                                        (fn [[tag [osm import]]]
+                                          (cond
+                                            (nil? osm)
+                                            [:- tag import]
+                                            (nil? import)
+                                            [:+ tag osm]
+                                            (not (= osm import))
+                                            [:* tag osm import]
+                                            :else
+                                            nil))
+                                        tags-merge))]
+                        (when (> (count tags-diff) 0)
+                          (concat
+                           (list
+                            [:div
+                             (list
+                              (or
+                              (get-in import [:tags "ref"])
+                              (get-in osm [:tags "ref"])
+                              "unknown"))
+                             " "
+                             (when (some? osm)
+                               (list
+                                [:a
+                                 {:href (str
+                                         "http://openstreetmap.org/"
+                                         (name (:type osm))
+                                         "/"
+                                         (:id osm))
+                                  :target "_blank"}
+                                 (str (first (name (:type osm))) (:id osm))]
+                                " "
+                                [:a
+                                 {:href (str
+                                         "http://level0.osmz.ru/?url="
+                                         (name (:type osm))
+                                         "/"
+                                         (:id osm))
+                                  :target "_blank"}
+                                 "level"]
+                                " "
+                                [:a
+                                 {:href (str
+                                         "http://localhost:7077/view/osm/history/"
+                                         (name (:type osm))
+                                         "/"
+                                         (:id osm))
+                                  :target "_blank"}
+                                 "history"]))
+                             [:br]
+                             (get
+                              note-map
+                              (or
+                               (get-in osm [:tags "ref"])
+                               (get-in import [:tags "ref"])))])
+                           (map
+                            (fn [tag-diff]
+                              (cond
+                                (= :- (first tag-diff))
+                                [:div {:style "color:red;"}
+                                 (str (nth tag-diff 1) " = " (nth tag-diff 2))]
+                                (= :+ (first tag-diff))
+                                [:div {:style "color:green;"}
+                                 (str (nth tag-diff 1) " = " (nth tag-diff 2))]
+                                (= :* (first tag-diff))
+                                [:div {:style "color:blue;"}
+                                 (str
+                                  (nth tag-diff 1)
+                                  " = "
+                                  (nth tag-diff 3)
+                                  " -> "
+                                  (nth tag-diff 2))]
+                                :else
+                                (println "\tunknown diff")))
+                            tags-diff)
+                           (list
+                            [:br]
+                            [:br])))))]
+    (let [pair-seq (loop [osm-seq (sort-by #(get-in % [:tags "ref"]) osm-seq)
+                         import-seq (sort-by #(get-in % [:tags "ref"]) import-seq)
+                         pair-seq []]
+                    (let [osm (first osm-seq)
+                          import (first import-seq)]
+                      (cond
+                        (and (nil? osm) (nil? import))
+                        pair-seq
+                        (and (nil? osm) some? import)
+                        (recur
+                         (rest osm-seq)
+                         (rest import-seq)
+                         (conj pair-seq [osm import]))
+                        (and (some? osm) (nil? import))
+                        (recur
+                         (rest osm-seq)
+                         (rest import-seq)
+                         (conj pair-seq [osm import]))
+                        (= (get-in osm [:tags "ref"]) (get-in import [:tags "ref"]))
+                        (recur
+                         (rest osm-seq)
+                         (rest import-seq)
+                         (conj pair-seq [osm import]))
+                        (<
+                         (as/as-long (get-in osm [:tags "ref"]))
+                         (as/as-long (get-in import [:tags "ref"])))
+                        (recur
+                         (rest osm-seq)
+                         import-seq
+                         (conj pair-seq [osm nil]))
+                        (>
+                         (as/as-long (get-in osm [:tags "ref"]))
+                         (as/as-long (get-in import [:tags "ref"])))
+                        (recur
+                         osm-seq
+                         (rest import-seq)
+                         (conj pair-seq [nil import]))
+                        :else
+                        (do
+                          (println "unknown case")
+                          (println osm)
+                          (println import)))))]
+     (io/write-string
+      os
+      (hiccup/html
+       [:html
+        (map
+         #(report-diff (first %) (second %))
+         pair-seq)]))
+     #_(doseq [[import osm] pair-seq]
+       (report-diff import osm)))))
 
 
-(:tags (first import-seq))
-{"name:sr" "11000 Београд 6", "opening_hours" "Mo-Su 08:00-19:00; PH 08:00-15:00", "addr:housenumber" "2", "name" "11000 Београд 6", "amenity" "post_office", "phone" "+381 11 3643-071;+381 11 3643-117;+381 11 3643-118", "ref" "11000", "name:sr-Latn" "11000 Beograd 6", "addr:pak" "111101", "addr:street" "Савска"}
+#_(:tags (first import-seq))
+#_{"name:sr" "11000 Београд 6", "opening_hours" "Mo-Su 08:00-19:00; PH 08:00-15:00", "addr:housenumber" "2", "name" "11000 Београд 6", "amenity" "post_office", "phone" "+381 11 3643-071;+381 11 3643-117;+381 11 3643-118", "ref" "11000", "name:sr-Latn" "11000 Beograd 6", "addr:pak" "111101", "addr:street" "Савска"}
 
-(first osm-seq)
-{:id 8935538647, :type :node, :version 1, :changeset 108310173, :longitude 20.360257, :latitude 44.8283142, :tags {"name:sr" "11199 Београд 124", "opening_hours" "Mo-Fr 08:00-15:00; PH off", "addr:housenumber" "ББ", "name" "11199 Београд 124", "amenity" "post_office", "phone" "+381 11 3718-023", "ref" "11199", "name:sr-Latn" "11199 Beograd 124", "addr:pak" "193198", "addr:street" "Аутопут за Нови Сад"}}
+#_(first osm-seq)
+3#_{:id 8935538647, :type :node, :version 1, :changeset 108310173, :longitude 20.360257, :latitude 44.8283142, :tags {"name:sr" "11199 Београд 124", "opening_hours" "Mo-Fr 08:00-15:00; PH off", "addr:housenumber" "ББ", "name" "11199 Београд 124", "amenity" "post_office", "phone" "+381 11 3718-023", "ref" "11199", "name:sr-Latn" "11199 Beograd 124", "addr:pak" "193198", "addr:street" "Аутопут за Нови Сад"}}
 
 
 ;; debugging

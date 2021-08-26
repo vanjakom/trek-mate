@@ -33,6 +33,7 @@
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.dataset.mapping :as mapping]
+   [trek-mate.dataset.wiki-integrate :as wiki]
    [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -50,7 +51,165 @@
 (def dataset-path ["Users" "vanja" "projects" "zanimljiva-geografija"
                    "projects" "osm-spomenici-import"])
 
-;; 
+;; extraction of links from wikipedia
+;; https://sr.wikipedia.org/wiki/Списак_споменика_културе_у_Београду
+
+;; single list of monuments
+#_(let [list-title "Списак_споменика_културе_у_Београду"
+      list-wiki (get-in
+                 (json/read-keyworded
+                  (http/get-as-stream
+                   (str
+                    "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                    list-title)))
+                 [:parse :wikitext])]
+  (run!
+   println
+   (filter
+    some?
+    (map
+     (fn [[id name]]
+       (let [entry (wiki/retrieve-wikipedia "sr" name)]
+         (if-let [title (wikidata/entity->wikipedia-sr entry)]
+           (let [wikidata (wikidata/entity->wikidata-id entry)]
+             {
+              :id id
+              :title title
+              :wikidata wikidata})
+           (println "[ERROR]" name))))
+     (map
+      (fn [line]
+        (let [fields (.split line "\\|")]
+          [
+           (.replace (get fields 1) "ИД=СК " "SK")
+           (.trim (.replace (get fields 3) "Назив=" ""))]))
+      (filter
+       (fn [line]
+         (.startsWith line "{{споменици ред|"))
+       (.split
+        list-wiki
+        "\n")))))))
+
+(def wikipedia-seq
+  (doall
+   (mapcat
+    (fn [list-title]
+      (println "[LIST]" list-title)
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          list-title)))
+                       [:parse :wikitext])]
+        (filter
+         some?
+         (map
+          (fn [[id name]]
+            (try
+              (let [entry (wiki/retrieve-wikipedia "sr" name)]
+                (if-let [title (wikidata/entity->wikipedia-sr entry)]
+                  (let [wikidata (wikidata/entity->wikidata-id entry)]
+                    {
+                     :id id
+                     :title title
+                     :wikidata wikidata})
+                  (println "[ERROR]" name)))
+              (catch Exception e
+                (println "[EXCEPTION]" id name)
+                (.printStackTrace e))))
+          (map
+           (fn [line]
+             (try
+               (let [fields (.split line "\\|")]
+                 [
+                  (.replace (get fields 1) "ИД=СК " "SK")
+                  (.trim (.replace (get fields 3) "Назив=" ""))])
+               (catch Exception e
+                 (println "[EXCEPTION]" line)
+                 (.printStackTrace e))))
+           (filter
+            (fn [line]
+              (.startsWith line "{{споменици ред|"))
+            (.split
+             list-wiki
+             "\n")))))))
+    [
+     "Списак_споменика_културе_у_Београду"
+     "Списак_споменика_културе_у_Борском_округу"
+     "Списак_споменика_културе_у_Браничевском_округу"
+     "Списак_споменика_културе_у_Зајечарском_округу"
+     "Списак_споменика_културе_у_Западнобачком_округу"
+     "Списак_споменика_културе_у_Златиборском_округу"
+     "Списак_споменика_културе_у_Јабланичком_округу"
+     "Списак_споменика_културе_у_Јужнобанатском_округу"
+     "Списак_споменика_културе_у_Јужнобачком_округу"
+     "Списак_споменика_културе_у_Јужнобачком_округу_–_Град_Нови_Сад"
+     "Списак_споменика_културе_у_Колубарском_округу"
+     "Списак_споменика_културе_у_Косовском_округу"
+     "Списак_споменика_културе_у_Косовскомитровачком_округу"
+     "Списак_споменика_културе_у_Косовскопоморавском_округу"
+     "Списак_споменика_културе_у_Мачванском_округу"
+     "Списак_споменика_културе_у_Моравичком_округу"
+     "Списак_споменика_културе_у_Нишавском_округу"
+     "Списак_споменика_културе_у_Пећком_округу"
+     "Списак_споменика_културе_у_Пиротском_округу"
+     "Списак_споменика_културе_у_Подунавском_округу"
+     "Списак_споменика_културе_у_Поморавском_округу"
+     "Списак_споменика_културе_у_Призренском_округу"
+     "Списак_споменика_културе_у_Пчињском_округу"
+     "Списак_споменика_културе_у_Расинском_округу"
+     "Списак_споменика_културе_у_Рашком_округу"
+     "Списак_споменика_културе_у_Севернобанатском_округу"
+     "Списак_споменика_културе_у_Севернобачком_округу"
+     "Списак_споменика_културе_у_Средњобанатском_округу"
+     "Списак_споменика_културе_у_Сремском_округу"
+     "Списак_споменика_културе_у_Топличком_округу"
+     "Списак_споменика_културе_у_Шумадијском_округу"])))
+
+#_(count wikipedia-seq) ;; 1805
+
+#_(count (into #{} (map :id wikipedia-seq))) ;; 1777
+
+;; print duplicates
+#_(doseq [[id duplicate-seq] (filter
+                            #(> (count (second %)) 1)
+                            (group-by :id wikipedia-seq))]
+  (println id)
+  (doseq [duplicate duplicate-seq]
+    (println "\t" duplicate)))
+
+(def unique-wikipedia-seq
+  (map
+   #(first (second %))
+   (filter
+    #(= (count (second %)) 1)
+    (group-by :id wikipedia-seq))))
+
+#_(first unique-wikipedia-seq)
+#_(count (into #{} (map :id unique-wikipedia-seq))) ;; 1771
+
+
+#_(with-open [os (fs/output-stream (path/child dataset-path "wikipedia.geojson"))]
+  (json/write-pretty-print
+   unique-wikipedia-seq
+   (io/output-stream->writer os)))
+
+#_(wikidata/entity->wikidata-id
+ (wiki/retrieve-wikipedia "sr" "Кућа Петронијевића"))
+#_(wikidata/entity->wikipedia-sr
+ (wiki/retrieve-wikipedia "sr" "Кућа Петронијевића"))
+#_(wikidata/entity->wikipedia-sr
+ (wiki/retrieve-wikipedia "sr" "Комплекс старих чесама"))
+#_(wikidata/entity->wikidata-id
+ (wiki/retrieve-wikipedia "sr" "Комплекс старих чесама"))
+#_(wiki/retrieve-wikipedia "sr" "Божићева кућа")
+#_(wiki/retrieve-wikipedia "sr" "Божићева кућа у Београду")
+
+#_(:status
+ (http/get-raw-as-stream
+  (str "https://sr.wikipedia.org/wiki/" "Кућа Петронијевића")))
+
 
 (with-open [os (fs/output-stream (path/child dataset-path "index.json"))]
   (io/copy-input-to-output-stream
@@ -93,19 +252,205 @@
                           (html/select
                            html
                            [:tr])))
-                        [:td]))))]
+                        [:td]))))
+          name (first
+                (:content
+                 (last
+                  (html/select
+                   (first
+                    (filter
+                     (fn [row]
+                       (=
+                        "Назив:"
+                        (get-in
+                         (html/select
+                          row
+                          [:td])
+                         [0 :content 0])))
+                     (html/select
+                      html
+                      [:tr])))
+                   [:td]))))
+          inscription-date (first
+                            (:content
+                             (last
+                              (html/select
+                               (first
+                                (filter
+                                 (fn [row]
+                                   (=
+                                    "Датум уписа у регистар"
+                                    (get-in
+                                     (html/select
+                                      row
+                                      [:td])
+                                     [0 :content 0])))
+                                 (html/select
+                                  html
+                                  [:tr])))
+                               [:td]))))
+          jurisdiction (first
+                        (:content
+                         (last
+                          (html/select
+                           (first
+                            (filter
+                             (fn [row]
+                               (=
+                                "Надлежност:"
+                                (get-in
+                                 (html/select
+                                  row
+                                  [:td])
+                                 [0 :content 0])))
+                             (html/select
+                              html
+                              [:tr])))
+                           [:td]))))
+          criteria (first
+                    (:content
+                     (last
+                      (html/select
+                       (first
+                        (filter
+                         (fn [row]
+                           (=
+                            "Категорија:"
+                            (get-in
+                             (html/select
+                              row
+                              [:td])
+                             [0 :content 0])))
+                         (html/select
+                          html
+                          [:tr])))
+                       [:td]))))]
       {
-       :sk sk-number})))
+       :sk sk-number
+       :name name
+       :inscription-date inscription-date
+       :jurisdiction jurisdiction
+       :criteria criteria})))
+
+(defn extract-ref [monument]
+  (when-let [ref (:sk monument)]
+    (cond
+      (.startsWith ref "СК ")
+      (.replace ref "СК " "SK")
+
+      (.startsWith ref "АН ")
+      (.replace ref "АН " "AN")
+
+      (.startsWith ref "ЗМ ")
+      (.replace ref "ЗМ " "ZM")
+
+      ;; mixed letters
+      (.startsWith ref "3М ")
+      (.replace ref "3М " "ZM")
+
+      (.startsWith ref "ЗМ  ")
+      (.replace ref "ЗМ  " "ZM")
+      
+      (.startsWith ref "ПКИЦ ")
+      (.replace ref "ПКИЦ " "PKIC")
+      
+      :else
+      (println "[ERROR] unknown ref" ref "monument:" monument))))
+
+(defn extract-inscription-date [monument]
+  (when-let [inscription-date (:inscription-date monument)]
+    (let [splits (.split inscription-date "/")]
+      (str (get splits 2) "-" (get splits 1) "-" (get splits 0)))))
+
+(defn extract-criteria [monument]
+  (when-let [criteria (:criteria monument)]
+    (cond
+      (= criteria "Непокретно културно добро")
+      nil
+      (= criteria "Непокретно културно добро од изузетног значаја")
+      "exceptional"
+      (= criteria "Непокретно културно добро од великог значаја")
+      "great"
+      :else
+      (println "[ERROR] unknown criteria" criteria))))
+
+(defn extract-protect-class [monument]
+  (when-let [ref (extract-ref monument)]
+   (if (contains?
+        #{
+           "AN168" "AN26" "AN40" "AN70" "PKIC24" "SK1367" "SK1368" "SK1369" "SK1370"
+           "SK155" "SK156" "SK158" "SK182"}
+        ref)
+     "98"
+     "22")))x
+
+(defn extract-jurisdiction [monument]
+  (when-let [jurisdiction (:jurisdiction monument)]
+    jurisdiction
+    #_(cond
+      :else
+      (println "[ERROR] unknown jurisdiction" jurisdiction )
+     )))
+
+(defn extract-name [monument]
+  (when-let [name (:name monument)]
+    #_(println "[NAME]" name)
+    name))
+
+(defn extract-wikipedia [monument]
+  (when-let [ref (extract-ref monument)]
+    (if-let [info (first (filter #(= (:id %) ref) unique-wikipedia-seq))]
+      (:title info)
+      (println "[WARN] no wikipedia for" ref))))
+
+(defn extract-wikidata [monument]
+  (when-let [ref (extract-ref monument)]
+    (if-let [info (first (filter #(= (:id %) ref) unique-wikipedia-seq))]
+      (:wikidata info)
+      (println "[WARN] no wikidata for" ref))))
+
 
 (defn extract-monument [monument]
-  (let [metadata (parse-monument-raw (ensure-monument-raw (:id monument)))]
-    (merge
-     monument
-     metadata
-     {
-      :tags {
-             "ref:RS:nkd" (.replace (:sk metadata) "СК" "SK")}})))
+  (let [metadata (parse-monument-raw (ensure-monument-raw (:id monument)))
+        final (merge
+               monument
+               metadata
+               {
+                :tags
+                (into
+                 {}
+                 (filter
+                  some?
+                  [
+                   ["heritage" "2"]
+                   (when-let [ref (extract-ref metadata)]
+                     ["ref:RS:nkd" ref])
+                   ["heritage:website" (str "https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=" (:id monument))]
+                   (when-let [inscription-date (extract-inscription-date metadata)]
+                     ["heritage:RS:inscription_date" inscription-date])
+                   (when-let [criteria (extract-criteria metadata)]
+                     ["heritage:RS:criteria" criteria])
+                   (when-let [protect-class (extract-protect-class metadata)]
+                     ["protect_class" protect-class])
+                   (when-let [jurisdiction (extract-jurisdiction metadata)]
+                     ["heritage:RS:jurisdiction" jurisdiction])
+                   (when-let [name (extract-name metadata)]
+                     ["name" name])
+                   (when-let [name (extract-name metadata)]
+                     ["name:sr" name])
+                   (when-let [name (extract-name metadata)]
+                     ["name:sr-Latn" (mapping/cyrillic->latin name)])
+                   (when-let [wikipedia (extract-wikipedia metadata)]
+                     ["wikipedia" (str "sr:" wikipedia)])
+                   (when-let [wikidata (extract-wikidata metadata)]
+                     ["wikidata" wikidata])]))})]
+    (if (some? (get-in final [:tags "ref:RS:nkd"]))
+      final
+      nil)))
 
+#_(extract-monument {:id "103634"})
+#_(extract-monument {:id "109381"})
+#_(extract-monument {:id "109102"})
 
 (def monument-seq
   (with-open [is (fs/input-stream (path/child dataset-path "index.json"))]
@@ -148,8 +493,55 @@
                nil))))
        (:DATA (json/read-keyworded is)))))))
 
-(count monument-seq) ;; 2481 ( was 2484 before extraction )
+#_(count monument-seq) ;; 2481 ( was 2484 before extraction )
 
+#_(count (filter #(= (get-in % [:tags "protect_class"]) "98") monument-seq)) ;; 14
+#_(count
+ (into
+  #{}
+  (map
+   #(get-in % [:tags "ref:RS:nkd"])
+   (filter #(= (get-in % [:tags "protect_class"]) "98") monument-seq)))) ;; 13
+
+#_(into #{}  (map :jurisdiction monument-seq))
+#_(into #{}  (map :inscription-date monument-seq))
+#_(into #{}  (map #(first (.split (:sk %) " ")) monument-seq))
+
+;; problematic, empty page
+;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109425
+;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109433
+;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109434
+
+#_(with-open [os (fs/output-stream (path/child dataset-path "monuments.geojson"))]
+  (json/write-pretty-print
+   (trek-mate.integration.geojson/geojson
+    (map
+     (fn [monument]
+       (trek-mate.integration.geojson/point
+        (:longitude monument)
+        (:latitude monument)
+        (:tags monument)))
+     monument-seq))
+   (io/output-stream->writer os)))
+
+
+#_(with-open [os (fs/output-stream (path/child dataset-path "monuments.csv"))]
+  (doseq [monument monument-seq]
+    (io/write-line
+     os (str
+         (:sk monument) "\t"
+         (:longitude monument)  "\t"
+         (:latitude monument)))))
+
+
+#_(with-open [os (fs/output-stream (path/child dataset-path "monuments.csv"))]
+  (doseq [monument monument-seq]
+    (io/write-line
+     os (str
+         "\"" (:id monument) "\"\t"
+         "\"" (:sk monument) "\"\t"
+         "\"" (:longitude monument)  "\"\t"
+         "\"" (:latitude monument) "\""))))
 
 ;; old before extract was moved to monument-seq
 #_(run!
@@ -164,127 +556,62 @@
        (println "[ERROR] unable to parse" %)))
   (take 3000 monument-seq)))
 
-;; problematic, empty page
-;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109425
-;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109433
-;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109434
 
-(with-open [os (fs/output-stream (path/child dataset-path "monuments.geojson"))]
-  (json/write-pretty-print
-   (trek-mate.integration.geojson/geojson
-    (map
-     (fn [monument]
-       (trek-mate.integration.geojson/point
-        (:longitude monument)
-        (:latitude monument)
-        (:tags monument)))
-     monument-seq))
-   (io/output-stream->writer os)))
+(def import-seq
+  (with-open [is (fs/input-stream (path/child dataset-path "nkd_srbija.geojson"))]
+    (doall
+     (map
+      (fn [feature]
+        (let [longitude (get-in feature [:geometry :coordinates 0])
+              latitude (get-in feature [:geometry :coordinates 1])
+              tags (get-in feature [:properties])]
+          {
+           :longitude longitude
+           :latitude latitude
+           :tags (dissoc tags :description)}))
+      (:features (json/read-keyworded is))))))
 
+#_(first import-seq)
 
-(with-open [os (fs/output-stream (path/child dataset-path "monuments.csv"))]
-  (doseq [monument monument-seq]
-    (io/write-line
-     os (str
-         (:sk monument) "\t"
-         (:longitude monument)  "\t"
-         (:latitude monument)))))
-
-
-(with-open [os (fs/output-stream (path/child dataset-path "monuments.csv"))]
-  (doseq [monument monument-seq]
-    (io/write-line
-     os (str
-         "\"" (:id monument) "\"\t"
-         "\"" (:sk monument) "\"\t"
-         "\"" (:longitude monument)  "\"\t"
-         "\"" (:latitude monument) "\""))))
-
-(parse-monument-raw (ensure-monument-raw 45756))
-
-(def a (ensure-monument-raw 45756))
-(def b (html/html-resource (io/string->input-stream a)))
-
-(take 4
- (map
-  (fn [row]
-    (get-in
-     (html/select
-      row
-      [:td])
-     [0 :content 0]))
-  (html/select
-   b
-   [[:table (html/nth-of-type 1)] :tr])))
-
-(get-in
- (html/select
-  (nth
-   (html/select
-   b
-   [[:table (html/nth-of-type 1)] :tr])
-   14)
-  [:td])
- [0 :content 0]) "Aдреса установе:"
-
-
-(def c
-  (with-open [is (fs/input-stream ["Users" "vanja" "projects" "research" "sample-enlive.html"])]
-    (io/input-stream->string is)))
-
-(first
- (:content
-  (last
-   (html/select
-    (first
-     (filter
-      (fn [row]
-        (=
-         "Број у централном"
-         (get-in
-          (html/select
-           row
-           [:td])
-          [0 :content 0])))
-      (html/select
-       (html/html-resource (io/string->input-stream a))
-       [:tr])))
-    [:td]))))
-
-
-
-
-a
-
-{:tag :tr, :attrs nil, :content ("\n\t\t\t\t\t\t\t" {:tag :td, :attrs {:class "titleText"}, :content ("Адреса:")} "\n\t\t\t\t\t\t\t" {:tag :td, :attrs {:class "text"}, :content ("Златиборска 7")} "\n\t\t\t\t\t\t")}
-
-
-(get-in
- 
- [0 :content 0])
-
-(first
- (:content
-  (second
-   (html/select
-    (nth
-     (html/select
-      (nth
-       (html/select
-        b
-        [[:table (html/nth-of-type 1)] [:tr (html/nth-of-type 12)] [:td (html/nth-of-type 2)]])
-       1)
-      [:tr])
-     14)
-    [:td]))))
-
-(run!
- println
- (take 10 monument-seq))
-
-
+(into #{} (map #(get-in % [:tags :protect_class]) import-seq))
+(run! println (map #(get-in % [:tags :ref:RS:nkd]) (filter #(= (get-in % [:tags :protect_class]) "98") import-seq)))
+#_(count(filter #(= (get-in % [:tags :protect_class]) "98") import-seq)) ;; 13
 
 (map/define-map
+  "spomenici"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/geojson-style-marker-layer
+   "spomenici"
+   (geojson/geojson
+    (map
+     (fn [location]
+       (geojson/location->feature location))
+     import-seq))))
+
+(def osm-seq (map
+              (fn [entry]
+                (assoc
+                 entry
+                 :longitude
+                 (as/as-double (:longitude entry))
+                 :latitude
+                 (as/as-double (:latitude entry))))
+              (let [dataset (overpass/query->dataset
+                             "nwr[\"ref:RS:nkd\"](area:3601741311);")]
+                (concat
+                 (vals (:nodes dataset))
+                 (vals (:ways dataset))
+                 (vals (:relations dataset))))))
+
+#_(count osm-seq) ;; 250
+
+#_(first osm-seq)
+#_{:id 8947268725, :type :node, :version 2, :changeset 108547536, :longitude 19.3303102, :latitude 44.2959682, :tags {"name:sr" "Црква брвнара", "ref:RS:nkd" "SK578", "dedication:sr" "Свети апостоли Петар и Павле", "heritage:RS:criteria" "great", "alt_name:sr" "Црква Светих апостола Петара и Павла", "addr:postcode" "15320", "addr:city" "Љубовија", "dedication:sr-Latn" "Sveti apostoli Petar i Pavle", "alt_name:sr-Latn" "Crkva Svetih apostola Petara i Pavla", "name" "Црква брвнара", "amenity" "place_of_worship", "heritage" "2", "denomination" "serbian_orthodox", "name:sr-Latn" "Crkva brvnara", "addr:street" "Селанац", "religion" "christian"}}
+
+
+;; old new approach with deserialization
+#_(map/define-map
   "spomenici"
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)
@@ -301,8 +628,140 @@ a
          :marker-color "#0000FF"}))
      (take 10 monument-seq)))))
 
+#_(first spomenik-seq)
+#_[88085 "Зграда Омладинског и Пионирског дома, Основне партизанске школе и седиште Окружног комитета СКОЈ-а од 1943-1944. године у Раковом Долу" "" "42.929120, 22.418998" 7 1 44232]
 
-(first spomenik-seq)
-[88085 "Зграда Омладинског и Пионирског дома, Основне партизанске школе и седиште Окружног комитета СКОЈ-а од 1943-1944. године у Раковом Долу" "" "42.929120, 22.418998" 7 1 44232]
+;; extract zemun from Pedja's data
+;; filter only not mapped
+;; todo migate to use import-seq instead of file
+#_(let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
+  (with-open [is (fs/input-stream (path/child dataset-path "monuments.geojson"))
+              os (fs/output-stream (path/child dataset-path "nkd_zemun.geojson"))]
+    (let [active-seq (filter
+                      (fn [feature]
+                        (let [longitude (get-in feature [:geometry :coordinates 0])
+                              latitude (get-in feature [:geometry :coordinates 1])]
+                          (and
+                           (not (contains? mapped (get-in feature [:properties :ref:RS:nkd])))
+                           (and
+                            (> longitude 20.22446)
+                            (< longitude 20.44144)
+                            (> latitude 44.75649)
+                            (< latitude 44.95022)))))
+                      (:features (json/read-keyworded is)))]
+      (json/write-to-stream
+       (geojson/geojson
+        active-seq)
+       os)
+      (map/define-map
+        "spomenici"
+        (map/tile-layer-osm)
+        (map/tile-layer-bing-satellite false)
+        (map/geojson-style-marker-layer
+         "spomenici"
+         (trek-mate.integration.geojson/geojson
+          active-seq))))))
+
+#_(first monument-seq)
+
+#_(with-open [is (fs/input-stream (path/child dataset-path "nkd_srbija.geojson"))]
+  (doseq [monument (filter
+      (fn [feature]
+        (let [longitude (get-in feature [:geometry :coordinates 0])
+              latitude (get-in feature [:geometry :coordinates 1])]
+          (and
+           (> longitude 20.22446)
+           (< longitude 20.44144)
+           (> latitude 44.75649)
+           (< latitude 44.95022))))
+      (:features (json/read-keyworded is)))]
+    (with-open [os (fs/output-stream (path/child dataset-path
+                                                 "monuments"
+                                                 (str (get-in monument [:properties :ref:RS:nkd])
+                                                      ".geojson")))]
+      (json/write-to-stream
+       (geojson/geojson
+        [monument])
+       os))))
+
+#_(do
+  (parse-monument-raw (ensure-monument-raw 45756))
+
+  (def a (ensure-monument-raw 45756))
+  (def b (html/html-resource (io/string->input-stream a)))
+
+  (take 4
+        (map
+         (fn [row]
+           (get-in
+            (html/select
+             row
+             [:td])
+            [0 :content 0]))
+         (html/select
+          b
+          [[:table (html/nth-of-type 1)] :tr])))
+
+  (get-in
+   (html/select
+    (nth
+     (html/select
+      b
+      [[:table (html/nth-of-type 1)] :tr])
+     14)
+    [:td])
+   [0 :content 0]) "Aдреса установе:"
 
 
+  (def c
+    (with-open [is (fs/input-stream ["Users" "vanja" "projects" "research" "sample-enlive.html"])]
+      (io/input-stream->string is)))
+
+  (first
+   (:content
+    (last
+     (html/select
+      (first
+       (filter
+        (fn [row]
+          (=
+           "Број у централном"
+           (get-in
+            (html/select
+             row
+             [:td])
+            [0 :content 0])))
+        (html/select
+         (html/html-resource (io/string->input-stream a))
+         [:tr])))
+      [:td]))))
+
+
+
+  a
+
+  {:tag :tr, :attrs nil, :content ("\n\t\t\t\t\t\t\t" {:tag :td, :attrs {:class "titleText"}, :content ("Адреса:")} "\n\t\t\t\t\t\t\t" {:tag :td, :attrs {:class "text"}, :content ("Златиборска 7")} "\n\t\t\t\t\t\t")}
+
+
+  (get-in
+   
+   [0 :content 0])
+
+  (first
+   (:content
+    (second
+     (html/select
+      (nth
+       (html/select
+        (nth
+         (html/select
+          b
+          [[:table (html/nth-of-type 1)] [:tr (html/nth-of-type 12)] [:td (html/nth-of-type 2)]])
+         1)
+        [:tr])
+       14)
+      [:td]))))
+
+  (run!
+   println
+   (take 10 monument-seq)))

@@ -228,7 +228,7 @@
 #_(let [track-seq
       (or
        ;; trek-mate
-       #_(let [track-id 1626614428]
+       #_(let [track-id 1626590744]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -237,7 +237,7 @@
                           (str track-id ".json")))]
            [(:locations (json/read-keyworded is))]))
        ;; garmin
-       (let [track-id "Track_2021-07-28 110928"]
+       (let [track-id "Track_2021-08-06 115207"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -259,7 +259,7 @@
        #_(storage/location-request-file->location-seq
         (storage/location-request-last-file env/*trek-mate-user*))
        ;; garmin
-       (let [waypoint-file-name "Waypoints_28-JUL-21.gpx"]
+       (let [waypoint-file-name "Waypoints_06-AUG-21.gpx"]
          (mine/garmin-waypoint-file->location-seq
           (path/child
            env/*global-my-dataset-path*
@@ -415,7 +415,7 @@
   (println "name:sr =" name-cyrillic)
   (println "name:sr-Latn =" (cyrillic->latin name-cyrillic)))
 
-#_(Prepare-name-tags "Чесма Свете Тројице") 
+#_(prepare-name-tags "Чесма Свете Тројице") 
 #_(prepare-name-tags "ЈП \"Војводинашуме\"")
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
 #_(prepare-name-tags "Црква Преноса моштију Светог Николе \"Велика-Доња\"")
@@ -424,11 +424,11 @@
 #_(prepare-name-tags "Етно село Азбука")
 #_(prepare-name-tags "Запис липа у манастиру")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
-#_(prepare-name-tags "Филипов брег")
+#_(prepare-name-tags "Скулптура медведа")
 #_(prepare-name-tags "Месна заједница Бешеновачки Прњавор")
 #_(prepare-name-tags "Капела Св. Пантелејмона")
 #_(prepare-name-tags "Дом здравља Ваљево")
-#_(prepare-name-tags "Пекара Бред Пита")
+#_(prepare-name-tags "Зграда Дечјег дома краљице Марије")
 #_(prepare-name-tags "Скакавци - Велики Козомор")
 
 

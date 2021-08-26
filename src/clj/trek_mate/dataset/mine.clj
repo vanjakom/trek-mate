@@ -279,8 +279,12 @@
   (l 19.96823, 44.05323 "dani planinara 2019")
   (l 19.99568, 44.09190 tag/tag-todo tag/tag-hike "povezati deo staze koji nedostaje")
 
-  ;; @tepui2021
-  (q 25426045 "#tepui2021")
+  ;; @tepui2021, beleske sa puta
+  (l 19.69334, 43.69506 tag/tag-rooftoptent "prosirenja pored puta, skrivena")
+  (l 19.57477, 42.91632 tag/tag-hike "tabla za via dinarica, 20210801" "#viadinarica")
+  
+  (l 19.69512, 43.37116
+     tag/tag-hike "pesacka staza, imam slikano 20210731")
 
   (l 19.55908, 43.28861
      tag/tag-todo
@@ -867,6 +871,8 @@
 
   ;; macedonia
   (q 927599) ;; "!Љуботен"
+
+  
   )
 
 (web/register-dotstore
@@ -1162,6 +1168,8 @@
              [:a {:href "/projects/tracks/garmin-connect"} "garmin connect tracks"]
              [:br]
              [:a {:href "/projects/tracks/trek-mate"} "trek-mate tracks"]
+             [:br]
+             [:a {:href "/projects/tracks/trek-mate-wp"} "trek-mate waypoints"]
              [:br]]])})
   (compojure.core/GET
    "/projects/tracks/view"
@@ -1220,18 +1228,39 @@
                               [(geojson/location-seq-seq->multi-line-string
                                 track-seq)]))}))
                  {:status 404})))
+
            (= dataset "trek-mate")
-           (let [path (path/child trek-mate-track-path (str track ".json"))]
-             (if (fs/exists? path)
-               (with-open [is (fs/input-stream path)]
-                 (let [location-seq (:locations (json/read-keyworded is))]
+           (if (some? waypoint)
+             (let [path (path/child trek-mate-location-path waypoint)]
+               (if (fs/exists? path)
+                 (let [location-seq (storage/location-request-file->location-seq path)]
                    {
                     :status 200
                     :body (json/write-to-string
                            (geojson/geojson
-                            [(geojson/location-seq->line-string
-                              location-seq)]))}))
-               {:status 404}))
+                            (map
+                             (fn [waypoint]
+                               (geojson/point
+                                (:longitude waypoint)
+                                (:latitude waypoint)
+                                {
+                                 :text
+                                 (clojure.string/join
+                                  "</br>"
+                                  (:tags waypoint))}))
+                             location-seq)))})
+                 {:status 404}))
+             (let [path (path/child trek-mate-track-path (str track ".json"))]
+              (if (fs/exists? path)
+                (with-open [is (fs/input-stream path)]
+                  (let [location-seq (:locations (json/read-keyworded is))]
+                    {
+                     :status 200
+                     :body (json/write-to-string
+                            (geojson/geojson
+                             [(geojson/location-seq->line-string
+                               location-seq)]))}))
+                {:status 404})))
 
            (= dataset "garmin-connect")
            (let [path (path/child garmin-connect-path (str track ".gpx"))]
@@ -1446,6 +1475,76 @@
                        (clojure.string/join " " tags)
                        "#pending")]])
                  track-name-seq)]]]))})
+  (compojure.core/GET
+   "/projects/tracks/trek-mate-wp"
+   _
+   {
+    :status 200
+    :body (hiccup/html
+           [:html
+            [:body {:style "font-family:arial;"}
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (fn [name]
+                 [:tr
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   [:a
+                    {:href (str
+                            "/projects/tracks/trek-mate-wp/"
+                            (base64/string->base64-string name))
+                     :target "_blank"}
+                    name]]])
+               (reverse
+                (sort
+                 (map
+                  last
+                  (fs/list trek-mate-location-path)))))]]])})
+  (compojure.core/GET
+   "/projects/tracks/trek-mate-wp/:file"
+   [file]
+   (let [file (base64/base64->string file)
+         wp-path (path/child trek-mate-location-path file)]
+     (if (fs/exists? wp-path)
+       ;; todo tags are not parsed
+       (let [location-seq (storage/location-request-file->location-seq wp-path)]
+         {
+          :status 200
+          :body (hiccup/html
+                 [:html
+                  [:body {:style "font-family:arial;"}
+                   [:a
+                    {:href (str
+                            "/projects/tracks/view?type=waypoint&dataset=trek-mate&waypoint="
+                            (base64/string->base64-string file))
+                     :target "_blank"}
+                    "view on map"]
+                   [:br]
+                   [:br]
+                   [:table {:style "border-collapse:collapse;"}
+                    (map
+                     (fn [waypoint]
+                       [:tr
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (:name waypoint)]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (str (:longitude waypoint) ", " (:latitude waypoint))]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (:symbol waypoint)]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (or
+                          (clojure.string/join
+                           " "
+                           (filter
+                            #(or (.startsWith % "#") (.startsWith % "@"))
+                            (:tags waypoint)))
+                          "")]
+                        [:td {:style "border: 1px solid black; padding: 5px;"}
+                         (or
+                          (:note waypoint)
+                          "")]])
+                     location-seq)]]])
+          })
+       {:status 404})))
 
   (compojure.core/GET
    "/projects/tracks/garmin-connect"
