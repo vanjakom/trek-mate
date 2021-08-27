@@ -90,84 +90,285 @@
         list-wiki
         "\n")))))))
 
+#_(let [list-title "Просторно_културно-историјске_целине_од_великог_значаја"
+      list-wiki (get-in
+                 (json/read-keyworded
+                  (http/get-as-stream
+                   (str
+                    "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                    list-title)))
+                 [:parse :wikitext])]
+  (run!
+   println
+   (map
+    (fn [fields]
+      [
+       (.trim (.replace (.replace (.substring (nth fields 0) 1) " " "") "ПКИЦ" "PKIC"))
+       (.trim
+        (first
+         (.split
+          (.replace
+           (.replace (nth fields 1) "[[" "")
+           "]]" "")
+          "\\|")))])
+    (map
+     #(.split % "\\|\\|")
+     (filter
+      #(or
+        (.startsWith % "| ")
+        (.startsWith % "|\t"))
+      (.split
+       list-wiki
+       "\n"))))))
+
 (def wikipedia-seq
   (doall
-   (mapcat
-    (fn [list-title]
-      (println "[LIST]" list-title)
+   (filter
+    some?
+    (map
+     (fn [[id name]]
+       (try
+         (let [entry (wiki/retrieve-wikipedia "sr" name)]
+           (if-let [title (wikidata/entity->wikipedia-sr entry)]
+             (let [wikidata (wikidata/entity->wikidata-id entry)]
+               {
+                :id id
+                :title title
+                :wikidata wikidata})
+             (println "[ERROR]" name)))
+         (catch Exception e
+           (println "[EXCEPTION]" id name)
+           (.printStackTrace e))))
+     (concat
+      []
+      (mapcat
+       (fn [list-title]
+         (let [list-wiki (get-in
+                          (json/read-keyworded
+                           (http/get-as-stream
+                            (str
+                             "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                             list-title)))
+                          [:parse :wikitext])]
+           (println "[LIST]" list-title)
+           (map
+            (fn [line]
+              (try
+                (let [fields (.split line "\\|")]
+                  [
+                   (.replace (get fields 1) "ИД=СК " "SK")
+                   (.trim (.replace (get fields 3) "Назив=" ""))])
+                (catch Exception e
+                  (println "[EXCEPTION]" line)
+                  (.printStackTrace e))))
+            (filter
+             (fn [line]
+               (.startsWith line "{{споменици ред|"))
+             (.split
+              list-wiki
+              "\n")))))
+       [
+        "Списак_споменика_културе_у_Београду"
+        "Списак_споменика_културе_у_Борском_округу"
+        "Списак_споменика_културе_у_Браничевском_округу"
+        "Списак_споменика_културе_у_Зајечарском_округу"
+        "Списак_споменика_културе_у_Западнобачком_округу"
+        "Списак_споменика_културе_у_Златиборском_округу"
+        "Списак_споменика_културе_у_Јабланичком_округу"
+        "Списак_споменика_културе_у_Јужнобанатском_округу"
+        "Списак_споменика_културе_у_Јужнобачком_округу"
+        "Списак_споменика_културе_у_Јужнобачком_округу_–_Град_Нови_Сад"
+        "Списак_споменика_културе_у_Колубарском_округу"
+        "Списак_споменика_културе_у_Косовском_округу"
+        "Списак_споменика_културе_у_Косовскомитровачком_округу"
+        "Списак_споменика_културе_у_Косовскопоморавском_округу"
+        "Списак_споменика_културе_у_Мачванском_округу"
+        "Списак_споменика_културе_у_Моравичком_округу"
+        "Списак_споменика_културе_у_Нишавском_округу"
+        "Списак_споменика_културе_у_Пећком_округу"
+        "Списак_споменика_културе_у_Пиротском_округу"
+        "Списак_споменика_културе_у_Подунавском_округу"
+        "Списак_споменика_културе_у_Поморавском_округу"
+        "Списак_споменика_културе_у_Призренском_округу"
+        "Списак_споменика_културе_у_Пчињском_округу"
+        "Списак_споменика_културе_у_Расинском_округу"
+        "Списак_споменика_културе_у_Рашком_округу"
+        "Списак_споменика_културе_у_Севернобанатском_округу"
+        "Списак_споменика_културе_у_Севернобачком_округу"
+        "Списак_споменика_културе_у_Средњобанатском_округу"
+        "Списак_споменика_културе_у_Сремском_округу"
+        "Списак_споменика_културе_у_Топличком_округу"
+        "Списак_споменика_културе_у_Шумадијском_округу"])
       (let [list-wiki (get-in
                        (json/read-keyworded
                         (http/get-as-stream
                          (str
                           "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
-                          list-title)))
+                          "Просторно_културно-историјске_целине_од_изузетног_значаја")))
                        [:parse :wikitext])]
-        (filter
-         some?
-         (map
-          (fn [[id name]]
-            (try
-              (let [entry (wiki/retrieve-wikipedia "sr" name)]
-                (if-let [title (wikidata/entity->wikipedia-sr entry)]
-                  (let [wikidata (wikidata/entity->wikidata-id entry)]
-                    {
-                     :id id
-                     :title title
-                     :wikidata wikidata})
-                  (println "[ERROR]" name)))
-              (catch Exception e
-                (println "[EXCEPTION]" id name)
-                (.printStackTrace e))))
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (nth fields 0) "ПКИЦ " "PKIC"))
+            (first
+             (.split
+              (.replace
+               (.replace (nth fields 2) "[[" "")
+               "]]" "")
+              "\\|"))])
+         (partition
+          7
+          7
+          nil
           (map
-           (fn [line]
-             (try
-               (let [fields (.split line "\\|")]
-                 [
-                  (.replace (get fields 1) "ИД=СК " "SK")
-                  (.trim (.replace (get fields 3) "Назив=" ""))])
-               (catch Exception e
-                 (println "[EXCEPTION]" line)
-                 (.printStackTrace e))))
+           #(.replace % "| align=\"center\" |" "")
            (filter
-            (fn [line]
-              (.startsWith line "{{споменици ред|"))
+            #(.startsWith % "| align=\"center\" |")
             (.split
              list-wiki
-             "\n")))))))
-    [
-     "Списак_споменика_културе_у_Београду"
-     "Списак_споменика_културе_у_Борском_округу"
-     "Списак_споменика_културе_у_Браничевском_округу"
-     "Списак_споменика_културе_у_Зајечарском_округу"
-     "Списак_споменика_културе_у_Западнобачком_округу"
-     "Списак_споменика_културе_у_Златиборском_округу"
-     "Списак_споменика_културе_у_Јабланичком_округу"
-     "Списак_споменика_културе_у_Јужнобанатском_округу"
-     "Списак_споменика_културе_у_Јужнобачком_округу"
-     "Списак_споменика_културе_у_Јужнобачком_округу_–_Град_Нови_Сад"
-     "Списак_споменика_културе_у_Колубарском_округу"
-     "Списак_споменика_културе_у_Косовском_округу"
-     "Списак_споменика_културе_у_Косовскомитровачком_округу"
-     "Списак_споменика_културе_у_Косовскопоморавском_округу"
-     "Списак_споменика_културе_у_Мачванском_округу"
-     "Списак_споменика_културе_у_Моравичком_округу"
-     "Списак_споменика_културе_у_Нишавском_округу"
-     "Списак_споменика_културе_у_Пећком_округу"
-     "Списак_споменика_културе_у_Пиротском_округу"
-     "Списак_споменика_културе_у_Подунавском_округу"
-     "Списак_споменика_културе_у_Поморавском_округу"
-     "Списак_споменика_културе_у_Призренском_округу"
-     "Списак_споменика_културе_у_Пчињском_округу"
-     "Списак_споменика_културе_у_Расинском_округу"
-     "Списак_споменика_културе_у_Рашком_округу"
-     "Списак_споменика_културе_у_Севернобанатском_округу"
-     "Списак_споменика_културе_у_Севернобачком_округу"
-     "Списак_споменика_културе_у_Средњобанатском_округу"
-     "Списак_споменика_културе_у_Сремском_округу"
-     "Списак_споменика_културе_у_Топличком_округу"
-     "Списак_споменика_културе_у_Шумадијском_округу"])))
+             "\n"))))))
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          "Просторно_културно-историјске_целине_од_великог_значаја")))
+                       [:parse :wikitext])]
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (.replace (.substring (nth fields 0) 1) " " "") "ПКИЦ" "PKIC"))
+            (.trim
+             (first
+              (.split
+               (.replace
+                (.replace (nth fields 1) "[[" "")
+                "]]" "")
+               "\\|")))])
+         (map
+          #(.split % "\\|\\|")
+          (filter
+           #(or
+             (.startsWith % "| ")
+             (.startsWith % "|\t"))
+           (.split
+            list-wiki
+            "\n")))))
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          "Списак_археолошких_налазишта_од_изузетног_значаја")))
+                       [:parse :wikitext])]
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (nth fields 0) "АН " "AN"))
+            (first
+             (.split
+              (.replace
+               (.replace (nth fields 2) "[[" "")
+               "]]" "")
+              "\\|"))])
+         (partition
+          7
+          7
+          nil
+          (map
+           #(.replace % "| align=\"center\" |" "")
+           (filter
+            #(.startsWith % "| align=\"center\" |")
+            (.split
+             list-wiki
+             "\n"))))))
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          "Археолошка_налазишта_од_великог_значаја")))
+                       [:parse :wikitext])]
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (.replace (.substring (nth fields 0) 1) " " "") "АН" "AN"))
+            (.trim
+             (first
+              (.split
+               (.replace
+                (.replace (nth fields 1) "[[" "")
+                "]]" "")
+               "\\|")))])
+         (map
+          #(.split % "\\|\\|")
+          (filter
+           #(or
+             (.startsWith % "| ")
+             (.startsWith % "|\t"))
+           (.split
+            list-wiki
+            "\n")))))
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          "Списак_знаменитих_места_од_изузетног_значаја")))
+                       [:parse :wikitext])]
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (nth fields 0) "ЗМ " "ZM"))
+            (first
+             (.split
+              (.replace
+               (.replace (nth fields 2) "[[" "")
+               "]]" "")
+              "\\|"))])
+         (partition
+          7
+          7
+          nil
+          (map
+           #(.replace % "| align=\"center\" |" "")
+           (filter
+            #(.startsWith % "| align=\"center\" |")
+            (.split
+             list-wiki
+             "\n"))))))
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          "Знаменита_места_од_великог_значаја")))
+                       [:parse :wikitext])]
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (.replace (.substring (nth fields 0) 1) " " "") "ЗМ" "ZM"))
+            (.trim
+             (first
+              (.split
+               (.replace
+                (.replace (nth fields 2) "[[" "")
+                "]]" "")
+               "\\|")))])
+         (map
+          #(.split % "\\|\\|")
+          (filter
+           #(or
+             (.startsWith % "| ")
+             (.startsWith % "|\t"))
+           (.split
+            list-wiki
+            "\n"))))))))))
 
-#_(count wikipedia-seq) ;; 1805
+#_(count wikipedia-seq) ;; with other lists 1915 ;; only with spomenici kulture 1805
+
+#_(last wikipedia-seq)
+#_{:id "SK1", :title "Музеј Вука и Доситеја", :wikidata "Q1775086"}
 
 #_(count (into #{} (map :id wikipedia-seq))) ;; 1777
 
@@ -235,6 +436,7 @@
 
 (defn parse-monument-raw [content]
   (let [html (html/html-resource (io/string->input-stream content))]
+    (def a html)
     (let [sk-number (first
                      (:content
                       (last
@@ -271,6 +473,63 @@
                       html
                       [:tr])))
                    [:td]))))
+          municipality (first
+                (:content
+                 (last
+                  (html/select
+                   (first
+                    (filter
+                     (fn [row]
+                       (=
+                        "Општина:"
+                        (get-in
+                         (html/select
+                          row
+                          [:td])
+                         [0 :content 0])))
+                     (html/select
+                      html
+                      [:tr])))
+                   [:td]))))
+          place (first
+                (:content
+                 (last
+                  (html/select
+                   (first
+                    (filter
+                     (fn [row]
+                       (=
+                        "Место:"
+                        (get-in
+                         (html/select
+                          row
+                          [:td])
+                         [0 :content 0])))
+                     (html/select
+                      html
+                      [:tr])))
+                   [:td]))))
+          description (.trim
+                       (first
+                        (:content
+                         (second
+                          (:content
+                           (last
+                            (html/select
+                             (first
+                              (filter
+                               (fn [row]
+                                 (=
+                                  "Опис непокретног културног добра:"
+                                  (get-in
+                                   (html/select
+                                    row
+                                    [:td])
+                                   [0 :content 0])))
+                               (html/select
+                                html
+                                [:tr])))
+                             [:td])))))))
           inscription-date (first
                             (:content
                              (last
@@ -328,6 +587,9 @@
       {
        :sk sk-number
        :name name
+       :municipality municipality
+       :place place
+       :description description
        :inscription-date inscription-date
        :jurisdiction jurisdiction
        :criteria criteria})))
@@ -382,7 +644,7 @@
            "SK155" "SK156" "SK158" "SK182"}
         ref)
      "98"
-     "22")))x
+     "22")))
 
 (defn extract-jurisdiction [monument]
   (when-let [jurisdiction (:jurisdiction monument)]
@@ -409,6 +671,9 @@
       (:wikidata info)
       (println "[WARN] no wikidata for" ref))))
 
+#_(first (filter #(= (:id %) "AN103") unique-wikipedia-seq))
+
+#_(filter #(.startsWith (:id %) "AN10") unique-wikipedia-seq)
 
 (defn extract-monument [monument]
   (let [metadata (parse-monument-raw (ensure-monument-raw (:id monument)))
@@ -422,7 +687,6 @@
                  (filter
                   some?
                   [
-                   ["heritage" "2"]
                    (when-let [ref (extract-ref metadata)]
                      ["ref:RS:nkd" ref])
                    ["heritage:website" (str "https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=" (:id monument))]
@@ -432,13 +696,18 @@
                      ["heritage:RS:criteria" criteria])
                    (when-let [protect-class (extract-protect-class metadata)]
                      ["protect_class" protect-class])
+                   (if-let [protect-class (extract-protect-class metadata)]
+                     (if (= protect-class "22")
+                       ["heritage" "2"]
+                       ["heritage" "1"])
+                     ["heritage" "2"])
                    (when-let [jurisdiction (extract-jurisdiction metadata)]
                      ["heritage:RS:jurisdiction" jurisdiction])
                    (when-let [name (extract-name metadata)]
-                     ["name" name])
-                   (when-let [name (extract-name metadata)]
+                     ["heritage:RS:name" name])
+                   #_(when-let [name (extract-name metadata)]
                      ["name:sr" name])
-                   (when-let [name (extract-name metadata)]
+                   #_(when-let [name (extract-name metadata)]
                      ["name:sr-Latn" (mapping/cyrillic->latin name)])
                    (when-let [wikipedia (extract-wikipedia metadata)]
                      ["wikipedia" (str "sr:" wikipedia)])
@@ -451,6 +720,7 @@
 #_(extract-monument {:id "103634"})
 #_(extract-monument {:id "109381"})
 #_(extract-monument {:id "109102"})
+#_(extract-monument {:id "108353"})
 
 (def monument-seq
   (with-open [is (fs/input-stream (path/child dataset-path "index.json"))]
@@ -495,6 +765,9 @@
 
 #_(count monument-seq) ;; 2481 ( was 2484 before extraction )
 
+
+(count (filter #(some? (get-in % [:tags "wikipedia"])) monument-seq)) ;; 1778
+
 #_(count (filter #(= (get-in % [:tags "protect_class"]) "98") monument-seq)) ;; 14
 #_(count
  (into
@@ -522,6 +795,11 @@
         (:latitude monument)
         (:tags monument)))
      monument-seq))
+   (io/output-stream->writer os)))
+
+#_(with-open [os (fs/output-stream (path/child dataset-path "monuments-raw.json"))]
+  (json/write-pretty-print
+   monument-seq
    (io/output-stream->writer os)))
 
 

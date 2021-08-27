@@ -210,7 +210,7 @@
    (var geocache-not-found-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-#_(count geocache-not-found-seq) ;; 267
+#_(count geocache-not-found-seq) ;; 262 ;; 267
 
 (web/register-dotstore
  "geocache-not-found"
