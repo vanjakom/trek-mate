@@ -237,7 +237,7 @@
                           (str track-id ".json")))]
            [(:locations (json/read-keyworded is))]))
        ;; garmin
-       (let [track-id "Track_2021-08-06 115207"]
+       (let [track-id "Track_2021-08-09 181739"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -246,7 +246,7 @@
                           (str track-id ".gpx")))]
            (:track-seq (gpx/read-track-gpx is))))
        ;; garmin connect (watch)
-       #_(let [track-id "2021-03-07T09:14:06+00:00_6390754145"]
+       #_(let [track-id "Track_2021-08-28 112043"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -259,7 +259,7 @@
        #_(storage/location-request-file->location-seq
         (storage/location-request-last-file env/*trek-mate-user*))
        ;; garmin
-       (let [waypoint-file-name "Waypoints_06-AUG-21.gpx"]
+       (let [waypoint-file-name "Waypoints_09-AUG-21.gpx"]
          (mine/garmin-waypoint-file->location-seq
           (path/child
            env/*global-my-dataset-path*
@@ -425,14 +425,13 @@
 #_(prepare-name-tags "Запис липа у манастиру")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
 #_(prepare-name-tags "Скулптура медведа")
-#_(prepare-name-tags "Месна заједница Бешеновачки Прњавор")
+#_(prepare-name-tags "Месна заједница Кушиљево")
 #_(prepare-name-tags "Капела Св. Пантелејмона")
 #_(prepare-name-tags "Дом здравља Ваљево")
 #_(prepare-name-tags "Зграда Дечјег дома краљице Марије")
 #_(prepare-name-tags "Скакавци - Велики Козомор")
-
-
-
-
+#_(prepare-name-tags "Вршачка трансверзала")
+#_(prepare-name-tags "Стаза здравља")
+#_(prepare-name-tags "Крушевице - Ситница")
 
 

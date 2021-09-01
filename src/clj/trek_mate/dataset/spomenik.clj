@@ -48,6 +48,8 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+(def dataset-raw-path (path/child env/*dataset-cloud-path* "heritage.gov.rs"))
+
 (def dataset-path ["Users" "vanja" "projects" "zanimljiva-geografija"
                    "projects" "osm-spomenici-import"])
 
@@ -90,7 +92,7 @@
         list-wiki
         "\n")))))))
 
-#_(let [list-title "Просторно_културно-историјске_целине_од_великог_значаја"
+#_(let [list-title "Списак_археолошких_налазишта_у_Србији"
       list-wiki (get-in
                  (json/read-keyworded
                   (http/get-as-stream
@@ -120,6 +122,9 @@
       (.split
        list-wiki
        "\n"))))))
+
+
+
 
 (def wikipedia-seq
   (doall
@@ -363,9 +368,34 @@
              (.startsWith % "|\t"))
            (.split
             list-wiki
-            "\n"))))))))))
+            "\n")))))
+      (let [list-title "Списак_археолошких_налазишта_у_Србији"
+            list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          list-title)))
+                       [:parse :wikitext])]
+        (println "[LIST]" list-title)
+        (map
+         (fn [line]
+           (try
+             (let [fields (.split line "\\|")]
+               [
+                (.trim (.replace (get fields 1) "ИД =АН " "AN"))
+                (.trim (.replace (get fields 3) "Назив=" ""))])
+             (catch Exception e
+               (println "[EXCEPTION]" line)
+               (.printStackTrace e))))
+         (filter
+          (fn [line]
+            (.startsWith line "| ИД ="))
+          (.split
+           list-wiki
+           "\n")))))))))
 
-#_(count wikipedia-seq) ;; with other lists 1915 ;; only with spomenici kulture 1805
+#_(count wikipedia-seq) ;; 2013 ;; only with spomenici kulture 1805
 
 #_(last wikipedia-seq)
 #_{:id "SK1", :title "Музеј Вука и Доситеја", :wikidata "Q1775086"}
@@ -388,7 +418,7 @@
     (group-by :id wikipedia-seq))))
 
 #_(first unique-wikipedia-seq)
-#_(count (into #{} (map :id unique-wikipedia-seq))) ;; 1771
+#_(count (into #{} (map :id unique-wikipedia-seq))) ;; 1903
 
 
 #_(with-open [os (fs/output-stream (path/child dataset-path "wikipedia.geojson"))]
@@ -412,13 +442,14 @@
   (str "https://sr.wikipedia.org/wiki/" "Кућа Петронијевића")))
 
 
-(with-open [os (fs/output-stream (path/child dataset-path "index.json"))]
+;; obtain raw data index
+#_(with-open [os (fs/output-stream (path/child dataset-raw-path "index.json"))]
   (io/copy-input-to-output-stream
    (http/get-as-stream "https://nasledje.gov.rs//index.cfm/index/mapa")
    os))
 
 (defn ensure-monument-raw [id]
-  (let [path (path/child dataset-path "monuments-raw" (str id ".html"))]
+  (let [path (path/child dataset-raw-path "monuments-raw" (str id ".html"))]
     (if (fs/exists? path)
       (io/input-stream->string (fs/input-stream path))
       (let [url (str
@@ -509,27 +540,28 @@
                       html
                       [:tr])))
                    [:td]))))
-          description (.trim
-                       (first
-                        (:content
-                         (second
-                          (:content
-                           (last
-                            (html/select
-                             (first
-                              (filter
-                               (fn [row]
-                                 (=
-                                  "Опис непокретног културног добра:"
-                                  (get-in
-                                   (html/select
-                                    row
-                                    [:td])
-                                   [0 :content 0])))
-                               (html/select
-                                html
-                                [:tr])))
-                             [:td])))))))
+          description (if-let [description (first
+                                            (:content
+                                             (second
+                                              (:content
+                                               (last
+                                                (html/select
+                                                 (first
+                                                  (filter
+                                                   (fn [row]
+                                                     (=
+                                                      "Опис непокретног културног добра:"
+                                                      (get-in
+                                                       (html/select
+                                                        row
+                                                        [:td])
+                                                       [0 :content 0])))
+                                                   (html/select
+                                                    html
+                                                    [:tr])))
+                                                 [:td]))))))]
+                        (.trim description)
+                        nil)
           inscription-date (first
                             (:content
                              (last
@@ -538,7 +570,7 @@
                                 (filter
                                  (fn [row]
                                    (=
-                                    "Датум уписа у регистар"
+                                    "Датум уписа у"
                                     (get-in
                                      (html/select
                                       row
@@ -663,13 +695,13 @@
   (when-let [ref (extract-ref monument)]
     (if-let [info (first (filter #(= (:id %) ref) unique-wikipedia-seq))]
       (:title info)
-      (println "[WARN] no wikipedia for" ref))))
+      #_(println "[WARN] no wikipedia for" ref))))
 
 (defn extract-wikidata [monument]
   (when-let [ref (extract-ref monument)]
     (if-let [info (first (filter #(= (:id %) ref) unique-wikipedia-seq))]
       (:wikidata info)
-      (println "[WARN] no wikidata for" ref))))
+      #_(println "[WARN] no wikidata for" ref))))
 
 #_(first (filter #(= (:id %) "AN103") unique-wikipedia-seq))
 
@@ -717,13 +749,15 @@
       final
       nil)))
 
-#_(extract-monument {:id "103634"})
+#_(extract-monument {:id "109072"})
 #_(extract-monument {:id "109381"})
 #_(extract-monument {:id "109102"})
 #_(extract-monument {:id "108353"})
+#_(extract-monument {:id "105254"})
+#_(extract-monument {:id "109425"})
 
 (def monument-seq
-  (with-open [is (fs/input-stream (path/child dataset-path "index.json"))]
+  (with-open [is (fs/input-stream (path/child dataset-raw-path "index.json"))]
     (doall
      (filter
       some?
@@ -763,10 +797,9 @@
                nil))))
        (:DATA (json/read-keyworded is)))))))
 
-#_(count monument-seq) ;; 2481 ( was 2484 before extraction )
+#_(count monument-seq) ;; 2478 ( was 2484 before extraction )
 
-
-(count (filter #(some? (get-in % [:tags "wikipedia"])) monument-seq)) ;; 1778
+#_(count (filter #(some? (get-in % [:tags "wikipedia"])) monument-seq)) ;;1819
 
 #_(count (filter #(= (get-in % [:tags "protect_class"]) "98") monument-seq)) ;; 14
 #_(count
@@ -802,7 +835,6 @@
    monument-seq
    (io/output-stream->writer os)))
 
-
 #_(with-open [os (fs/output-stream (path/child dataset-path "monuments.csv"))]
   (doseq [monument monument-seq]
     (io/write-line
@@ -835,7 +867,7 @@
   (take 3000 monument-seq)))
 
 
-(def import-seq
+#_(def import-seq
   (with-open [is (fs/input-stream (path/child dataset-path "nkd_srbija.geojson"))]
     (doall
      (map
@@ -851,8 +883,8 @@
 
 #_(first import-seq)
 
-(into #{} (map #(get-in % [:tags :protect_class]) import-seq))
-(run! println (map #(get-in % [:tags :ref:RS:nkd]) (filter #(= (get-in % [:tags :protect_class]) "98") import-seq)))
+#_(into #{} (map #(get-in % [:tags :protect_class]) import-seq))
+#_(run! println (map #(get-in % [:tags :ref:RS:nkd]) (filter #(= (get-in % [:tags :protect_class]) "98") import-seq)))
 #_(count(filter #(= (get-in % [:tags :protect_class]) "98") import-seq)) ;; 13
 
 (map/define-map
@@ -865,7 +897,7 @@
     (map
      (fn [location]
        (geojson/location->feature location))
-     import-seq))))
+      monument-seq))))
 
 (def osm-seq (map
               (fn [entry]
@@ -886,6 +918,200 @@
 
 #_(first osm-seq)
 #_{:id 8947268725, :type :node, :version 2, :changeset 108547536, :longitude 19.3303102, :latitude 44.2959682, :tags {"name:sr" "Црква брвнара", "ref:RS:nkd" "SK578", "dedication:sr" "Свети апостоли Петар и Павле", "heritage:RS:criteria" "great", "alt_name:sr" "Црква Светих апостола Петара и Павла", "addr:postcode" "15320", "addr:city" "Љубовија", "dedication:sr-Latn" "Sveti apostoli Petar i Pavle", "alt_name:sr-Latn" "Crkva Svetih apostola Petara i Pavla", "name" "Црква брвнара", "amenity" "place_of_worship", "heritage" "2", "denomination" "serbian_orthodox", "name:sr-Latn" "Crkva brvnara", "addr:street" "Селанац", "religion" "christian"}}
+
+#_(first monument-seq)
+
+;; zemun test data
+#_(let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
+  (with-open [os (fs/output-stream (path/child dataset-path "nkd_zemun.geojson"))]
+    (let [active-seq (filter
+                      (fn [monument]
+                        (and
+                         (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+                         (and
+                          (> (:longitude monument) 20.22446)
+                          (< (:longitude monument) 20.44144)
+                          (> (:latitude monument) 44.75649)
+                          (< (:latitude monument) 44.95022))))
+                      monument-seq)]
+      (json/write-to-stream
+       (geojson/geojson
+        (map
+         geojson/location->feature
+         active-seq))
+       os)
+      (map/define-map
+        "spomenici-zemun"
+        (map/tile-layer-osm)
+        (map/tile-layer-bing-satellite false)
+        (map/geojson-style-marker-layer
+         "spomenici-zemun"
+         (geojson/geojson
+          (map
+           geojson/location->feature
+           active-seq)))))))
+
+
+;; diff
+;; integrate with wiki
+(def note-map {})
+
+(with-open [os (fs/output-stream (path/child dataset-path "diff.html"))]
+  (let [report-diff (fn [osm import]
+                      (let [tags-merge (reduce
+                                        (fn [state [tag osm import]]
+                                          (update-in
+                                           state
+                                           [tag]
+                                           #(vector
+                                             (or (first %) osm)
+                                             (or (second %) import))))
+                                        {}
+                                        (concat
+                                         (map
+                                          #(vector (first %) nil (second %))
+                                          (:tags import))
+                                         (map
+                                          #(vector (first %) (second %) nil)
+                                          (:tags osm))))
+                            tags-diff (filter
+                                       some?
+                                       (map
+                                        (fn [[tag [osm import]]]
+                                          (cond
+                                            (nil? osm)
+                                            [:- tag import]
+                                            (nil? import)
+                                            [:+ tag osm]
+                                            (not (= osm import))
+                                            [:* tag osm import]
+                                            :else
+                                            nil))
+                                        tags-merge))]
+                        (when (> (count tags-diff) 0)
+                          (concat
+                           (list
+                            [:div
+                             (list
+                              (or
+                              (get-in import [:tags "ref:RS:nkd"])
+                              (get-in osm [:tags "ref:RS:nkd"])
+                              "unknown"))
+                             " "
+                             (when (some? osm)
+                               (list
+                                [:a
+                                 {:href (str
+                                         "http://openstreetmap.org/"
+                                         (name (:type osm))
+                                         "/"
+                                         (:id osm))
+                                  :target "_blank"}
+                                 (str (first (name (:type osm))) (:id osm))]
+                                " "
+                                [:a
+                                 {:href (str
+                                         "http://level0.osmz.ru/?url="
+                                         (name (:type osm))
+                                         "/"
+                                         (:id osm))
+                                  :target "_blank"}
+                                 "level"]
+                                " "
+                                [:a
+                                 {:href (str
+                                         "http://localhost:7077/view/osm/history/"
+                                         (name (:type osm))
+                                         "/"
+                                         (:id osm))
+                                  :target "_blank"}
+                                 "history"]))
+                             [:br]
+                             (get
+                              note-map
+                              (or
+                               (get-in osm [:tags "ref:RS:nkd"])
+                               (get-in import [:tags "ref:RS:nkd"])))])
+                           (map
+                            (fn [tag-diff]
+                              (cond
+                                (= :- (first tag-diff))
+                                [:div {:style "color:red;"}
+                                 (str (nth tag-diff 1) " = " (nth tag-diff 2))]
+                                (= :+ (first tag-diff))
+                                [:div {:style "color:green;"}
+                                 (str (nth tag-diff 1) " = " (nth tag-diff 2))]
+                                (= :* (first tag-diff))
+                                [:div {:style "color:blue;"}
+                                 (str
+                                  (nth tag-diff 1)
+                                  " = "
+                                  (nth tag-diff 3)
+                                  " -> "
+                                  (nth tag-diff 2))]
+                                :else
+                                (println "\tunknown diff")))
+                            tags-diff)
+                           (list
+                            [:br]
+                            [:br])))))]
+    (let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))
+          pair-seq (loop [osm-seq (sort-by #(get-in % [:tags "ref:RS:nkd"]) osm-seq)
+                          import-seq (sort-by
+                                      #(get-in % [:tags "ref:RS:nkd"])
+                                      (filter
+                                       (fn [monument]
+                                         (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+                                       monument-seq))
+                         pair-seq []]
+                    (let [osm (first osm-seq)
+                          import (first import-seq)]
+                      (cond
+                        (and (nil? osm) (nil? import))
+                        pair-seq
+                        (and (nil? osm) some? import)
+                        (recur
+                         (rest osm-seq)
+                         (rest import-seq)
+                         (conj pair-seq [osm import]))
+                        (and (some? osm) (nil? import))
+                        (recur
+                         (rest osm-seq)
+                         (rest import-seq)
+                         (conj pair-seq [osm import]))
+                        (= (get-in osm [:tags "ref:RS:nkd"]) (get-in import [:tags "ref:RS:nkd"]))
+                        (recur
+                         (rest osm-seq)
+                         (rest import-seq)
+                         (conj pair-seq [osm import]))
+                        (<
+                         (as/as-long (.hashCode (get-in osm [:tags "ref:RS:nkd"])))
+                         (as/as-long (.hashCode (get-in import [:tags "ref:RS:nkd"]))))
+                        (recur
+                         (rest osm-seq)
+                         import-seq
+                         (conj pair-seq [osm nil]))
+                        (>
+                         (as/as-long (.hashCode (get-in osm [:tags "ref:RS:nkd"])))
+                         (as/as-long (.hashCode (get-in import [:tags "ref:RS:nkd"]))))
+                        (recur
+                         osm-seq
+                         (rest import-seq)
+                         (conj pair-seq [nil import]))
+                        :else
+                        (do
+                          (println "unknown case")
+                          (println osm)
+                          (println import)))))]
+     (io/write-string
+      os
+      (hiccup/html
+       [:html
+        (map
+         #(report-diff (first %) (second %))
+         pair-seq)]))
+     #_(doseq [[import osm] pair-seq]
+       (report-diff import osm)))))
 
 
 ;; old new approach with deserialization

@@ -872,7 +872,12 @@
   ;; macedonia
   (q 927599) ;; "!Љуботен"
 
-  
+  ;; mapping
+  (l 20.00260, 44.88298 tag/tag-todo "proveriti gde se nalazi posta, waypoint i gopro od 20210820")
+  (l 18.49334, 42.54005 tag/tag-todo "izvideti gde vodi staza, trebalo bi da je Krusevice - Sitnica, 20210806")
+  (l 18.53737, 42.45177 tag/tag-todo "obici agenciju za promociju orjena, https://orjen.me/")
+  (l 18.51346, 42.55657 tag/tag-todo "staza do Subre i napred za Orjen sedlo")
+  (l 18.50759, 42.55204 tag/tag-todo "obici stazu zdravlja")
   )
 
 (web/register-dotstore
