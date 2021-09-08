@@ -914,7 +914,7 @@
                  (vals (:ways dataset))
                  (vals (:relations dataset))))))
 
-#_(count osm-seq) ;; 250
+#_(count osm-seq) ;; 314
 
 #_(first osm-seq)
 #_{:id 8947268725, :type :node, :version 2, :changeset 108547536, :longitude 19.3303102, :latitude 44.2959682, :tags {"name:sr" "Црква брвнара", "ref:RS:nkd" "SK578", "dedication:sr" "Свети апостоли Петар и Павле", "heritage:RS:criteria" "great", "alt_name:sr" "Црква Светих апостола Петара и Павла", "addr:postcode" "15320", "addr:city" "Љубовија", "dedication:sr-Latn" "Sveti apostoli Petar i Pavle", "alt_name:sr-Latn" "Crkva Svetih apostola Petara i Pavla", "name" "Црква брвнара", "amenity" "place_of_worship", "heritage" "2", "denomination" "serbian_orthodox", "name:sr-Latn" "Crkva brvnara", "addr:street" "Селанац", "religion" "christian"}}

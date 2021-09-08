@@ -424,7 +424,7 @@
 #_(prepare-name-tags "Етно село Азбука")
 #_(prepare-name-tags "Запис липа у манастиру")
 #_(prepare-name-tags "ОШ ”Митрополит Михајло”")
-#_(prepare-name-tags "Скулптура медведа")
+#_(prepare-name-tags "Зграда штампарије Карамата")
 #_(prepare-name-tags "Месна заједница Кушиљево")
 #_(prepare-name-tags "Капела Св. Пантелејмона")
 #_(prepare-name-tags "Дом здравља Ваљево")

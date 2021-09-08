@@ -83,6 +83,7 @@
   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
     (json/read-keyworded is)))
 #_(count posts)
+;; 252 on 20210908
 ;; 251 on 20210629
 ;; 242 on 20210311
 ;; 233 on 20201223
