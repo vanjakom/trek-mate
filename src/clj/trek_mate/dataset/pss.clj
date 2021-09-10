@@ -471,7 +471,7 @@
 (def relation-seq (overpass/query-string "relation[source=pss_staze];"))
 
 #_(first relation-seq)
-#_(count relation-seq)
+#_(count relation-seq) ;; 141
 
 ;; report relations
 #_(run!
@@ -492,7 +492,6 @@
    ;; staza nema gpx
    ;; "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
    "4-45-3" "gpx je problematičan, deluje da je kružna staza"
-   "7-3-5" "gpx vodi pored ucrtanih puteva, malo poklapanja sa snimcima"
    "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
    "4-40-1" "kretanje železničkom prugom kroz tunele?"
    "4-31-9" "gpx problematičan, dosta odstupanja"
@@ -604,6 +603,12 @@
                           note
                           "")))))
      (println "|}"))))
+
+;; 11260598
+;; 11105694
+;; 11126557
+;;11126446
+
 
 
 ;; set gpx as track to be used for route order fix and check

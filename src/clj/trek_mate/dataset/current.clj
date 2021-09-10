@@ -134,12 +134,21 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20210910
+(l 19.26252, 42.44252 tag/tag-sleep "!Hotel Marienplatz")
+(l 19.25062, 42.36032 tag/tag-airport)
+(l 19.20128, 42.27143 tag/tag-eat "!Plavnica")
+(storage/import-location-v2-seq-handler
+ (map
+  #(t % "@urde2021")
+  (vals (deref dataset))))
+
 ;; 20210730
-(n 8963008929 "#tepui2021") "!Filipov breg"
+#_(n 8963008929 "#tepui2021") "!Filipov breg"
 
 
 ;; 20210719
-(map/define-map
+#_(map/define-map
   "tepui2021"
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)
@@ -239,15 +248,16 @@
     (map/geojson-gpx-layer "varijante za nazad"  is)))
 
 ;; 20210705
-(l 19.88670, 44.26969 tag/tag-todo "Turisticka organizacija Valjevo" "Prote Mateja 1")
-(l 19.87859, 44.26776 tag/tag-todo "Kej")
-(l 19.89073, 44.27006 tag/tag-todo "PD Magles" "Sindjeliceva 14")
-(l 19.88402, 44.27130 tag/tag-todo "Katastar" "Vojvode Misica 39")
+#_(do
+  (l 19.88670, 44.26969 tag/tag-todo "Turisticka organizacija Valjevo" "Prote Mateja 1")
+  (l 19.87859, 44.26776 tag/tag-todo "Kej")
+  (l 19.89073, 44.27006 tag/tag-todo "PD Magles" "Sindjeliceva 14")
+  (l 19.88402, 44.27130 tag/tag-todo "Katastar" "Vojvode Misica 39")
 
-(storage/import-location-v2-seq-handler
- (map
-  #(t % "@divcibare20210706")
-  (vals (deref dataset))))
+  (storage/import-location-v2-seq-handler
+   (map
+    #(t % "@divcibare20210706")
+    (vals (deref dataset)))))
 
 ;; 20210528
 #_(n 6428859685)
@@ -966,7 +976,7 @@
      [(gpx/track
       [(gpx/track-segment location-seq)])])))
 
-(let [location-seq (concat
+#_(let [location-seq (concat
                     (with-open [is (fs/input-stream (path/child
                                                     env/*dataset-cloud-path*
                                                     "mine"

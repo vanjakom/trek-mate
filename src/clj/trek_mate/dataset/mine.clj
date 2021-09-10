@@ -878,6 +878,7 @@
   (l 18.53737, 42.45177 tag/tag-todo "obici agenciju za promociju orjena, https://orjen.me/")
   (l 18.51346, 42.55657 tag/tag-todo "staza do Subre i napred za Orjen sedlo")
   (l 18.50759, 42.55204 tag/tag-todo "obici stazu zdravlja")
+  (n 9079082710 tag/tag-todo "prerast")
   )
 
 (web/register-dotstore
