@@ -437,41 +437,47 @@
 #_(swap! cache {})
 #_(get-in (deref cache) [:relations 11258223])
 
+(defn check-connected?
+  "For given relation checks that all way members are connected, useful for hiking
+  relation checks. Returns vector of connected ways and boolean"
+  [way-map relation]
+  (println "relation: " (:id relation))
+  (loop [end-set nil
+         ways (map :id (filter #(= (:type %) :way) (:members relation)))
+         connected-way-seq []]
+    (let [way-id (first ways)
+          ways (rest ways)]
+      (if way-id
+        (if-let [way (get way-map way-id)]
+          (let [first-node (first (:nodes way))
+                last-node (last (:nodes way))]
+            (cond
+              (nil? end-set)
+              (recur
+               #{first-node last-node}
+               ways
+               (conj connected-way-seq way-id))
 
-(defn prepare-route-data [id]
-  (dataset-relation id)
-  #_(if-let [dataset (osmapi/relation-full id)]
-    dataset
-    #_(let [relation (get-in dataset [:relations id])]
-      {
-       :geometry
-       (filter
-        some?
-        (map
-         (fn [member]
-           (cond
-             (= (:type member) :way)
-             {
-              :type "way"
-              :id (:id member)
-              :coordinates
-              (map
-               (fn [node-id]
-                 (let [node (get-in dataset [:nodes node-id])]
-                   [(as/as-double (:latitude node)) (as/as-double (:longitude node))]))
-               (:nodes (get-in dataset [:ways (:id member)])))}
-             ;; todo support nodes
-           :else
-           nil))
-         (:members relation)))})))
+              (contains? end-set first-node)
+              (recur
+               #{last-node}
+               ways
+               (conj connected-way-seq way-id))
 
-#_(prepare-route-data 10948917)
-#_(osmapi/relation-full 10948917)
+              (contains? end-set last-node)
+              (recur
+               #{first-node}
+               ways
+               (conj connected-way-seq way-id))
 
-#_(defn prepare-explore-data [id left top right bottom]
-  (println id left top right bottom)
-  #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
-    dataset))
+              :else
+              (do
+                (println "\tunknown state" end-set first-node last-node)
+                [connected-way-seq false])))
+          (do
+            (println "\tway lookup failed:" way-id)
+            [connected-way-seq false]))
+        [connected-way-seq true]))))
 
 (defn try-order-route [relation anchor]
   (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
@@ -557,7 +563,6 @@
           (map
            first
            ordered-way-tuples)))))))
-
 #_(do
   (println "original:")
   (doseq [member (:members a)]
@@ -569,6 +574,35 @@
   (doseq [member (:members (try-order-route a nil))]
     (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
       (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
+
+
+(defn prepare-route-data [id]
+  (let [dataset (dataset-relation id)
+        relation (second (first (:relations dataset)))
+        way-map (into
+                 {}
+                 (filter some?
+                         (map
+                          (fn [member]
+                            (when (= (:type member) :way)
+                              [
+                               (:id member)
+                               (get-in dataset [:ways (:id member)])]))
+                          (:members relation))))
+        [connected-way-seq connected] (check-connected? way-map relation)]
+    (assoc
+     dataset
+     :connected connected
+     :connected-way-seq connected-way-seq)))
+
+#_(prepare-route-data 10948917)
+#_(osmapi/relation-full 10948917)
+
+#_(defn prepare-explore-data [id left top right bottom]
+  (println id left top right bottom)
+  #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
+    dataset))
+
 
 (def dpm-ways (atom [729115595 313730002 865771171 906841733]))
 #_(deref dpm-ways) ;; [729115595 313730002 865771171]
@@ -1246,9 +1280,9 @@
                       "relation: "
                       [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
                       " "
-                      [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+                      [:a {:href (str "http://localhost:8080/#id=r" id) :target "_blank"} "iD(localhost)"]
                       " "
-                      [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+                      [:a {:href (str "http://level0.osmz.ru/?url=relation" "/" id) :target "_blank"} "level0"]
                       " "
                       [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
                       [:br]]]
@@ -1373,33 +1407,40 @@
      (let [ordered (try-order-route relation anchor)]
        {
         :status 200
+        :headers {
+                  "Content-Type" "application/json; charset=utf-8"}
         :body (json/write-to-string ordered)})))
   
   (compojure.core/POST
    "/route/edit/:id/update"
    request
    (let [id (get-in request [:params :id])
-         relation (json/read-keyworded (:body request))]
-     (println "relation:")
-     (run!
-      println
-      (map
-       (fn [member]
-         (str
-          (cond
-            (= (:type member) "way")
-            "wy"
-            (= (:type member) "node")
-            "nd"
-            (= (:type member) "relation")
-            "rel")
-          " "
-          (:id member)
-          " "
-          (:role member)))
-       (:members relation)))
-     {
-      :status 200}))
+         ;; tags will be keywords, solved on relation->relation-xml ensuring key is string
+         relation (json/read-keyworded (:body request))
+         changeset (osmapi/changeset-create "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije" {})]
+     (println "changeset:" changeset ", relation:" id )
+     (println relation)
+     (println (osmapi/relation-update changeset relation))
+     #_(do
+       (println "relation:")
+       (run!
+        println
+        (map
+         (fn [member]
+           (str
+            (cond
+              (= (:type member) "way")
+              "wy"
+              (= (:type member) "node")
+              "nd"
+              (= (:type member) "relation")
+              "rel")
+            " "
+            (:id member)
+            " "
+            (:role member)))
+         (:members relation))))
+     (ring.util.response/redirect (str "/view/osm/history/relation/" id))))
 
   (compojure.core/GET
     "/route/edit/:id"

@@ -153,6 +153,44 @@
    (channel-provider :relation-in))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
+;; #query
+;; random query to get data
+(def query-seq nil)
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+   #_osm-pbf-path
+   ;; todo use ram disk
+   ["Volumes" "RamDisk" "serbia-20210916.osm.pbf"]
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in))
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :node-in)
+    (channel-provider :way-in)
+    (channel-provider :relation-in)]
+   (channel-provider :filter-in))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter")
+   (channel-provider :filter-in)
+   (filter
+    (fn [entry]
+      ;; should work with :tags instead of :osm
+      (= "post_office" (get-in entry [:tags "amenity"]))))
+   (channel-provider :capture-in))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture-in)
+   (var query-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
+
+
 ;; flatten relations and ways to nodes
 ;; osmconvert \
 ;; 	/Users/vanja/dataset/geofabrik.de/serbia-latest.osm.pbf \

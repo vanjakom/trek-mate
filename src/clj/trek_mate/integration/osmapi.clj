@@ -75,7 +75,8 @@
     :lat (:latitude node)}
    (map
     (fn [[key value]]
-      (xml/element :tag {:k key :v value}))
+      ;; to prevent tag names going as keyword, happens during ser / deser
+      (xml/element :tag {:k (name key) :v value}))
     (:tags node))))
 
 (defn way-xml->way
@@ -127,7 +128,8 @@
      (:nodes way))
     (map
      (fn [[key value]]
-       (xml/element :tag {:k key :v value}))
+       ;; to prevent tag names going as keyword, happens during ser / deser
+       (xml/element :tag {:k (name key) :v value}))
      (:tags way)))))
 
 (defn relation-xml->relation
@@ -178,7 +180,8 @@
      (:members relation))
     (map
      (fn [[key value]]
-       (xml/element :tag {:k key :v value}))
+       ;; to prevent tag names going as keyword, happens during ser / deser
+       (xml/element :tag {:k (name key) :v value}))
      (:tags relation)))))
 
 (defn osmc-xml->changeset  
@@ -201,7 +204,7 @@
           (way-xml->way element)
 
           (= (:tag element) :relation)
-          (relation-xml->relation)
+          (relation-xml->relation element)
 
           :else
           (throw (ex-info "unknown element" element))))
@@ -1188,3 +1191,17 @@
        :delete
        {}
        (map convert-fn delete-seq))])))
+
+(defn note-create
+  "Performs POST /api/0.6/notes"
+  [longitude latitude text]
+  (if-let [is (http/with-basic-auth *user* *password*
+                (http/post-as-stream
+                 (str *server* "/api/0.6/notes?"
+                      "lat=" latitude "&lon=" longitude "&text=" (url-encode text))
+                 (io/string->input-stream "")))]
+    (as/as-long
+     (first
+      (:content
+       (first
+        (filter #(= (:tag %) :id) (:content (first (:content (xml/parse is)))))))))))

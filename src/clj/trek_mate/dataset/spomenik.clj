@@ -126,12 +126,13 @@
 
 
 
+
 (def wikipedia-seq
   (doall
    (filter
     some?
     (map
-     (fn [[id name]]
+     (fn [[id name page]]
        (try
          (let [entry (wiki/retrieve-wikipedia "sr" name)]
            (if-let [title (wikidata/entity->wikipedia-sr entry)]
@@ -139,7 +140,8 @@
                {
                 :id id
                 :title title
-                :wikidata wikidata})
+                :wikidata wikidata
+                :page page})
              (println "[ERROR]" name)))
          (catch Exception e
            (println "[EXCEPTION]" id name)
@@ -162,7 +164,8 @@
                 (let [fields (.split line "\\|")]
                   [
                    (.replace (get fields 1) "ИД=СК " "SK")
-                   (.trim (.replace (get fields 3) "Назив=" ""))])
+                   (.trim (.replace (get fields 3) "Назив=" ""))
+                   list-title])
                 (catch Exception e
                   (println "[EXCEPTION]" line)
                   (.printStackTrace e))))
@@ -220,7 +223,8 @@
               (.replace
                (.replace (nth fields 2) "[[" "")
                "]]" "")
-              "\\|"))])
+              "\\|"))
+            "Просторно_културно-историјске_целине_од_изузетног_значаја"])
          (partition
           7
           7
@@ -249,7 +253,8 @@
                (.replace
                 (.replace (nth fields 1) "[[" "")
                 "]]" "")
-               "\\|")))])
+               "\\|")))
+            "Просторно_културно-историјске_целине_од_великог_значаја"])
          (map
           #(.split % "\\|\\|")
           (filter
@@ -275,7 +280,8 @@
               (.replace
                (.replace (nth fields 2) "[[" "")
                "]]" "")
-              "\\|"))])
+              "\\|"))
+            "Списак_археолошких_налазишта_од_изузетног_значаја"])
          (partition
           7
           7
@@ -304,7 +310,8 @@
                (.replace
                 (.replace (nth fields 1) "[[" "")
                 "]]" "")
-               "\\|")))])
+               "\\|")))
+            "Археолошка_налазишта_од_великог_значаја"])
          (map
           #(.split % "\\|\\|")
           (filter
@@ -314,6 +321,32 @@
            (.split
             list-wiki
             "\n")))))
+      (let [list-wiki (get-in
+                       (json/read-keyworded
+                        (http/get-as-stream
+                         (str
+                          "https://sr.wikipedia.org/w/api.php?action=parse&prop=wikitext&formatversion=2&format=json&page="
+                          "Списак_знаменитих_места_у_Србији")))
+                       [:parse :wikitext])]
+        (map
+         (fn [fields]
+           [
+            (.trim (.replace (nth fields 1) "|ЗМ " "ZM"))
+            (.replace
+             (.replace (nth fields 3) "|[[" "")
+             "]]" "")
+            "Списак_знаменитих_места_у_Србији"])
+         (partition
+          9
+          9
+          nil
+          (map
+           #(.replace % "| align=\"center\" |" "")
+           (filter
+            #(and (.startsWith % "|") (not (.startsWith % "|}")))
+            (.split
+             list-wiki
+             "\n"))))))
       (let [list-wiki (get-in
                        (json/read-keyworded
                         (http/get-as-stream
@@ -330,7 +363,8 @@
               (.replace
                (.replace (nth fields 2) "[[" "")
                "]]" "")
-              "\\|"))])
+              "\\|"))
+            "Списак_знаменитих_места_од_изузетног_значаја"])
          (partition
           7
           7
@@ -359,7 +393,8 @@
                (.replace
                 (.replace (nth fields 2) "[[" "")
                 "]]" "")
-               "\\|")))])
+               "\\|")))
+            "Знаменита_места_од_великог_значаја"])
          (map
           #(.split % "\\|\\|")
           (filter
@@ -384,7 +419,8 @@
              (let [fields (.split line "\\|")]
                [
                 (.trim (.replace (get fields 1) "ИД =АН " "AN"))
-                (.trim (.replace (get fields 3) "Назив=" ""))])
+                (.trim (.replace (get fields 3) "Назив=" ""))
+                "Списак_археолошких_налазишта_у_Србији"])
              (catch Exception e
                (println "[EXCEPTION]" line)
                (.printStackTrace e))))
@@ -395,7 +431,7 @@
            list-wiki
            "\n")))))))))
 
-#_(count wikipedia-seq) ;; 2013 ;; only with spomenici kulture 1805
+#_(count wikipedia-seq) ;; 2059 ;; only with spomenici kulture 1805
 
 #_(last wikipedia-seq)
 #_{:id "SK1", :title "Музеј Вука и Доситеја", :wikidata "Q1775086"}
@@ -411,14 +447,24 @@
     (println "\t" duplicate)))
 
 (def unique-wikipedia-seq
-  (map
-   #(first (second %))
+  (doall
    (filter
-    #(= (count (second %)) 1)
-    (group-by :id wikipedia-seq))))
+    some?
+    (map
+     (fn [[id wikipedia-seq]]
+       (let [wikipedia-set (into #{} (filter some? (map :title wikipedia-seq)))]
+         (if (> (count wikipedia-set) 1)
+           (do
+             (println "[UNIQUE] not unique" id)
+             (doseq [entry wikipedia-seq]
+               (println "\t" entry))
+             nil)
+           (first wikipedia-seq))))
+     (group-by :id wikipedia-seq)))))
 
+#_(filter #(= (:id %) "ZM24") unique-wikipedia-seq)
 #_(first unique-wikipedia-seq)
-#_(count (into #{} (map :id unique-wikipedia-seq))) ;; 1903
+#_(count (into #{} (map :id unique-wikipedia-seq))) ;; 1949
 
 
 #_(with-open [os (fs/output-stream (path/child dataset-path "wikipedia.geojson"))]
@@ -754,7 +800,8 @@
 #_(extract-monument {:id "109102"})
 #_(extract-monument {:id "108353"})
 #_(extract-monument {:id "105254"})
-#_(extract-monument {:id "109425"})
+#_(:tags (extract-monument {:id "108370"}))
+
 
 (def monument-seq
   (with-open [is (fs/input-stream (path/child dataset-raw-path "index.json"))]
@@ -799,7 +846,7 @@
 
 #_(count monument-seq) ;; 2478 ( was 2484 before extraction )
 
-#_(count (filter #(some? (get-in % [:tags "wikipedia"])) monument-seq)) ;;1819
+#_(count (filter #(some? (get-in % [:tags "wikipedia"])) monument-seq)) ;; 1819
 
 #_(count (filter #(= (get-in % [:tags "protect_class"]) "98") monument-seq)) ;; 14
 #_(count
@@ -914,7 +961,9 @@
                  (vals (:ways dataset))
                  (vals (:relations dataset))))))
 
-#_(count osm-seq) ;; 314
+#_(count osm-seq)
+;; 20210922 340
+;; <20210922 328
 
 #_(first osm-seq)
 #_{:id 8947268725, :type :node, :version 2, :changeset 108547536, :longitude 19.3303102, :latitude 44.2959682, :tags {"name:sr" "Црква брвнара", "ref:RS:nkd" "SK578", "dedication:sr" "Свети апостоли Петар и Павле", "heritage:RS:criteria" "great", "alt_name:sr" "Црква Светих апостола Петара и Павла", "addr:postcode" "15320", "addr:city" "Љубовија", "dedication:sr-Latn" "Sveti apostoli Petar i Pavle", "alt_name:sr-Latn" "Crkva Svetih apostola Petara i Pavla", "name" "Црква брвнара", "amenity" "place_of_worship", "heritage" "2", "denomination" "serbian_orthodox", "name:sr-Latn" "Crkva brvnara", "addr:street" "Селанац", "religion" "christian"}}
@@ -951,6 +1000,35 @@
            geojson/location->feature
            active-seq)))))))
 
+;; beograd test data
+#_(let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
+  (with-open [os (fs/output-stream (path/child dataset-path "nkd_beograd.geojson"))]
+    (let [active-seq (filter
+                      (fn [monument]
+                        (and
+                         (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+                         (and
+                          (> (:longitude monument) 20.22446)
+                          (< (:longitude monument) 20.65292)
+                          (> (:latitude monument) 44.69111)
+                          (< (:latitude monument) 44.95022))))
+                      monument-seq)]
+      (json/write-to-stream
+       (geojson/geojson
+        (map
+         geojson/location->feature
+         active-seq))
+       os)
+      (map/define-map
+        "spomenici-beograd"
+        (map/tile-layer-osm)
+        (map/tile-layer-bing-satellite false)
+        (map/geojson-style-marker-layer
+         "spomenici-zemun"
+         (geojson/geojson
+          (map
+           geojson/location->feature
+           active-seq)))))))
 
 ;; diff
 ;; integrate with wiki

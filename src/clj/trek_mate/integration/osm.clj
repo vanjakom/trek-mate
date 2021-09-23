@@ -1145,23 +1145,31 @@
 
 (defn read-pbf-node
   [container]
-  (let [entity (.getEntity container)]
+  (let [entity (.getEntity container)
+        tags (read-pbf-tags (.getTags entity))]
     {
      :type :node
      :id (.getId entity)
      :longitude (.getLongitude entity)
      :latitude (.getLatitude entity)
-     :osm (read-pbf-tags (.getTags entity))
+     ;; legacy, remove when not needed anymore
+     :osm tags
+     ;; to normalize with overpass
+     :tags tags
      :user (.getName (.getUser entity))
      :timestamp (/ (.getTime (.getTimestamp entity)) 1000)}))
 
 (defn read-pbf-way
   [container]
-  (let [entity (.getEntity container)]
+  (let [entity (.getEntity container)
+        tags (read-pbf-tags (.getTags entity))]
     {
      :type :way
      :id (.getId entity)
-     :osm (read-pbf-tags (.getTags entity))
+     ;; legacy, remove when not needed anymore
+     :osm tags
+     ;; to normalize with overpass
+     :tags tags
      :user (.getName (.getUser entity))
      :timestamp (/ (.getTime (.getTimestamp entity)) 1000)
      :nodes (map
@@ -1171,11 +1179,15 @@
 
 (defn read-pbf-relation
   [container]
-  (let [entity (.getEntity container)]
+  (let [entity (.getEntity container)
+        tags (read-pbf-tags (.getTags entity))]
     {
      :type :relation
      :id (.getId entity)
-     :osm (read-pbf-tags (.getTags entity))
+     ;; legacy, remove when not needed anymore
+     :osm tags
+     ;; to normalize with overpass
+     :tags tags
      :user (.getName (.getUser entity))
      :timestamp (/ (.getTime (.getTimestamp entity)) 1000)
      :members (map

@@ -982,6 +982,7 @@
                  (vals (:ways dataset))))))
 
 #_(count osm-seq)
+;; 20210916 1437
 ;; 20210804 1437
 ;; 20210728 1437
 ;; 20210723 1443
@@ -992,6 +993,56 @@
 ;; 20210713 948
 ;; 20210708 773
 ;; 20210610 463
+
+
+;; 20210916 final check-in
+#_(doseq [post (filter
+              #(and
+                (= "post_office" (get-in % [:tags "amenity"]))
+                (some? (get-in % [:tags "website"])))
+              osm-seq)]
+  (println (get-in post [:tags "website"])))
+
+#_(doseq [post (into
+              #{}
+              (filter some? (map
+                             #(get-in % [:tags "operator"])
+                             osm-seq)))]
+  (println post))
+
+#_(doseq [post (into
+              #{}
+              (filter some? (map
+                             #(get-in % [:tags "brand"])
+                             osm-seq)))]
+  (println post))
+
+(let [post (first (filter #(= "17529" (:ref %)) import-seq))]
+  (println (:longitude post) (:latitude post))
+  (doseq [[key value] (:tags post)]
+    (println key "=" value)))
+
+
+(let [post (first (filter #(= "17529" (:ref %)) import-seq))]
+  (osmapi/note-create
+   (:longitude post) (:latitude post)
+   (str
+    "Пошта која нема довољно прецизну локацију\n\n"
+    "Тагови су припремљени за увоз у склопу пројекта https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Mapiranje_pošta"
+    " међутим добијена локација није била довољно прецизна. Уколико знате тачну локацију молимо вас да додате node"
+    " са следећим таговима:\n\n"
+    (clojure.string/join
+    "\n"
+    (map
+     (fn [[key value]]
+       (str key " = " value))
+     (:tags post))))))
+2857326
+2857324
+
+#_2857323
+#_2856780
+
 
 #_(take 5 osm-seq)
 
