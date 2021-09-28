@@ -482,87 +482,118 @@
 (defn try-order-route [relation anchor]
   (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
   #_(def a relation)
-  (let [node-members (filter #(= (:type %) "node") (:members relation))
-        way-members (filter #(= (:type %) "way") (:members relation))
-        ;; create tuple [member start-node end-node]
-        way-tuples (map
-              (fn [member]
-                (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
-                  [
-                   member
-                   (first (:nodes way))
-                   (last (:nodes way))]))
-              way-members)
-        ;; start order from, ignore before, useful for complex not suported cases
-        anchor (or anchor 0)]
-    (println "anchor at" anchor)
-    (let [ordered-way-tuples (loop [ordered-ways (into [] (take (inc anchor) way-tuples))
-                                    rest-of-ways (into [] (drop (inc anchor) way-tuples))
-                                    open-connections #{
-                                                       (nth (last ordered-ways) 1)
-                                                       (nth (last ordered-ways) 2)}]
-                               (println "ordered: " (map :id (map first ordered-ways)))
-                               (println "rest: " (map :id (map first rest-of-ways)))
-                               (println "open: " open-connections)
-                               (if-let [[id start end :as next] (first rest-of-ways)]
-                                 (cond
-                                   (contains? open-connections start)
-                                   (do
-                                     (println "match on next start " start " add " id)
-                                     (recur
-                                      (conj ordered-ways next)
-                                      (rest rest-of-ways)
-                                      #{end}))
+  (try
+    (let [
+          ;; start order from, ignore before, useful for complex not suported cases
+          ;; start after either anchor or first way
+          anchor (or
+                  anchor
+                  (first
+                   (filter
+                    some?
+                    (map-indexed
+                     (fn [index member]
+                       (when (= (:type member) "way")
+                         index))
+                     (:members relation)))))
+         ;; there was issue with anchor and nodes, first separate before after anchor then filter nodes
+         before-anchor (into [] (take (inc anchor) (:members relation)))
+         after-anchor (into [] (drop (inc anchor) (:members relation)))
+         node-members (filter #(= (:type %) "node") (concat before-anchor after-anchor))
+         ;; create tuple [member start-node end-node]
+         ordered-ways (into
+                       []
+                       (map
+                        (fn [member]
+                          (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                            [
+                             member
+                             (first (:nodes way))
+                             (last (:nodes way))]))
+                        (filter #(= (:type %) "way") before-anchor)))
+         rest-of-ways (into
+                       []
+                       (map
+                        (fn [member]
+                          (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                            [
+                             member
+                             (first (:nodes way))
+                             (last (:nodes way))]))
+                        (filter #(= (:type %) "way") after-anchor)))]
+     (println "anchor at" anchor)
+     (let [ordered-way-tuples (loop [ordered-ways ordered-ways
+                                     rest-of-ways rest-of-ways
+                                     open-connections #{
+                                                        (nth (last ordered-ways) 1)
+                                                        (nth (last ordered-ways) 2)}]
+                                (println "ordered: " (map :id (map first ordered-ways)))
+                                (println "rest: " (map :id (map first rest-of-ways)))
+                                (println "open: " open-connections)
+                                (if-let [[id start end :as next] (first rest-of-ways)]
+                                  (cond
+                                    (contains? open-connections start)
+                                    (do
+                                      (println "match on next start " start " add " id)
+                                      (recur
+                                       (conj ordered-ways next)
+                                       (rest rest-of-ways)
+                                       #{end}))
 
-                                   (contains? open-connections end)
-                                   (do
-                                     (println "match on next end " end " add " id)
-                                     (recur
-                                      (conj ordered-ways next)
-                                      (rest rest-of-ways)
-                                      #{start}))
+                                    (contains? open-connections end)
+                                    (do
+                                      (println "match on next end " end " add " id)
+                                      (recur
+                                       (conj ordered-ways next)
+                                       (rest rest-of-ways)
+                                       #{start}))
 
-                                   :else
-                                   (let [{matched true remaining-ways false}
-                                         (group-by
-                                          (fn [[_ start end :as way]]
-                                            (or
-                                             (contains? open-connections start)
-                                             (contains? open-connections end)))
-                                          rest-of-ways)]
-                                     (println " matched: " (map :id (map first matched)))
-                                     (cond
-                                       ;; single match, use it
-                                       (= (count matched) 1)
-                                       (let [[_ start end :as match] (first matched)]
-                                         (recur
-                                          (conj ordered-ways match)
-                                          remaining-ways
-                                          (if (contains? open-connections start)
-                                            #{end}
-                                            #{start})))
+                                    :else
+                                    (let [{matched true remaining-ways false}
+                                          (group-by
+                                           (fn [[_ start end :as way]]
+                                             (or
+                                              (contains? open-connections start)
+                                              (contains? open-connections end)))
+                                           rest-of-ways)]
+                                      (println " matched: " (map :id (map first matched)))
+                                      (cond
+                                        ;; single match, use it
+                                        (= (count matched) 1)
+                                        (let [[_ start end :as match] (first matched)]
+                                          (recur
+                                           (conj ordered-ways match)
+                                           remaining-ways
+                                           (if (contains? open-connections start)
+                                             #{end}
+                                             #{start})))
 
-                                       ;; no match, maybe two part route, useful
-                                       ;; for road networks, no harm for hiking
-                                       (= (count matched) 0)
-                                       (recur
-                                        (conj ordered-ways next)
-                                        (rest rest-of-ways)
-                                        #{start end})
+                                        ;; no match, maybe two part route, useful
+                                        ;; for road networks, no harm for hiking
+                                        (= (count matched) 0)
+                                        (recur
+                                         (conj ordered-ways next)
+                                         (rest rest-of-ways)
+                                         #{start end})
                                        
-                                       :else
-                                       (concat ordered-ways rest-of-ways))))
-                                 ordered-ways))]
-      (println "ways after:" (clojure.string/join " " (map :id (map first ordered-way-tuples))))
-      (update-in
-       relation
-       [:members]
-       (fn [_]
-         (concat
-          node-members
-          (map
-           first
-           ordered-way-tuples)))))))
+                                        :else
+                                        (concat ordered-ways rest-of-ways))))
+                                  ordered-ways))]
+       (println "ways after:" (clojure.string/join " " (map :id (map first ordered-way-tuples))))
+       (update-in
+        relation
+        [:members]
+        (fn [_]
+          (concat
+           node-members
+           (map
+            first
+            ordered-way-tuples))))))
+    (catch Exception e
+      (.printStackTrace e)
+      (throw e))))
+
+
 #_(do
   (println "original:")
   (doseq [member (:members a)]

@@ -178,6 +178,8 @@
   (n 7799388557) ;; "!Splav"
   (n 7842768294) ;; "!Pečenjara kod Brane"
 
+  (l 22.41898, 43.46787 "staro selo")
+
   ;; dones
   #_(r 11227980) ;; "!Baberijus"
 
@@ -1164,6 +1166,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
@@ -1182,6 +1186,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (jvm/resource-as-stream ["web" "map.html"])})
   (compojure.core/GET
    "/projects/tracks/retrieve"
@@ -1289,6 +1295,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (let [tags-map (into
                           {}
                           (with-open [is (fs/input-stream
@@ -1307,6 +1315,8 @@
                                (io/input-stream->line-seq is))))))]
             (hiccup/html
              [:html
+              [:head
+               [:meta {:charset "UTF-8"}]]
               [:body {:style "font-family:arial;"}
                [:table {:style "border-collapse:collapse;"}
                 (map
@@ -1341,8 +1351,12 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
+            [:head
+               [:meta {:charset "UTF-8"}]]
             [:body {:style "font-family:arial;"}
              [:table {:style "border-collapse:collapse;"}
               (map
@@ -1374,9 +1388,14 @@
        (let [location-seq (garmin-waypoint-file->location-seq wp-path)]
          {
           :status 200
+          :headers {
+                    "Content-Type" "text/html; charset=utf-8"}
           :body (hiccup/html
                  [:html
+                  [:head
+                   [:meta {:charset "UTF-8"}]]
                   [:body {:style "font-family:arial;"}
+                   [:div file]
                    [:a
                     {:href (str
                             "/projects/tracks/view?type=waypoint&dataset=garmin&waypoint="
@@ -1416,6 +1435,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (let [track-name-seq (reverse
                                 (sort
                                  (map
@@ -1486,6 +1507,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
@@ -1515,6 +1538,8 @@
        (let [location-seq (storage/location-request-file->location-seq wp-path)]
          {
           :status 200
+          :headers {
+             "Content-Type" "text/html; charset=utf-8"}
           :body (hiccup/html
                  [:html
                   [:body {:style "font-family:arial;"}
@@ -1557,6 +1582,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (let [track-name-seq (reverse
                                 (sort
                                  (map
