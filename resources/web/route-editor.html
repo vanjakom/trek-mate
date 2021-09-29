@@ -247,7 +247,7 @@
 
       
       var trackTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
+	  '/tile/raster/track/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -589,6 +589,7 @@
       }).addTo(map);
 
       var autoFn = function() {
+	  setStatusFn("refreshing ...")
 	  fetch(
 	      "/route/edit/" + routeId + "/order",
 	      {
@@ -600,7 +601,9 @@
 	      .then(response => response.json())
 	      .then(
 		  function(data) {
-		      relation = data
+		      relation = data.relation
+		      relationDataset["connected-way-seq"] = data["connected-way-seq"]
+		      relationDataset.connected = data.connected
 		      refreshRelationFn()
 		      // map.fitBounds(relationLayer.getBounds())
 		  })

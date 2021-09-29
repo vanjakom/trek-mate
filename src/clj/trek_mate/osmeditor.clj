@@ -443,7 +443,8 @@
   [way-map relation]
   (println "relation: " (:id relation))
   (loop [end-set nil
-         ways (map :id (filter #(= (:type %) :way) (:members relation)))
+         ;; todo quick fix for json serialized / deserialized data
+         ways (map :id (filter #(= (name (:type %)) "way") (:members relation)))
          connected-way-seq []]
     (let [way-id (first ways)
           ways (rest ways)]
@@ -1432,16 +1433,38 @@
   (compojure.core/POST
    "/route/edit/:id/order"
    request
-   (let [id (get-in request [:params :id])
-         ;; order of ways could be changed in visual editor
-         {relation :relation anchor :anchor} (json/read-keyworded (:body request))]
-     (let [ordered (try-order-route relation anchor)]
-       {
-        :status 200
-        :headers {
-                  "Content-Type" "application/json; charset=utf-8"}
-        :body (json/write-to-string ordered)})))
-  
+   (try
+     (let [id (get-in request [:params :id])
+          ;; order of ways could be changed in visual editor
+          {relation :relation anchor :anchor} (json/read-keyworded (:body request))]
+      (let [ordered (try-order-route relation anchor)
+            way-map (into
+                     {}
+                     (filter some?
+                             (map
+                              (fn [member]
+                                ;; todo quick fix for json serialized / deserialized data
+                                (when (= (name (:type member)) "way")
+                                  [
+                                   (:id member)
+                                   (get-in (dataset-way (:id member)) [:ways (:id member)])]))
+                              (:members ordered))))
+            [connected-way-seq connected] (check-connected? way-map ordered)]
+        (println way-map)
+        (println connected)
+        (println connected-way-seq)
+        {
+         :status 200
+         :headers {
+                   "Content-Type" "application/json; charset=utf-8"}
+         :body (json/write-to-string
+                {
+                 :relation ordered
+                 :connected connected
+                 :connected-way-seq connected-way-seq})}))
+     (catch Exception e
+       (.printStackTrace e))))
+
   (compojure.core/POST
    "/route/edit/:id/update"
    request
