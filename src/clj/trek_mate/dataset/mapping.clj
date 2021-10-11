@@ -432,6 +432,6 @@
 #_(prepare-name-tags "Скакавци - Велики Козомор")
 #_(prepare-name-tags "Вршачка трансверзала")
 #_(prepare-name-tags "Стаза здравља")
-#_(prepare-name-tags "Крушевице - Ситница")
+#_(prepare-name-tags "Зграда царинарнице у Земуну")
 
 

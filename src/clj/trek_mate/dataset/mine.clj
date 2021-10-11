@@ -231,6 +231,13 @@
 
   (n 8918938694) ;; "!Dubrašnica"
 
+  (q 727831 tag/tag-todo "ljubicasta polja, marijana nasla na instagramu") ;; "!Vardenik"
+  (q 65200154 tag/tag-todo "zvonacka reka, uzak kanjon, perpetumobil blog, marijana nasla") ;; "!Звоначка река"
+  (q 61123857 tag/tag-todo "pecina, marijana nasla")
+  (l 19.42564, 44.14168 tag/tag-todo "!etno selo vrhpolje" "marijana nasla")
+  (l 21.95155, 43.47105 tag/tag-todo "bazeni popsica, prirodni")
+  (l 19.93568, 45.21693 tag/tag-todo tag/tag-beach "majmunsko ostrvo")
+  (n 5644651327 tag/tag-todo) ;; "!Sveti bor"
   
   ;; divcibare
   ;; todo
@@ -795,7 +802,7 @@
   (l 20.02589, 44.11766 tag/tag-todo "istraziti put do kraja, spaja se nize, 773 waypoint")
   (l 20.04404, 44.11498 tag/tag-todo "markirati stazu do maljena")
   (l 19.99050, 44.10517 tag/tag-todo "obici porez od crkve prema Radovanovica cesmi uz reku")
-  (l 19.98756, 44.10429 tag/tag-todo "vila narcis, upoznaj divcibare, 58.")
+  #_(l 19.98756, 44.10429 tag/tag-todo "vila narcis, upoznaj divcibare, 58.")
   
   ;; crna gora
   (l 19.22915 42.81461 tag/tag-rooftoptent "lepo jezero, moglo bi da se noci pored")
@@ -878,6 +885,10 @@
   (l 18.53737, 42.45177 tag/tag-todo "obici agenciju za promociju orjena, https://orjen.me/")
   (l 18.51346, 42.55657 tag/tag-todo "staza do Subre i napred za Orjen sedlo")
   (l 18.50759, 42.55204 tag/tag-todo "obici stazu zdravlja")
+
+  (q 1641035 "Пећина, био лик са мотором" (tag/url-tag "youtube" "https://www.youtube.com/watch?v=GK2GB8REdQM"))
+
+  (l 19.20095, 42.27335 "Petar vencanje")
   )
 
 (web/register-dotstore
