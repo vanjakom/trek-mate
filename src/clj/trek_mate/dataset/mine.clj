@@ -168,6 +168,10 @@
 
   ;; sleeps recommend
 
+  (l 19.45176, 44.28229 (tag/url-tag "website" "https://sokolskekolibe.rs/") "preporuka za setnju i spavanje" tag/tag-todo)
+  (l 19.69429, 44.19284 tag/tag-visit "Бебића Лука, заштићено село, препорука Давид")
+  (l 19.70352, 44.20302 tag/tag-visit "Manastir Pustinja, preporuka David")
+  
   ;; eats
   (n 7682296752)
   (l 22.35306, 44.29087 "#eat" "milan kafana")
@@ -233,6 +237,8 @@
 
   (n 8918938694) ;; "!Dubrašnica"
 
+  
+  (l 20.09299, 44.20647 tag/tag-todo "zanimljivo mesto, obici, crkva, skola, pecina, nkd")
   
   ;; divcibare
   ;; todo
