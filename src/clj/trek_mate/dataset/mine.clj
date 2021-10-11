@@ -168,6 +168,10 @@
 
   ;; sleeps recommend
 
+  (l 19.45176, 44.28229 (tag/url-tag "website" "https://sokolskekolibe.rs/") "preporuka za setnju i spavanje" tag/tag-todo)
+  (l 19.69429, 44.19284 tag/tag-visit "Бебића Лука, заштићено село, препорука Давид")
+  (l 19.70352, 44.20302 tag/tag-visit "Manastir Pustinja, preporuka David")
+  
   ;; eats
   (n 7682296752)
   (l 22.35306, 44.29087 "#eat" "milan kafana")
@@ -177,6 +181,8 @@
   (n 7669082032) ;; donji milanovac, kapetan
   (n 7799388557) ;; "!Splav"
   (n 7842768294) ;; "!Pečenjara kod Brane"
+
+  (l 22.41898, 43.46787 "staro selo")
 
   ;; dones
   #_(r 11227980) ;; "!Baberijus"
@@ -238,6 +244,8 @@
   (l 21.95155, 43.47105 tag/tag-todo "bazeni popsica, prirodni")
   (l 19.93568, 45.21693 tag/tag-todo tag/tag-beach "majmunsko ostrvo")
   (n 5644651327 tag/tag-todo) ;; "!Sveti bor"
+  
+  (l 20.09299, 44.20647 tag/tag-todo "zanimljivo mesto, obici, crkva, skola, pecina, nkd")
   
   ;; divcibare
   ;; todo
@@ -889,6 +897,7 @@
   (q 1641035 "Пећина, био лик са мотором" (tag/url-tag "youtube" "https://www.youtube.com/watch?v=GK2GB8REdQM"))
 
   (l 19.20095, 42.27335 "Petar vencanje")
+  (n 9079082710 tag/tag-todo "prerast")
   )
 
 (web/register-dotstore
@@ -1174,6 +1183,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
@@ -1192,6 +1203,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (jvm/resource-as-stream ["web" "map.html"])})
   (compojure.core/GET
    "/projects/tracks/retrieve"
@@ -1299,6 +1312,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (let [tags-map (into
                           {}
                           (with-open [is (fs/input-stream
@@ -1317,6 +1332,8 @@
                                (io/input-stream->line-seq is))))))]
             (hiccup/html
              [:html
+              [:head
+               [:meta {:charset "UTF-8"}]]
               [:body {:style "font-family:arial;"}
                [:table {:style "border-collapse:collapse;"}
                 (map
@@ -1351,8 +1368,12 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
+            [:head
+               [:meta {:charset "UTF-8"}]]
             [:body {:style "font-family:arial;"}
              [:table {:style "border-collapse:collapse;"}
               (map
@@ -1384,9 +1405,14 @@
        (let [location-seq (garmin-waypoint-file->location-seq wp-path)]
          {
           :status 200
+          :headers {
+                    "Content-Type" "text/html; charset=utf-8"}
           :body (hiccup/html
                  [:html
+                  [:head
+                   [:meta {:charset "UTF-8"}]]
                   [:body {:style "font-family:arial;"}
+                   [:div file]
                    [:a
                     {:href (str
                             "/projects/tracks/view?type=waypoint&dataset=garmin&waypoint="
@@ -1426,6 +1452,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (let [track-name-seq (reverse
                                 (sort
                                  (map
@@ -1496,6 +1524,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
             [:body {:style "font-family:arial;"}
@@ -1525,6 +1555,8 @@
        (let [location-seq (storage/location-request-file->location-seq wp-path)]
          {
           :status 200
+          :headers {
+             "Content-Type" "text/html; charset=utf-8"}
           :body (hiccup/html
                  [:html
                   [:body {:style "font-family:arial;"}
@@ -1567,6 +1599,8 @@
    _
    {
     :status 200
+    :headers {
+             "Content-Type" "text/html; charset=utf-8"}
     :body (let [track-name-seq (reverse
                                 (sort
                                  (map

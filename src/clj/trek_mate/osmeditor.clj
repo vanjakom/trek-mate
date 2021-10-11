@@ -437,126 +437,163 @@
 #_(swap! cache {})
 #_(get-in (deref cache) [:relations 11258223])
 
+(defn check-connected?
+  "For given relation checks that all way members are connected, useful for hiking
+  relation checks. Returns vector of connected ways and boolean"
+  [way-map relation]
+  (println "relation: " (:id relation))
+  (loop [end-set nil
+         ;; todo quick fix for json serialized / deserialized data
+         ways (map :id (filter #(= (name (:type %)) "way") (:members relation)))
+         connected-way-seq []]
+    (let [way-id (first ways)
+          ways (rest ways)]
+      (if way-id
+        (if-let [way (get way-map way-id)]
+          (let [first-node (first (:nodes way))
+                last-node (last (:nodes way))]
+            (cond
+              (nil? end-set)
+              (recur
+               #{first-node last-node}
+               ways
+               (conj connected-way-seq way-id))
 
-(defn prepare-route-data [id]
-  (dataset-relation id)
-  #_(if-let [dataset (osmapi/relation-full id)]
-    dataset
-    #_(let [relation (get-in dataset [:relations id])]
-      {
-       :geometry
-       (filter
-        some?
-        (map
-         (fn [member]
-           (cond
-             (= (:type member) :way)
-             {
-              :type "way"
-              :id (:id member)
-              :coordinates
-              (map
-               (fn [node-id]
-                 (let [node (get-in dataset [:nodes node-id])]
-                   [(as/as-double (:latitude node)) (as/as-double (:longitude node))]))
-               (:nodes (get-in dataset [:ways (:id member)])))}
-             ;; todo support nodes
-           :else
-           nil))
-         (:members relation)))})))
+              (contains? end-set first-node)
+              (recur
+               #{last-node}
+               ways
+               (conj connected-way-seq way-id))
 
-#_(prepare-route-data 10948917)
-#_(osmapi/relation-full 10948917)
+              (contains? end-set last-node)
+              (recur
+               #{first-node}
+               ways
+               (conj connected-way-seq way-id))
 
-#_(defn prepare-explore-data [id left top right bottom]
-  (println id left top right bottom)
-  #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
-    dataset))
+              :else
+              (do
+                (println "\tunknown state" end-set first-node last-node)
+                [connected-way-seq false])))
+          (do
+            (println "\tway lookup failed:" way-id)
+            [connected-way-seq false]))
+        [connected-way-seq true]))))
 
 (defn try-order-route [relation anchor]
   (println "ways before:" (clojure.string/join " " (map :id (:members relation))))
   #_(def a relation)
-  (let [node-members (filter #(= (:type %) "node") (:members relation))
-        way-members (filter #(= (:type %) "way") (:members relation))
-        ;; create tuple [member start-node end-node]
-        way-tuples (map
-              (fn [member]
-                (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
-                  [
-                   member
-                   (first (:nodes way))
-                   (last (:nodes way))]))
-              way-members)
-        ;; start order from, ignore before, useful for complex not suported cases
-        anchor (or anchor 0)]
-    (println "anchor at" anchor)
-    (let [ordered-way-tuples (loop [ordered-ways (into [] (take (inc anchor) way-tuples))
-                                    rest-of-ways (into [] (drop (inc anchor) way-tuples))
-                                    open-connections #{
-                                                       (nth (last ordered-ways) 1)
-                                                       (nth (last ordered-ways) 2)}]
-                               (println "ordered: " (map :id (map first ordered-ways)))
-                               (println "rest: " (map :id (map first rest-of-ways)))
-                               (println "open: " open-connections)
-                               (if-let [[id start end :as next] (first rest-of-ways)]
-                                 (cond
-                                   (contains? open-connections start)
-                                   (do
-                                     (println "match on next start " start " add " id)
-                                     (recur
-                                      (conj ordered-ways next)
-                                      (rest rest-of-ways)
-                                      #{end}))
+  (try
+    (let [
+          ;; start order from, ignore before, useful for complex not suported cases
+          ;; start after either anchor or first way
+          anchor (or
+                  anchor
+                  (first
+                   (filter
+                    some?
+                    (map-indexed
+                     (fn [index member]
+                       (when (= (:type member) "way")
+                         index))
+                     (:members relation)))))
+         ;; there was issue with anchor and nodes, first separate before after anchor then filter nodes
+         before-anchor (into [] (take (inc anchor) (:members relation)))
+         after-anchor (into [] (drop (inc anchor) (:members relation)))
+         node-members (filter #(= (:type %) "node") (concat before-anchor after-anchor))
+         ;; create tuple [member start-node end-node]
+         ordered-ways (into
+                       []
+                       (map
+                        (fn [member]
+                          (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                            [
+                             member
+                             (first (:nodes way))
+                             (last (:nodes way))]))
+                        (filter #(= (:type %) "way") before-anchor)))
+         rest-of-ways (into
+                       []
+                       (map
+                        (fn [member]
+                          (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                            [
+                             member
+                             (first (:nodes way))
+                             (last (:nodes way))]))
+                        (filter #(= (:type %) "way") after-anchor)))]
+     (println "anchor at" anchor)
+     (let [ordered-way-tuples (loop [ordered-ways ordered-ways
+                                     rest-of-ways rest-of-ways
+                                     open-connections #{
+                                                        (nth (last ordered-ways) 1)
+                                                        (nth (last ordered-ways) 2)}]
+                                (println "ordered: " (map :id (map first ordered-ways)))
+                                (println "rest: " (map :id (map first rest-of-ways)))
+                                (println "open: " open-connections)
+                                (if-let [[id start end :as next] (first rest-of-ways)]
+                                  (cond
+                                    (contains? open-connections start)
+                                    (do
+                                      (println "match on next start " start " add " id)
+                                      (recur
+                                       (conj ordered-ways next)
+                                       (rest rest-of-ways)
+                                       #{end}))
 
-                                   (contains? open-connections end)
-                                   (do
-                                     (println "match on next end " end " add " id)
-                                     (recur
-                                      (conj ordered-ways next)
-                                      (rest rest-of-ways)
-                                      #{start}))
+                                    (contains? open-connections end)
+                                    (do
+                                      (println "match on next end " end " add " id)
+                                      (recur
+                                       (conj ordered-ways next)
+                                       (rest rest-of-ways)
+                                       #{start}))
 
-                                   :else
-                                   (let [{matched true remaining-ways false}
-                                         (group-by
-                                          (fn [[_ start end :as way]]
-                                            (or
-                                             (contains? open-connections start)
-                                             (contains? open-connections end)))
-                                          rest-of-ways)]
-                                     (println " matched: " (map :id (map first matched)))
-                                     (cond
-                                       ;; single match, use it
-                                       (= (count matched) 1)
-                                       (let [[_ start end :as match] (first matched)]
-                                         (recur
-                                          (conj ordered-ways match)
-                                          remaining-ways
-                                          (if (contains? open-connections start)
-                                            #{end}
-                                            #{start})))
+                                    :else
+                                    (let [{matched true remaining-ways false}
+                                          (group-by
+                                           (fn [[_ start end :as way]]
+                                             (or
+                                              (contains? open-connections start)
+                                              (contains? open-connections end)))
+                                           rest-of-ways)]
+                                      (println " matched: " (map :id (map first matched)))
+                                      (cond
+                                        ;; single match, use it
+                                        (= (count matched) 1)
+                                        (let [[_ start end :as match] (first matched)]
+                                          (recur
+                                           (conj ordered-ways match)
+                                           remaining-ways
+                                           (if (contains? open-connections start)
+                                             #{end}
+                                             #{start})))
 
-                                       ;; no match, maybe two part route, useful
-                                       ;; for road networks, no harm for hiking
-                                       (= (count matched) 0)
-                                       (recur
-                                        (conj ordered-ways next)
-                                        (rest rest-of-ways)
-                                        #{start end})
+                                        ;; no match, maybe two part route, useful
+                                        ;; for road networks, no harm for hiking
+                                        (= (count matched) 0)
+                                        (recur
+                                         (conj ordered-ways next)
+                                         (rest rest-of-ways)
+                                         #{start end})
                                        
-                                       :else
-                                       (concat ordered-ways rest-of-ways))))
-                                 ordered-ways))]
-      (println "ways after:" (clojure.string/join " " (map :id (map first ordered-way-tuples))))
-      (update-in
-       relation
-       [:members]
-       (fn [_]
-         (concat
-          node-members
-          (map
-           first
-           ordered-way-tuples)))))))
+                                        :else
+                                        (concat ordered-ways rest-of-ways))))
+                                  ordered-ways))]
+       (println "ways after:" (clojure.string/join " " (map :id (map first ordered-way-tuples))))
+       (update-in
+        relation
+        [:members]
+        (fn [_]
+          (concat
+           node-members
+           (map
+            first
+            ordered-way-tuples))))))
+    (catch Exception e
+      (.printStackTrace e)
+      (throw e))))
+
 
 #_(do
   (println "original:")
@@ -569,6 +606,35 @@
   (doseq [member (:members (try-order-route a nil))]
     (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
       (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
+
+
+(defn prepare-route-data [id]
+  (let [dataset (dataset-relation id)
+        relation (second (first (:relations dataset)))
+        way-map (into
+                 {}
+                 (filter some?
+                         (map
+                          (fn [member]
+                            (when (= (:type member) :way)
+                              [
+                               (:id member)
+                               (get-in dataset [:ways (:id member)])]))
+                          (:members relation))))
+        [connected-way-seq connected] (check-connected? way-map relation)]
+    (assoc
+     dataset
+     :connected connected
+     :connected-way-seq connected-way-seq)))
+
+#_(prepare-route-data 10948917)
+#_(osmapi/relation-full 10948917)
+
+#_(defn prepare-explore-data [id left top right bottom]
+  (println id left top right bottom)
+  #_(if-let [dataset (osmapi/map-bounding-box left bottom right top)]
+    dataset))
+
 
 (def dpm-ways (atom [729115595 313730002 865771171 906841733]))
 #_(deref dpm-ways) ;; [729115595 313730002 865771171]
@@ -1246,9 +1312,9 @@
                       "relation: "
                       [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
                       " "
-                      [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+                      [:a {:href (str "http://localhost:8080/#id=r" id) :target "_blank"} "iD(localhost)"]
                       " "
-                      [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+                      [:a {:href (str "http://level0.osmz.ru/?url=relation" "/" id) :target "_blank"} "level0"]
                       " "
                       [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
                       [:br]]]
@@ -1367,39 +1433,68 @@
   (compojure.core/POST
    "/route/edit/:id/order"
    request
-   (let [id (get-in request [:params :id])
-         ;; order of ways could be changed in visual editor
-         {relation :relation anchor :anchor} (json/read-keyworded (:body request))]
-     (let [ordered (try-order-route relation anchor)]
-       {
-        :status 200
-        :body (json/write-to-string ordered)})))
-  
+   (try
+     (let [id (get-in request [:params :id])
+          ;; order of ways could be changed in visual editor
+          {relation :relation anchor :anchor} (json/read-keyworded (:body request))]
+      (let [ordered (try-order-route relation anchor)
+            way-map (into
+                     {}
+                     (filter some?
+                             (map
+                              (fn [member]
+                                ;; todo quick fix for json serialized / deserialized data
+                                (when (= (name (:type member)) "way")
+                                  [
+                                   (:id member)
+                                   (get-in (dataset-way (:id member)) [:ways (:id member)])]))
+                              (:members ordered))))
+            [connected-way-seq connected] (check-connected? way-map ordered)]
+        (println way-map)
+        (println connected)
+        (println connected-way-seq)
+        {
+         :status 200
+         :headers {
+                   "Content-Type" "application/json; charset=utf-8"}
+         :body (json/write-to-string
+                {
+                 :relation ordered
+                 :connected connected
+                 :connected-way-seq connected-way-seq})}))
+     (catch Exception e
+       (.printStackTrace e))))
+
   (compojure.core/POST
    "/route/edit/:id/update"
    request
    (let [id (get-in request [:params :id])
-         relation (json/read-keyworded (:body request))]
-     (println "relation:")
-     (run!
-      println
-      (map
-       (fn [member]
-         (str
-          (cond
-            (= (:type member) "way")
-            "wy"
-            (= (:type member) "node")
-            "nd"
-            (= (:type member) "relation")
-            "rel")
-          " "
-          (:id member)
-          " "
-          (:role member)))
-       (:members relation)))
-     {
-      :status 200}))
+         ;; tags will be keywords, solved on relation->relation-xml ensuring key is string
+         relation (json/read-keyworded (:body request))
+         changeset (osmapi/changeset-create "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije" {})]
+     (println "changeset:" changeset ", relation:" id )
+     (println relation)
+     (println (osmapi/relation-update changeset relation))
+     #_(do
+       (println "relation:")
+       (run!
+        println
+        (map
+         (fn [member]
+           (str
+            (cond
+              (= (:type member) "way")
+              "wy"
+              (= (:type member) "node")
+              "nd"
+              (= (:type member) "relation")
+              "rel")
+            " "
+            (:id member)
+            " "
+            (:role member)))
+         (:members relation))))
+     (ring.util.response/redirect (str "/view/osm/history/relation/" id))))
 
   (compojure.core/GET
     "/route/edit/:id"

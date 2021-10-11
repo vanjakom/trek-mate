@@ -1,5 +1,6 @@
 <html>
   <head>
+    <meta charset="UTF-8">
     <title>route editor</title>
     <!--<link rel="stylesheet" href="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/css/ol.css" type="text/css">-->
     <!--<script type= "text/javascript" src= "https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script>-->
@@ -22,15 +23,25 @@
 	  left:0px;
 	  top:0px;
 	  right: 0px;
-	  bottom: 0px;
+	  bottom: 20px;
 	  cursor: crosshair;
+      }
+
+      .status {
+	  position: absolute;
+	  left:0px;
+	  right: 0px;
+	  bottom: 0px;
+	  height: 20px;
+	  background-color: white;
+	  margin-left: 5px;
       }
     </style>
   </head>
   <body>
-    <!--<div id= "overlay" style= "width:20px;height:20px;">A</div>-->
     <div id= "content" class= "content">
       <div id= "map" class= "map"></div>
+      <div id= "status" class= "status"></div>
     </div>
     <script type= "text/javascript">            
       L.TileBoundsLayer = L.GridLayer.extend({
@@ -60,6 +71,12 @@
 	      return tile
 	  },
       });
+
+      var setStatusFn = function(status) {
+	  document.getElementById("status").innerHTML = status
+      }
+
+      setStatusFn("done")
 
       var map = L.map("map", {maxBoundsViscosity: 1.0})
       map.setMaxBounds([[-90,-180],[90,180]])
@@ -230,7 +247,7 @@
 
       
       var trackTile = L.tileLayer(
-	  'http://localhost:8085/tile/raster/track-transparent/{z}/{x}/{y}',
+	  '/tile/raster/track/{z}/{x}/{y}',
 	  {
 	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	      maxZoom: 21,
@@ -341,6 +358,7 @@
       }
 
       var routeId = window.location.pathname.split("/").last()
+      // contains all data ( node, way, relation ) retrieved by /retrieve call
       var relationDataset = null
       // pointer to relation from dataset, mutates with changes and it's reported
       var relation = null
@@ -421,17 +439,30 @@
 			  parseFloat(node.latitude),
 			  parseFloat(node.longitude)])
 		  })
-		  let polyline = L.polyline(coords, {color: "blue"})
+		  let color = null
+		  if (relationDataset["connected-way-seq"].includes(memberInfo.id)) {
+		      color = "green"
+		  } else {
+		      color = "blue"
+		  }
+		  let polyline = L.polyline(coords, {color: color})
 		  let marker = L.marker(coords[Math.floor(coords.length / 2)])
 		  featureLayer.addLayer(polyline)
 		  featureLayer.addLayer(marker)
 		  featureLayer.select = function() {
 		      setMarkerTextFn(memberInfo, selectedIndex, marker)
+		      setStatusFn(memberInfo.type + " " + memberInfo.id)
 		      if (memberInfo.indexes.includes(selectedIndex)) {
 			  polyline.setStyle({color: "red"})
 			  selectedLayer = featureLayer
 		      } else {
-			  polyline.setStyle({color: "blue"})
+			  let color = null
+			  if (relationDataset["connected-way-seq"].includes(memberInfo.id)) {
+			      color = "green"
+			  } else {
+			      color = "blue"
+			  }
+			  polyline.setStyle({color: color})
 		      }
 		  }
 	      }
@@ -450,6 +481,12 @@
 	      }})
 	      featureLayer.select()
 	  })
+
+	  if (relationDataset.connected) {
+	      setStatusFn("connected")
+	  } else {
+	      setStatusFn("not connected")
+	  }
       }
       
       fetch("/route/edit/" + routeId + "/retrieve").then(response => response.json()).then(function(data) {
@@ -475,6 +512,8 @@
 	      }).addTo(map)
 
       var reloadAvailableDataFn = function() {
+	  alert("not implemented")
+	  /* old, partially working
 	  fetch(
 	      "/route/edit/" + routeId + "/explore/" +
 		  map.getBounds().getWest() + "/" + map.getBounds().getNorth() + "/" +
@@ -486,6 +525,7 @@
 		  //refreshRelationFn()
 		  //map.fitBounds(relationLayer.getBounds())
 	  })
+	  */
       }
       new L.Control.Button({
 	  'text': 'refresh',
@@ -526,7 +566,6 @@
 
       var addFn = function() {
 	  alert("not implemented")
-
       }
       new L.Control.Button({
 	  'text': 'add',
@@ -550,6 +589,7 @@
       }).addTo(map);
 
       var autoFn = function() {
+	  setStatusFn("refreshing ...")
 	  fetch(
 	      "/route/edit/" + routeId + "/order",
 	      {
@@ -561,9 +601,12 @@
 	      .then(response => response.json())
 	      .then(
 		  function(data) {
-		      relation = data
+		      relation = data.relation
+		      relationDataset["connected-way-seq"] = data["connected-way-seq"]
+		      relationDataset.connected = data.connected
 		      refreshRelationFn()
-		      map.fitBounds(relationLayer.getBounds())})
+		      // map.fitBounds(relationLayer.getBounds())
+		  })
       }
       
       new L.Control.Button({
@@ -577,6 +620,11 @@
 	      {
 		  method: "POST",
 		  body: JSON.stringify(relation)})
+	      .then(
+		  function(data) {
+		      // todo connect redirect response
+		      window.open("/view/osm/history/relation/" + routeId, "_blank")
+		  })
       }
       new L.Control.Button({
 	  'text': 'save',

@@ -27,6 +27,7 @@
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
+   [trek-mate.render :as render]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
@@ -83,6 +84,7 @@
   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
     (json/read-keyworded is)))
 #_(count posts)
+;; 252 on 20210908
 ;; 251 on 20210629
 ;; 242 on 20210311
 ;; 233 on 20201223
@@ -470,7 +472,7 @@
 (def relation-seq (overpass/query-string "relation[source=pss_staze];"))
 
 #_(first relation-seq)
-#_(count relation-seq)
+#_(count relation-seq) ;; 141
 
 ;; report relations
 #_(run!
@@ -491,7 +493,6 @@
    ;; staza nema gpx
    ;; "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
    "4-45-3" "gpx je problematičan, deluje da je kružna staza"
-   "7-3-5" "gpx vodi pored ucrtanih puteva, malo poklapanja sa snimcima"
    "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
    "4-40-1" "kretanje železničkom prugom kroz tunele?"
    "4-31-9" "gpx problematičan, dosta odstupanja"
@@ -604,36 +605,34 @@
                           "")))))
      (println "|}"))))
 
+;; 11260598
+;; 11105694
+;; 11126557
+;;11126446
 
+;; #debug #track
 ;; set gpx as track to be used for route order fix and check
-#_(do
-  (let [location-seq (with-open [is (fs/input-stream
-                                     (path/child
-                                      dataset-path
-                                      "routes"
-                                      "4-37-1.gpx"))]
-                       (doall
-                        (mapcat
-                         identity
-                         (:track-seq (gpx/read-track-gpx is)))))]
-    (web/register-dotstore
-     :track
-     (dot/location-seq->dotstore location-seq))
-    (web/register-map
-     "track-transparent"
-     {
-      :configuration {
-                      :longitude (:longitude (first location-seq))
-                      :latitude (:latitude (first location-seq))
-                      :zoom 7}
-      :vector-tile-fn (web/tile-vector-dotstore-fn
-                       [(fn [_ _ _ _] [])])
-      :raster-tile-fn (web/tile-overlay-dotstore-render-fn
-                       (web/create-transparent-raster-tile-fn)
-                       :track
-                       [(constantly [draw/color-blue 2])])})))
-;;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
-
+;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
+#_(let [location-seq (with-open [is (fs/input-stream
+                                   (path/child
+                                    dataset-path
+                                    "routes"
+                                    "2-3-1.gpx"))]
+                     (doall
+                      (mapcat
+                       identity
+                       (:track-seq (gpx/read-track-gpx is)))))]
+  (web/register-dotstore
+   "track"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-yellow [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
+  
 (osmeditor/project-report
  "pss"
  "pss.rs hiking trails"

@@ -288,7 +288,7 @@
     1175728 ;; E8, not going through Serbia
     9933591 ;; E8 romania
     
-    ;; other country
+    ;; other country, mixed
     7849129
     5690978
     5652185
@@ -302,38 +302,10 @@
     9949619
     10035113
     5690999
+
+    ;; hungary
+    12702712
     })
-
-(defn check-connected?
-  [way-map relation]
-  (println "relation: " (:id relation))
-  (loop [end-set nil
-         ways (map :id (filter #(= (:type %) :way) (:members relation)))]
-    (let [way-id (first ways)
-          ways (rest ways)]
-      (if way-id
-        (if-let [way (get way-map way-id)]
-          (let [first-node (first (:nodes way))
-                last-node (last (:nodes way))]
-            (cond
-              (nil? end-set)
-              (recur #{first-node last-node} ways)
-
-              (contains? end-set first-node)
-              (recur #{last-node} ways)
-
-              (contains? end-set last-node)
-              (recur #{first-node} ways)
-
-              :else
-              (do
-                (println "\tunknown state" end-set first-node last-node)
-                false)))
-          (do
-            (println "\tway lookup failed:" way-id)
-            false))
-        true))))
-
 
 ;; todo
 ;; report is connected
@@ -395,7 +367,7 @@
        [:br]
        osm-id)]
      [:td {:style "border: 1px solid black; padding: 5px;"}
-      (if (check-connected? way-map relation)
+      (if (second (osmeditor/check-connected? way-map relation))
         "connected"
         "broken")]
      [:td {:style "border: 1px solid black; padding: 5px;"}
@@ -503,7 +475,7 @@
    (let [relation-seq (filter
                        #(and
                          (= "hiking" (get-in % [:osm "route"]))
-                         (not (check-connected? way-map %)))
+                         (not (second (osmeditor/check-connected? way-map %))))
                        (filter
                         #(not (contains? ignore-set (:id %)))
                         relation-seq))]
@@ -521,3 +493,7 @@
                  render-route
                  (reverse (sort-by :timestamp relation-seq)))]
                [:br]]])}))))
+
+;; to set specific track as background for debugging use pss namespace
+;; tag #debug #track
+
