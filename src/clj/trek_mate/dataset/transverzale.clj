@@ -38,6 +38,7 @@
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.map :as map]
    [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
@@ -755,16 +756,16 @@
         (<= (:latitude %) max-latitude))
       (vals (deref dataset))))))
 
-(define-map
+(map/define-map
   "transverzale"
-  (tile-layer-osm)
-  (tile-layer-bing-satellite false)
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
   (binding [geojson/*stroke-color* "#FF0000"]
-    (geojson-hiking-relation-layer "dataLayer" 12693206))
+    (map/geojson-hiking-relation-layer "dataLayer" 12693206))
   #_(geojson-style-layer "dataLayer" (geojson/geojson [(geojson/point 20.50529479980469 44.82763029742812 "Belgrade")]))
   (with-open [is (fs/input-stream (path/child
                                    env/*dataset-cloud-path*
                                    "transverzale"
                                    "cika_duskove_rajacke_staze"
                                    "itt.rs-track.gpx"))]
-    (geojson-gpx-layer "gpxLayer" is)))
+    (map/geojson-gpx-layer "gpxLayer" is)))

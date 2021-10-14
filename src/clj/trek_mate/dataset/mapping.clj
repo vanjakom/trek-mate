@@ -431,8 +431,14 @@
 #_(prepare-name-tags "Дом здравља Ваљево")
 #_(prepare-name-tags "Зграда Дечјег дома краљице Марије")
 #_(prepare-name-tags "Скакавци - Велики Козомор")
+
 #_(prepare-name-tags "Сеизмолошка станица Дивчибаре")
 #_(prepare-name-tags "Управа Симфонијског оркестра")
 #_(prepare-name-tags "Крушевице - Ситница")
+
+#_(prepare-name-tags "Вршачка трансверзала")
+#_(prepare-name-tags "Стаза здравља")
+#_(prepare-name-tags "Зграда царинарнице у Земуну")
+
 
 
