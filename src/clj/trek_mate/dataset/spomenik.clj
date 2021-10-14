@@ -865,6 +865,7 @@
 ;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109433
 ;; https://nasledje.gov.rs/index.cfm/spomenici/pregled_spomenika?spomenik_id=109434
 
+;; #dataset
 #_(with-open [os (fs/output-stream (path/child dataset-path "monuments.geojson"))]
   (json/write-pretty-print
    (trek-mate.integration.geojson/geojson
@@ -962,8 +963,56 @@
                  (vals (:relations dataset))))))
 
 #_(count osm-seq)
+;; 20211012 
+;; 20211010 367
 ;; 20210922 340
 ;; <20210922 328
+
+(def missing-ignore-first-phase
+  #{
+    ;; beograd, kompleksno
+    "PKIC3"
+    "AN13"
+    "PKIC81"
+    "PKIC16"
+    "SK2047"
+    "AN17"
+    
+    ;; beograd survey
+    "ZM23"
+    "ZM24"
+    "SK651"
+    "SK1966"
+    "SK1700"
+
+    })
+
+;; #dataset #missing
+(let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
+  (with-open [os (fs/output-stream (path/child dataset-path "monuments-missing.geojson"))]
+    (let [active-seq (filter
+                      (fn [monument]
+                        (and
+                         (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+                         (not (contains? missing-ignore-first-phase
+                                         (get-in monument [:tags "ref:RS:nkd"])))))
+                      monument-seq)]
+      (json/write-pretty-print
+       (geojson/geojson
+        (map
+         geojson/location->feature
+         active-seq))
+       (io/output-stream->writer os))
+      (map/define-map
+        "spomenici-todo"
+        (map/tile-layer-osm)
+        (map/tile-layer-bing-satellite false)
+        (map/geojson-style-marker-layer
+         "todo"
+         (geojson/geojson
+          (map
+           geojson/location->feature
+           active-seq)))))))
 
 #_(first osm-seq)
 #_{:id 8947268725, :type :node, :version 2, :changeset 108547536, :longitude 19.3303102, :latitude 44.2959682, :tags {"name:sr" "Црква брвнара", "ref:RS:nkd" "SK578", "dedication:sr" "Свети апостоли Петар и Павле", "heritage:RS:criteria" "great", "alt_name:sr" "Црква Светих апостола Петара и Павла", "addr:postcode" "15320", "addr:city" "Љубовија", "dedication:sr-Latn" "Sveti apostoli Petar i Pavle", "alt_name:sr-Latn" "Crkva Svetih apostola Petara i Pavla", "name" "Црква брвнара", "amenity" "place_of_worship", "heritage" "2", "denomination" "serbian_orthodox", "name:sr-Latn" "Crkva brvnara", "addr:street" "Селанац", "religion" "christian"}}
@@ -1029,6 +1078,37 @@
           (map
            geojson/location->feature
            active-seq)))))))
+
+;; nis test data
+#_(let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
+  (with-open [os (fs/output-stream (path/child dataset-path "nkd_nis.geojson"))]
+    (let [active-seq (filter
+                      (fn [monument]
+                        (and
+                         (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+                         (and
+                          (> (:longitude monument) 21.71654)
+                          (< (:longitude monument) 22.09419)
+                          (> (:latitude monument) 43.26546)
+                          (< (:latitude monument) 43.40255))))
+                      monument-seq)]
+      (json/write-to-stream
+       (geojson/geojson
+        (map
+         geojson/location->feature
+         active-seq))
+       os)
+      (map/define-map
+        "spomenici-beograd"
+        (map/tile-layer-osm)
+        (map/tile-layer-bing-satellite false)
+        (map/geojson-style-marker-layer
+         "spomenici-zemun"
+         (geojson/geojson
+          (map
+           geojson/location->feature
+           active-seq)))))))
+
 
 ;; diff
 ;; integrate with wiki
@@ -1347,3 +1427,5 @@
   (run!
    println
    (take 10 monument-seq)))
+
+(println "done loading")

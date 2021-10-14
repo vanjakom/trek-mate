@@ -242,8 +242,11 @@
     [:div "no change"]
     
     (= (:change change) :create)
-    [:div "created"]
+    [:div {:style "color:green;"} "created"]
 
+    (= (:change change) :delete)
+    [:div {:style "color:red;"} "deleted"]
+    
     (= (:change change) :location)
     [:div "moved"]
 
@@ -473,7 +476,11 @@
 
               :else
               (do
-                (println "\tunknown state" end-set first-node last-node)
+                (println
+                 "\tunknown state"
+                 (map #(str "n" %) end-set)
+                 (str "n" first-node)
+                 (str "n" last-node))
                 [connected-way-seq false])))
           (do
             (println "\tway lookup failed:" way-id)
@@ -522,20 +529,22 @@
                              (first (:nodes way))
                              (last (:nodes way))]))
                         (filter #(= (:type %) "way") after-anchor)))]
-     (println "anchor at" anchor)
+      (println "anchor at" anchor)
+      (println "ordered: " ordered-ways)
+      (println "rest:" rest-of-ways)
      (let [ordered-way-tuples (loop [ordered-ways ordered-ways
                                      rest-of-ways rest-of-ways
                                      open-connections #{
                                                         (nth (last ordered-ways) 1)
                                                         (nth (last ordered-ways) 2)}]
-                                (println "ordered: " (map :id (map first ordered-ways)))
-                                (println "rest: " (map :id (map first rest-of-ways)))
-                                (println "open: " open-connections)
-                                (if-let [[id start end :as next] (first rest-of-ways)]
+                                #_(println "ordered: " (map :id (map first ordered-ways)))
+                                #_(println "rest: " (map :id (map first rest-of-ways)))
+                                (println "open: " (map #(str "n" %) open-connections))
+                                (if-let [[way start end :as next] (first rest-of-ways)]
                                   (cond
                                     (contains? open-connections start)
                                     (do
-                                      (println "match on next start " start " add " id)
+                                      (println "match on next start n" start " add w" (:id way))
                                       (recur
                                        (conj ordered-ways next)
                                        (rest rest-of-ways)
@@ -543,21 +552,26 @@
 
                                     (contains? open-connections end)
                                     (do
-                                      (println "match on next end " end " add " id)
+                                      (println "match on next end n" end " add w" (:id way))
                                       (recur
                                        (conj ordered-ways next)
                                        (rest rest-of-ways)
                                        #{start}))
 
                                     :else
-                                    (let [{matched true remaining-ways false}
+                                    ;; divide rest-of-ways into ones connected to last
+                                    ;; and rest of ways
+                                    (let [last-ordered-id (:id (first (last ordered-ways)))
+                                          {matched true remaining-ways false}
                                           (group-by
                                            (fn [[_ start end :as way]]
                                              (or
                                               (contains? open-connections start)
                                               (contains? open-connections end)))
                                            rest-of-ways)]
-                                      (println " matched: " (map :id (map first matched)))
+                                      (println " matched: " (map
+                                                             #(str "w" (:id %))
+                                                             (map first matched)))
                                       (cond
                                         ;; single match, use it
                                         (= (count matched) 1)
@@ -565,6 +579,38 @@
                                           (recur
                                            (conj ordered-ways match)
                                            remaining-ways
+                                           (if (contains? open-connections start)
+                                             #{end}
+                                             #{start})))
+
+                                        ;; excursion support, either start of in the middle
+                                        ;; matched must have 3 ways with 2 unique ids
+                                        ;; way which is either start or continuation of excursion
+                                        ;; must be matched twice, third way is exit which will be
+                                        ;; matched after
+                                        (and
+                                         (= (count matched) 3)
+                                         (= (count (into #{} (map #(:id (first %)) matched))) 2))
+                                        ;; separate two same ways and exit way and
+                                        ;; use one of same as next
+                                        (let [[[way start end :as match-1] match-2 other]
+                                              (cond
+                                                (=
+                                                 (:id (first (nth matched 0)))
+                                                 (:id (first (nth matched 1))))
+                                                [(nth matched 0) (nth matched 1) (nth matched 2)]
+
+                                                (=
+                                                 (:id (first (nth matched 0)))
+                                                 (:id (first (nth matched 2))))
+                                                [(nth matched 0) (nth matched 2) (nth matched 1)]
+
+                                                :else
+                                                [(nth matched 1) (nth matched 2) (nth matched 0)])]
+                                          (print "match excursion: w" (:id way))
+                                          (recur
+                                           (conj ordered-ways match-1)
+                                           (conj remaining-ways match-2 other)
                                            (if (contains? open-connections start)
                                              #{end}
                                              #{start})))
@@ -593,7 +639,6 @@
     (catch Exception e
       (.printStackTrace e)
       (throw e))))
-
 
 #_(do
   (println "original:")
@@ -1325,7 +1370,10 @@
                    
                    :else
                    (list {:change :unknown}))))
-             (:modify changeset))))]])}
+             (concat
+              (:create changeset)
+              (:modify changeset)
+              (:delete changeset)))))]])}
      (catch Exception e
        (.printStackTrace e)
        {:status 500})))
@@ -1450,9 +1498,6 @@
                                    (get-in (dataset-way (:id member)) [:ways (:id member)])]))
                               (:members ordered))))
             [connected-way-seq connected] (check-connected? way-map ordered)]
-        (println way-map)
-        (println connected)
-        (println connected-way-seq)
         {
          :status 200
          :headers {

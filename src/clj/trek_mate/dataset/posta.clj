@@ -204,7 +204,7 @@
 ;; 1450 added to pom1 between start of project and end 20210726
 
 (def official-seq
-  (with-open [is (fs/input-stream (path/child dataset-official-path "pom1-20210726.json"))]
+  (with-open [is (fs/input-stream (path/child dataset-official-path "pom1-20211010.json"))]
     (doall
      (map
       (fn [entry]
@@ -229,6 +229,8 @@
 
 (def tip1-posta-seq (filter #(= (:type %) 1) official-seq))
 
+;; pom1 20211010
+#_(count tip1-posta-seq) ;; 1493
 ;; pom1 20210726
 #_(count tip1-posta-seq) ;; 1483
 ;; pom1 < 20210726
@@ -1114,7 +1116,11 @@
          (not (contains? note-map ref))
          (not (contains? missing-ignore-set ref))))
      import-seq)))
-#_(count missing-seq) ;; 0
+
+
+#_(count missing-seq)
+;; 20211010 13
+;; 0
 
 (do
   (println "missing posts")
@@ -1174,7 +1180,8 @@
       osm-seq)))
 
 #_(count additional-seq)
-;;  20210724 40
+;; 20211010 17
+;; 20210724 40
 ;; <20210724 46
 
 (do

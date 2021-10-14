@@ -89,6 +89,7 @@
 (def osm-pbf-path (path/child
                    osm-pbf-root-path
                    "serbia-latest.osm.pbf"))
+(def osm-pbf-ram-path ["Volumes" "ram-disk" "serbia-latest.osm.pbf"])
 
 (def osm-extract-path (path/child
                        env/*dataset-local-path*
@@ -96,6 +97,9 @@
 (def osm-node-path (path/child
                     osm-extract-path
                     "node.edn"))
+(def osm-node-with-tags-path (path/child
+                              osm-extract-path
+                              "node-with-tags.edn"))
 (def osm-way-path (path/child
                     osm-extract-path
                     "way.edn"))
@@ -119,6 +123,11 @@
     (fs/link download-path osm-pbf-path))
   (println "latest downloaded"))
 
+;; copy to ram-disk
+#_(with-open [is (fs/input-stream osm-pbf-path)
+            os (fs/output-stream osm-pbf-ram-path)]
+  (io/copy-input-to-output-stream is os))
+
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
@@ -130,10 +139,29 @@
   (osm/read-osm-pbf-go
    (context/wrap-scope context "read")
    osm-pbf-path
-   (channel-provider :node-in)
+   ;; use ram path
+   ;;osm-pbf-ram-path
+   (channel-provider :node-multiplex-in)
    (channel-provider :way-in)
    (channel-provider :relation-in))
 
+  (pipeline/broadcast-go
+   (context/wrap-scope context "node-multiplex")
+   (channel-provider :node-multiplex-in)
+   (channel-provider :node-with-tags-in)
+   (channel-provider :node-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-node-with-tags")
+   (channel-provider :node-with-tags-in)
+   (filter #(not (empty? (:tags %))))
+   (channel-provider :write-node-with-tags-in))
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-node-with-tags")
+   resource-controller
+   osm-node-with-tags-path
+   (channel-provider :write-node-with-tags-in))
+  
   (pipeline/write-edn-go
    (context/wrap-scope context "write-node")
    resource-controller
