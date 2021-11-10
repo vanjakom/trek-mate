@@ -898,6 +898,8 @@
 
   (l 19.20095, 42.27335 "Petar vencanje")
   (n 9079082710 tag/tag-todo "prerast")
+
+  (l 20.36502, 44.80510 "Srnina staza, izvideti" tag/tag-todo)
   )
 
 (web/register-dotstore
