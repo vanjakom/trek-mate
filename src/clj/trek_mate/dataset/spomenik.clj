@@ -48,6 +48,12 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+(def osm-pbf-path (path/child
+                   env/*global-dataset-path*
+                   "geofabrik.de"
+                   "serbia-latest.osm.pbf"))
+
+
 (def dataset-raw-path (path/child env/*dataset-cloud-path* "heritage.gov.rs"))
 
 (def dataset-path ["Users" "vanja" "projects" "zanimljiva-geografija"
@@ -963,7 +969,9 @@
                  (vals (:relations dataset))))))
 
 #_(count osm-seq)
-;; 20211012 
+;; 20211107 560
+;; 20211019 409
+;; 20211013 409
 ;; 20211010 367
 ;; 20210922 340
 ;; <20210922 328
@@ -985,34 +993,256 @@
     "SK1966"
     "SK1700"
 
+    ;; valjevo survey
+    "SK1065"
+    "ZM67"
+    "SK880"
+
     })
 
 ;; #dataset #missing
-(let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
-  (with-open [os (fs/output-stream (path/child dataset-path "monuments-missing.geojson"))]
-    (let [active-seq (filter
-                      (fn [monument]
-                        (and
-                         (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
-                         (not (contains? missing-ignore-first-phase
-                                         (get-in monument [:tags "ref:RS:nkd"])))))
-                      monument-seq)]
-      (json/write-pretty-print
-       (geojson/geojson
-        (map
-         geojson/location->feature
-         active-seq))
-       (io/output-stream->writer os))
-      (map/define-map
-        "spomenici-todo"
-        (map/tile-layer-osm)
-        (map/tile-layer-bing-satellite false)
-        (map/geojson-style-marker-layer
-         "todo"
-         (geojson/geojson
-          (map
-           geojson/location->feature
-           active-seq)))))))
+(def active-seq
+  (let [mapped (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) osm-seq))]
+    (filter
+     (fn [monument]
+       (and
+        (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+        (not (contains? missing-ignore-first-phase
+                        (get-in monument [:tags "ref:RS:nkd"])))))
+     monument-seq)))
+#_(count active-seq)
+;; 20211013 2094
+
+(with-open [os (fs/output-stream (path/child dataset-path "monuments-missing.geojson"))]
+  (json/write-pretty-print
+   (geojson/geojson
+    (map
+     geojson/location->feature
+     active-seq))
+   (io/output-stream->writer os))
+  (map/define-map
+    "spomenici-todo"
+    (map/tile-layer-osm)
+    (map/tile-layer-bing-satellite false)
+    (map/geojson-style-marker-layer
+     "todo"
+     (geojson/geojson
+      (map
+       geojson/location->feature
+       active-seq)))))
+
+;; experiment with mapping by wikidata
+#_(count (filter #(some? (get-in % [:tags "wikidata"])) active-seq)) ;; 1565
+
+;; prepare nwr with wikidata
+;; needed for merge by wikidata
+(def has-wikidata-seq (atom '()))
+(def active-pipeline nil)
+;; todo
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+
+      wikidata-set (into #{} (filter some? (map #(get-in % [:tags "wikidata"]) active-seq)) )]
+  (osm/read-osm-pbf-go
+   (context/wrap-scope context "read")
+    osm-pbf-path
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-node")
+   (channel-provider :node-in)
+   (filter
+    (fn [node]
+      (let [wikidata (get-in node [:tags "wikidata"])]
+        (and
+         (some? wikidata)
+         (contains? wikidata-set wikidata)))))
+   (channel-provider :capture-node-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-way")
+   (channel-provider :way-in)
+   (filter
+    (fn [way]
+      (let [wikidata (get-in way [:tags "wikidata"])]
+        (and
+         (some? wikidata)
+         (contains? wikidata-set wikidata)))))
+   (channel-provider :capture-way-in))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-relation")
+   (channel-provider :relation-in)
+   (filter
+    (fn [relation]
+      (or
+       (contains? (:osm relation) "wikipedia")
+       (contains? (:osm relation) "wikidata"))))
+   (channel-provider :capture-relation-in))
+  
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :capture-node-in)
+    (channel-provider :capture-way-in)
+    (channel-provider :capture-relation-in)]
+   (channel-provider :capture-in))
+
+  (pipeline/capture-atom-seq-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture-in)
+   has-wikidata-seq)
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+
+(def canditate-seq
+  (let [has-wikidata-map (into {}
+                              (filter
+                               #(some? (first %))
+                               (map (fn [entity]
+                                      [
+                                       (get-in entity [:tags "wikidata"])
+                                       entity])
+                                    (deref has-wikidata-seq))))]
+   (filter
+    some?
+    (map
+     (fn [monument]
+       (when-let [wikidata (get-in monument [:tags "wikidata"])]
+         (when-let [osm (get has-wikidata-map wikidata)]
+           {
+            :monument monument
+            :osm osm})))
+     active-seq))))
+
+#_(run!
+ #(do
+       (println "assign to" (get-in % [:osm :type]) (get-in % [:osm :id]))
+       (doseq [[tag value] (:tags (:monument %))]
+         (println "\t" tag "=" value)))
+ candidate-seq)
+
+#_(count monument-seq) ;; 2478
+#_(count active-seq) ;; 2094
+#_(count (deref has-wikidata-seq)) ;; 1091
+#_(count canditate-seq) ;; 118 260 
+
+(osmeditor/task-report
+ "spomenik-wiki-match"
+ "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"
+ (fn [task-id description candidate]
+  (let [id (:id candidate)]
+    [:tr 
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      id]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (get-in candidate [:monument :tags "ref:RS:nkd"])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (get-in candidate [:monument :tags "heritage:RS:name"])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (concat
+       (map
+        (fn [[key value]]
+          [:div (str key " = " value)])
+        (get-in candidate [:osm :tags]))
+       (map
+        (fn [[key value]]
+          [:div {:style "color:green;"} (str key " = " value)])
+        (get-in candidate [:monument :tags])))]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (filter
+       some?
+       [
+        [:a
+         {
+          :href (get-in candidate [:monument :tags "heritage:website"])
+          :target "_blank"}
+         "spomenik"]
+        [:br]
+        [:a
+         {
+          :href (wikidata/wikipedia->url (get-in candidate [:monument :tags "wikipedia"]))
+          :target "_blank"}
+         "wikipedia"]
+        [:br]
+        [:a
+         {
+          :href (wikidata/wikidata->url (get-in candidate [:monument :tags "wikidata"]))
+          :target "_blank"}
+         "wikidata"]
+        [:br]
+        [:a
+         {
+          :href (str
+                 "http://www.openstreetmap.org/"
+                 (name (get-in candidate [:osm :type]))
+                 "/"
+                 (get-in candidate [:osm :id]))
+          :target "_blank"}
+         "osm"]
+        [:br]
+        [:a
+         {
+          :href (str
+                 "http://level0.osmz.ru/?url=https%3A%2F%2Fwww.openstreetmap.org"
+                 "%2F" (name (get-in candidate [:osm :type])) "%2F" (get-in candidate [:osm :id]))
+          :target "_blank"}
+         "level0"]])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+        :a
+        {
+         :href (str "javascript:applyChange(\"" task-id "\",\"" (:id candidate) "\")")}
+        "apply"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [:div
+       {
+        :id (str (:id candidate))}
+       (if (:done candidate) "done" "pending")]]]))
+ (fn [task-id description candidate]
+   (let [id (get-in candidate [:osm :id])
+         type (get-in candidate [:osm :type])]
+     (if-let [changeset (cond
+                          (= type :node)
+                          (osmapi/node-apply-change-seq
+                           id
+                           description
+                           (:change-seq candidate))
+                          (= type :way)
+                          (osmapi/way-apply-change-seq
+                           id
+                           description
+                           (:change-seq candidate))
+                          (= type :relation)
+                          (osmapi/relation-apply-change-seq
+                           id
+                           description
+                           (:change-seq candidate))
+                          :else
+                          nil)]
+       (ring.util.response/redirect
+        (str "/view/osm/history/" (name type) "/" id))
+       {
+        :status 500
+        :body "error"})))
+ (map
+  (fn [candidate]
+    (assoc
+     candidate
+     :id
+     (str (first (name (get-in candidate [:osm :type]))) (get-in candidate [:osm :id]))
+     :change-seq
+     (map
+      (fn [[key value]]
+        {:change :tag-add
+         :tag key
+         :value value} )
+      (get-in candidate [:monument :tags]))))
+  canditate-seq))
+
 
 #_(first osm-seq)
 #_{:id 8947268725, :type :node, :version 2, :changeset 108547536, :longitude 19.3303102, :latitude 44.2959682, :tags {"name:sr" "Црква брвнара", "ref:RS:nkd" "SK578", "dedication:sr" "Свети апостоли Петар и Павле", "heritage:RS:criteria" "great", "alt_name:sr" "Црква Светих апостола Петара и Павла", "addr:postcode" "15320", "addr:city" "Љубовија", "dedication:sr-Latn" "Sveti apostoli Petar i Pavle", "alt_name:sr-Latn" "Crkva Svetih apostola Petara i Pavla", "name" "Црква брвнара", "amenity" "place_of_worship", "heritage" "2", "denomination" "serbian_orthodox", "name:sr-Latn" "Crkva brvnara", "addr:street" "Селанац", "religion" "christian"}}

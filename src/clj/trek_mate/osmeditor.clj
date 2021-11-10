@@ -739,6 +739,11 @@
   nil)
 
 (defn task-report
+  "Supports two mode, simple in which outline is predefined and advanced in
+  which render-fn is used for customizaton of outline and apply-fn for additional
+  editing. For render and apply there are default functions candidate-render-default
+  and candidate-apply-tag-change.
+  putevi, spomenik dataset uses advanced rendering and apply"
   ([task-id description candidate-seq]
    (swap!
     tasks

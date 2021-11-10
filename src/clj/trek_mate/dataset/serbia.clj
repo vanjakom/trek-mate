@@ -495,9 +495,9 @@
    beograd])
 
 ;; #area #serbia
-;; serbia relation 1741311
+;; serbia relation 1741311 ( without AP Kosovo and Metohija )
 ;; (+ 1741311 3600000000) ; 3601741311
-;; serbia with kosovo 9088937
+;; serbia relation 9088937
 ;; (+ 9088937 3600000000) ; 3609088937
 ;; #area #montenegro
 ;; (+ 53296 3600000000) ;; 3600053296

@@ -898,6 +898,14 @@
 
   (l 19.20095, 42.27335 "Petar vencanje")
   (n 9079082710 tag/tag-todo "prerast")
+  (l 19.97754, 44.13958
+     tag/tag-todo
+     "izvideti kako da se dodje do Bele Stene iz Krcmara"
+     (tag/url-tag "skitanje.com" "http://www.skitanje.com/bela-stena-krcmar/"))
+
+  (w 703111616 tag/tag-todo)
+
+
   )
 
 (web/register-dotstore
