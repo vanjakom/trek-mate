@@ -494,6 +494,53 @@
                  (reverse (sort-by :timestamp relation-seq)))]
                [:br]]])}))))
 
-;; to set specific track as background for debugging use pss namespace
-;; tag #debug #track
+;; to set specific track as background for debugging use pss namespace for pss
+;; tracks tag #debug #track
+;; other will be listed here
+
+;; fruskogorska transverzala
+#_(let [location-seq (with-open [is (fs/input-stream
+                                   (path/child
+                                    env/*dataset-cloud-path*
+                                    "transverzale"
+                                    "fruskogorska"
+                                    "FG-Transverzala-2020-kompromisni-trek.gpx"))]
+                     (doall
+                      (mapcat
+                       identity
+                       (:track-seq (gpx/read-track-gpx is)))))]
+  (web/register-dotstore
+   "track"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-yellow [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
+
+
+;; niska - nova - transverzala
+#_(let [location-seq (with-open [is (fs/input-stream
+                                   (path/child
+                                    env/*dataset-cloud-path*
+                                    "transverzale"
+                                    "niska-nova"
+                                    "itt.rs"
+                                    "nt.gpx"))]
+                     (doall
+                      (mapcat
+                       identity
+                       (:track-seq (gpx/read-track-gpx is)))))]
+  (web/register-dotstore
+   "track"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-magenta [zoom x y] location-seq)
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)}))))
 

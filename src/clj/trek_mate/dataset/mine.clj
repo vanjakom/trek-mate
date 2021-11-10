@@ -898,8 +898,19 @@
 
   (l 19.20095, 42.27335 "Petar vencanje")
   (n 9079082710 tag/tag-todo "prerast")
+<<<<<<< HEAD
 
   (l 20.36502, 44.80510 "Srnina staza, izvideti" tag/tag-todo)
+=======
+  (l 19.97754, 44.13958
+     tag/tag-todo
+     "izvideti kako da se dodje do Bele Stene iz Krcmara"
+     (tag/url-tag "skitanje.com" "http://www.skitanje.com/bela-stena-krcmar/"))
+
+  (w 703111616 tag/tag-todo)
+
+
+>>>>>>> 5961a19ad82d2ba3376e60865e1f43e6021418cb
   )
 
 (web/register-dotstore

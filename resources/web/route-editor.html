@@ -279,29 +279,6 @@
 	      noWrap: true
 	  })
       
-      var baseMaps = {
-	  "open street map": osmTile,
-	  "mapbox outdoor": mapboxOutdoorTile,
-	  "mapbox basic": mapboxBasicTile,
-	  "mapbox satellite": mapboxSatelliteTile,
-	  "bing aerial": bingAerialTile,
-	  "ustopo 50": usTopoTile,
-	  "empty white tile": emptyWhiteTile,
-	  "maptiler satellite": maptilerSatelliteTile,
-	  "osm wms de hillshade" : osmWmsDeTile,
-	  "wmflabs hillshade": wmflabsHillshadeTile
-      }
-      
-      var overlayMaps = {
-	  "cycle path": mapboxBicycleTile,
-	  "osm gpx": osmGpxTile,
-	  "tile bounds": boundsTile,
-	  "strava heatmap": stravaHeatmapTile,
-	  "strava auth heatmap": stravaAuthHeatmapTile,
-	  "track": trackTile}
-
-      L.control.layers(baseMaps, overlayMaps).addTo(map)
-
       L.Control.Button = L.Control.extend({
 	  options: {
 	      //position: 'bottomleft'
@@ -659,6 +636,30 @@
 	  "mouseup",
 	  function (e) {
 	      clearInterval(mousedownInterval)})
+
+            var baseMaps = {
+	  "open street map": osmTile,
+	  "mapbox outdoor": mapboxOutdoorTile,
+	  "mapbox basic": mapboxBasicTile,
+	  "mapbox satellite": mapboxSatelliteTile,
+	  "bing aerial": bingAerialTile,
+	  "ustopo 50": usTopoTile,
+	  "empty white tile": emptyWhiteTile,
+	  "maptiler satellite": maptilerSatelliteTile,
+	  "osm wms de hillshade" : osmWmsDeTile,
+	  "wmflabs hillshade": wmflabsHillshadeTile
+      }
+      
+      var overlayMaps = {
+	  "data": relationLayer,
+	  "cycle path": mapboxBicycleTile,
+	  "osm gpx": osmGpxTile,
+	  "tile bounds": boundsTile,
+	  "strava heatmap": stravaHeatmapTile,
+	  "strava auth heatmap": stravaAuthHeatmapTile,
+	  "track": trackTile}
+
+      L.control.layers(baseMaps, overlayMaps).addTo(map)
     </script>
   </body>
 </html>
