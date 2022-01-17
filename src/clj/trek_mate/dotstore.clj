@@ -337,6 +337,9 @@
           (context/counter context "write")
           (context/set-state context "completion"))))))
 
-
+;; work on support for fixed zoom location split
+;; idea:
+;; choose fixed zoom for which all locations will be grouped into tiles
+;; group locations belonging to single tile into human readable file
 
 

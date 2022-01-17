@@ -202,6 +202,7 @@
    "node[natural=tree][religion=christian][denomination=serbian_orthodox](area:3601741311);"))
 
 #_(count osm-seq)
+;; 243 20211218 - наставак рада на пројекту
 ;; 200 20210527
 ;; 193 20210406
 ;; 186 20210325
@@ -215,6 +216,15 @@
 ;; 94 20210224
 ;; 80 20210210
 ;; 72 ;; 42 ;; 28
+
+;; analyze osm dataset
+#_(run!
+ println
+ (filter #(not (= (:user %) "Komadinovic Vanja")) osm-seq))
+#_(run!
+ println
+ (filter #(not (= (:version %) 1)) osm-seq))
+
 
 ;; todo
 ;; postoji podatak da li je drvo nestalo, proveriti sa zoranom
@@ -522,7 +532,10 @@
    "0565" "zapis ima zakacenu kucicu"
    "0584" "lepo uredjen prostor oko zapisa"
    "0621" "odmah pored starog hrasta"
-   "0623" "kamena oznaka zapisa"})
+   "0623" "kamena oznaka zapisa"
+   "0702" "evidentirani tokom ceremonije"
+   "0703" "evidentirani tokom ceremonije"
+   "0704" "evidentirani tokom ceremonije"})
 
 ;; private, skip in first iteration
 ;; 20210302 - started tracking private on 421

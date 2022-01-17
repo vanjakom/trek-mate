@@ -15,7 +15,7 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-common.time :as time]
-   [clj-geo.import.geojson :as geojson]
+   [trek-mate.integration.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [clj-geo.math.tile :as tile-math]
@@ -131,7 +131,7 @@
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
-;; split to node, way, relation
+;; split to node, node with tags, way, relation
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)

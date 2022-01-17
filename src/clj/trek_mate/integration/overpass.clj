@@ -21,7 +21,7 @@
                   "[out:json];\n"
                   query
                   "\n"
-                  "out center;"))]
+                  "out center meta;"))]
     (println query)
     ;; todo stringify tags on arrival, possible issue with tags which cannot be keywords
     ;; currently stringified in each type convert fn
@@ -176,7 +176,9 @@
   {
    :type :node
    :id (:id element)
-   :osm (clojure.walk/stringify-keys (:tags element))})
+   :osm (clojure.walk/stringify-keys (:tags element))
+   :user (:user element)
+   :version (:version element)})
 
 (defn transform-way
   [element]
@@ -184,7 +186,9 @@
    :type :way
    :id (:id element)
    :osm (clojure.walk/stringify-keys (:tags element))
-   :nodes (:nodes element)})
+   :nodes (:nodes element)
+   :user (:user element)
+   :version (:version element)})
 
 (defn transform-relation
   [element]
@@ -200,7 +204,9 @@
                 :role (if (empty? (:role member))
                         nil
                         (:role member))})
-             (:members element))})
+             (:members element))
+   :user (:user element)
+   :version (:version element)})
 
 ;; todo define macro query which will be able to process overpass clojure DSL
 
