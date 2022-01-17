@@ -215,6 +215,11 @@
                (:track-seq (gpx/read-gpx gpx-is))))]
     (geojson-style-layer name data)))
 
+(defn geojson-gpx-garmin-layer [name track-id]
+  (with-open [gpx-is (fs/input-stream
+                      (path/child env/garmin-track-path (str track-id ".gpx")))]
+    (geojson-gpx-layer name gpx-is)))
+
 (defn map-setup-block []
   (str
    "\t\t\tvar map = L.map('map', {maxBoundsViscosity: 1.0})\n"
@@ -386,3 +391,7 @@
    "/view/:map"
    [map]
    (render map))))
+
+;; example url
+;; http://localhost:7071/view/hungary2021#map=14/47.498328925473245/19.056215286254886
+

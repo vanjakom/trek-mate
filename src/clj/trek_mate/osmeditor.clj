@@ -689,16 +689,35 @@
   ([way-id]
    (way->feature (dataset-way way-id) way-id))
   ([dataset way-id]
-   (update-in
-    (geojson/location-seq->line-string
-     (map
-      #(let [node (get-in dataset [:nodes %])]
-         {
-          :longitude (as/as-double (:longitude node))
-          :latitude (as/as-double (:latitude node))})
-      (get-in dataset [:ways way-id :nodes])))
-    [:properties :id]
-    (constantly way-id))))
+   (let [way (get-in dataset [:ways way-id])]
+     (assoc
+      (geojson/location-seq->line-string
+       (map
+        #(let [node (get-in dataset [:nodes %])]
+           {
+            :longitude (as/as-double (:longitude node))
+            :latitude (as/as-double (:latitude node))})
+        (:nodes way)))
+      :properties
+      {
+       :type "way"
+       :id way-id
+       :tags (:tags way)}))))
+
+(defn node->feature
+  ([node-id]
+   (node->feature (dataset-node node-id) node-id))
+  ([dataset node-id]
+   (let [node (get-in dataset [:nodes node-id])]
+     (assoc
+      (geojson/location->feature
+       {:longitude (:longitude node) :latitude (:latitude node)})
+      :properties
+      {
+       :type "node"
+       :id node-id
+       :tags (:tags node)}))))
+
 
 (defn prepare-network-data
   [id]
@@ -985,14 +1004,13 @@
                          (map
                           #(java.net.URLDecoder/decode %)
                           (drop 5 (clojure.string/split (get-in request [:uri]) #"/"))))]
-         {
-          :status 200
-          :body (cond
-                  ;; todo support relation
-                  (= type :node)
-                  (osmapi/node-apply-change-seq id comment change-seq)
-                  (= type :way)
-                  (osmapi/way-apply-change-seq id comment change-seq))})))))
+         (cond
+           ;; todo support relation
+           (= type :node)
+           (osmapi/node-apply-change-seq id comment change-seq)
+           (= type :way)
+           (osmapi/way-apply-change-seq id comment change-seq))
+         (ring.util.response/redirect (str "/view/osm/history/" (name type) "/" id)))))))
 
   ;; depricated, if not found to be used remove
   #_(compojure.core/GET
@@ -1647,4 +1665,122 @@
              [:a {:href "/view/relation/x"} "view relation order"]
              [:br]
              [:a {:href "/route/edit/x"} "edit route order"]]])})))
+
+
+;; generic as possible editor
+(def current-dataset (atom {}))
+(def theme-data (atom {}))
+
+#_(do
+  (swap!
+   theme-data
+   (constantly
+    (into
+     {}
+     (map
+      #(vector
+        (get-in % [:tags "ref:RS:nkd"])
+        {
+         :comment "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"
+         :data %} )
+      trek-mate.dataset.spomenik/active-seq))))
+  nil)
+
+#_(second (first (deref theme-data)))
+#_(run! println (take 100 (map first (deref theme-data))))
+
+
+(defn prepare-thematic-data
+  [theme-id min-longitude max-longitude min-latitude max-latitude]
+  #_(println "prepare-planner-route-ways" min-longitude max-longitude min-latitude max-latitude)
+  (let [dataset (osmapi/map-bounding-box
+                 min-longitude min-latitude max-longitude max-latitude)
+        theme (get (deref theme-data) theme-id)
+        comment (:comment theme)
+        data (:data theme)]
+    (swap! current-dataset (constantly dataset))
+    (geojson/geojson
+     (concat
+      (map
+       (fn [way-id]
+         (update-in
+          (way->feature dataset way-id)
+          [:properties :additional-html]
+          (constantly
+           (str
+            "<a href='/api/edit/way/" way-id "/"
+            (clojure.string/join
+             "/"
+             (map
+              (fn [[key value]]
+                (str "add/" (url-encode key) "/" (url-encode value)))
+              (:tags data)))
+            "?comment=" (url-encode comment)
+            "' target='_blank'>assign</a></br>"))))
+       (map
+        :id
+        (filter
+         #(contains? (:tags %) "building")
+         (vals (:ways dataset)))))
+      (map
+       (fn [node-id]
+         (update-in
+          (node->feature dataset node-id)
+          [:properties :additional-html]
+          (constantly
+           (str
+            "<a href='/api/edit/node/" node-id "/"
+            (clojure.string/join
+             "/"
+             (map
+              (fn [[key value]]
+                (str "add/" (url-encode key) "/" (url-encode value)))
+              (:tags data)))
+            "?comment=" (url-encode comment)
+            "' target='_blank'>assign</a></br>"))))
+       (map
+        :id
+        (filter
+         #(or
+           (= (get-in % [:tags "amenity"]) "place_of_worship" ))
+         (vals (:nodes dataset)))))))))
+
+#_(prepare-thematic-data
+ "SK1283"
+ 19.860990643501285
+ 19.86737430095673
+ 44.8923750023239
+ 44.895472191855504)
+
+(project-report
+ "thematic-editor"
+ "thematic osm editor"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/thematic-editor/:theme"
+   [theme]
+   {
+    :status 200
+    :body (jvm/resource-as-stream ["web" "thematic-editor.html"])})
+  (compojure.core/GET
+   "/projects/thematic-editor/:theme/data"
+   [theme]
+   {
+    :status 200
+    :headers {
+              "Content-Type" "application/json; charset=utf-8"}
+    :body (json/write-to-string (:data (get (deref theme-data) theme)))})  
+  (compojure.core/GET
+    "/projects/thematic-editor/:theme/:left/:top/:right/:bottom"
+    [theme left top right bottom]
+    (let [left (as/as-double left)
+          top (as/as-double top)
+          right (as/as-double right)
+          bottom (as/as-double bottom)
+          data (prepare-thematic-data theme left top right bottom)]
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "application/json; charset=utf-8"}
+       :body (json/write-to-string data)}))))
 

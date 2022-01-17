@@ -961,7 +961,7 @@
 ;; incremental import of garmin tracks
 ;; in case fresh import is needed modify last-track to show minimal date
 ;; todo prepare last-track for next iteration
-#_(let [last-track "Track_2021-04-04 204925.gpx"
+#_(let [last-track "Track_2021-11-15 100837.gpx"
       time-formatter-fn (let [formatter (new java.text.SimpleDateFormat "yyyy-MM-dd HHmmss")]
                           (.setTimeZone
                            formatter
@@ -984,7 +984,7 @@
      #(> (time-formatter-fn (last %)) last-timestamp)
      (filter
       #(.endsWith ^String (last %) ".gpx")
-      (fs/list trek-mate.dataset.mine/garmin-track-path))))
+      (fs/list env/garmin-track-path))))
    (channel-provider :gpx-in))
   (pipeline/transducer-stream-list-go
    (context/wrap-scope context "read-gpx")
@@ -1048,41 +1048,6 @@
    my-dot-root-path
    1000)
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
-
-
-
-
-;; support for tracks
-;; register project
-(def garmin-track-path
-  (path/child
-   env/*global-my-dataset-path*
-   "garmin"
-   "gpx"))
-(def garmin-waypoints-path
-  (path/child
-   env/*global-my-dataset-path*
-   "garmin"
-   "waypoints"))
-(def trek-mate-track-path
-  (path/child
-   env/*global-my-dataset-path*
-   "trek-mate"
-   "cloudkit"
-   "track"
-   env/*trek-mate-user*))
-(def trek-mate-location-path
-  (path/child
-   env/*global-my-dataset-path*
-   "trek-mate"
-   "cloudkit"
-   "location-request"
-   env/*trek-mate-user*))
-
-(def garmin-connect-path
-  (path/child
-   env/*global-my-dataset-path*
-   "garmin-connect"))
 
 
 (def garmin-symbol-map
@@ -1235,7 +1200,7 @@
            (= dataset "garmin")
            (if (some? waypoint)
              ;; switch to use garmin-waypoint-file->location-seq
-             (let [path (path/child garmin-waypoints-path (str waypoint ".gpx"))]
+             (let [path (path/child env/garmin-waypoints-path (str waypoint ".gpx"))]
                (if (fs/exists? path)
                  (let [location-seq (garmin-waypoint-file->location-seq path)]
                    {
@@ -1254,7 +1219,7 @@
                                   (:tags waypoint))}))
                              location-seq)))})
                  {:status 404}))
-             (let [path (path/child garmin-track-path (str track ".gpx"))]
+             (let [path (path/child env/garmin-track-path (str track ".gpx"))]
                (if (fs/exists? path)
                  (with-open [is (fs/input-stream path)]
                    (let [track-seq (:track-seq (gpx/read-track-gpx is))]
@@ -1268,7 +1233,7 @@
 
            (= dataset "trek-mate")
            (if (some? waypoint)
-             (let [path (path/child trek-mate-location-path waypoint)]
+             (let [path (path/child env/trek-mate-location-path waypoint)]
                (if (fs/exists? path)
                  (let [location-seq (storage/location-request-file->location-seq path)]
                    {
@@ -1287,7 +1252,7 @@
                                   (:tags waypoint))}))
                              location-seq)))})
                  {:status 404}))
-             (let [path (path/child trek-mate-track-path (str track ".json"))]
+             (let [path (path/child env/trek-mate-track-path (str track ".json"))]
               (if (fs/exists? path)
                 (with-open [is (fs/input-stream path)]
                   (let [location-seq (:locations (json/read-keyworded is))]
@@ -1300,7 +1265,7 @@
                 {:status 404})))
 
            (= dataset "garmin-connect")
-           (let [path (path/child garmin-connect-path (str track ".gpx"))]
+           (let [path (path/child env/garmin-connect-path (str track ".gpx"))]
              (println (path/path->string path))
                (if (fs/exists? path)
                  (with-open [is (fs/input-stream path)]
@@ -1325,7 +1290,7 @@
     :body (let [tags-map (into
                           {}
                           (with-open [is (fs/input-stream
-                                          (path/child garmin-track-path "index.tsv"))]
+                                          (path/child env/garmin-track-path "index.tsv"))]
                             (doall
                              (filter
                               some?
@@ -1370,7 +1335,7 @@
                      #(.endsWith % ".gpx")
                      (map
                       last
-                      (fs/list garmin-track-path)))))))]]]))})
+                      (fs/list env/garmin-track-path)))))))]]]))})
   (compojure.core/GET
    "/projects/tracks/garmin-wp"
    _
@@ -1402,12 +1367,12 @@
                    #(.endsWith % ".gpx")
                    (map
                     last
-                    (fs/list garmin-waypoints-path)))))))]]])})
+                    (fs/list env/garmin-waypoints-path)))))))]]])})
   (compojure.core/GET
    "/projects/tracks/garmin-wp/:file"
    [file]
    (let [file (base64/base64->string file)
-         wp-path (path/child garmin-waypoints-path (str file ".gpx"))]
+         wp-path (path/child env/garmin-waypoints-path (str file ".gpx"))]
      (if (fs/exists? wp-path)
        ;; todo tags are not parsed
        (let [location-seq (garmin-waypoint-file->location-seq wp-path)]
@@ -1470,11 +1435,11 @@
                                    #(.endsWith % ".json")
                                    (map
                                     last
-                                    (fs/list trek-mate-track-path))))))
+                                    (fs/list env/trek-mate-track-path))))))
                 ;; tags map is a bit problematic, tags are stored inside track
                 ;; cache tags map and update if needed
                 tags-map (let [tags-cache-path (path/child
-                                                 trek-mate-track-path
+                                                 env/trek-mate-track-path
                                                  "tags-cache")
                                [refresh tags-map] (reduce
                                                    (fn [[refresh tags-map] track-name]
@@ -1482,7 +1447,7 @@
                                                        [refresh tags-map]
                                                        (with-open [is (fs/input-stream
                                                                        (path/child
-                                                                        trek-mate-track-path
+                                                                        env/trek-mate-track-path
                                                                         (str track-name ".json")))]
                                                          [
                                                           true
@@ -1552,12 +1517,12 @@
                 (sort
                  (map
                   last
-                  (fs/list trek-mate-location-path)))))]]])})
+                  (fs/list env/trek-mate-location-path)))))]]])})
   (compojure.core/GET
    "/projects/tracks/trek-mate-wp/:file"
    [file]
    (let [file (base64/base64->string file)
-         wp-path (path/child trek-mate-location-path file)]
+         wp-path (path/child env/trek-mate-location-path file)]
      (if (fs/exists? wp-path)
        ;; todo tags are not parsed
        (let [location-seq (storage/location-request-file->location-seq wp-path)]
@@ -1617,11 +1582,11 @@
                                    #(.endsWith % ".gpx")
                                    (map
                                     last
-                                    (fs/list garmin-connect-path))))))
+                                    (fs/list env/garmin-connect-path))))))
                 ;; tags map is a bit problematic, tags are stored inside track
                 ;; cache tags map and update if needed
                 tags-map (let [tags-cache-path (path/child
-                                                 garmin-connect-path
+                                                 env/garmin-connect-path
                                                  "tags-cache")
                                [refresh tags-map] (reduce
                                                    (fn [[refresh tags-map] track-name]
@@ -1629,7 +1594,7 @@
                                                        [refresh tags-map]
                                                        (with-open [is (fs/input-stream
                                                                        (path/child
-                                                                        garmin-connect-path
+                                                                        env/garmin-connect-path
                                                                         (str track-name ".gpx")))]
                                                          (println "reading track: " track-name)
                                                          [

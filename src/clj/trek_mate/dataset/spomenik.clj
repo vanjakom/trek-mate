@@ -850,7 +850,10 @@
                nil))))
        (:DATA (json/read-keyworded is)))))))
 
+;; todo duplicates in monuments
 #_(count monument-seq) ;; 2478 ( was 2484 before extraction )
+#_(count (filter #(= (get-in % [:tags "ref:RS:nkd"]) "AN106") monument-seq)) ;; 3
+#_(count (into #{} (map #(get-in % [:tags "ref:RS:nkd"]) monument-seq))) ;; 2452
 
 #_(count (filter #(some? (get-in % [:tags "wikipedia"])) monument-seq)) ;; 1819
 
@@ -968,7 +971,11 @@
                  (vals (:ways dataset))
                  (vals (:relations dataset))))))
 
+#_(first (filter #(= "SK148" (get-in  % [:tags "ref:RS:nkd"])) osm-seq))
+
 #_(count osm-seq)
+;; 20211207 727
+;; 20211121 662
 ;; 20211107 560
 ;; 20211019 409
 ;; 20211013 409
@@ -985,6 +992,9 @@
     "PKIC16"
     "SK2047"
     "AN17"
+    "PKIC1"
+    "PKIC18"
+    "PKIC87"
     
     ;; beograd survey
     "ZM23"
@@ -992,12 +1002,38 @@
     "SK651"
     "SK1966"
     "SK1700"
+    "SK789" ;; proveriti da li postoji i dalje
+    "SK1616"
 
     ;; valjevo survey
     "SK1065"
     "ZM67"
     "SK880"
 
+    ;; tesko potvrditi
+    "SK621"
+    "SK852"
+    "SK620"
+
+    ;; zahteva survey
+    "SK1558"
+    "SK827"
+    "SK828"
+    "SK1774"
+    "SK2181"
+    
+    ;; ne postoje vise, uneseno i u notes
+    "SK135"
+    "SK1287"
+    "SK1759"
+    
+    ;; druga iteracija
+    "SK2069"
+    "SK446"
+    "SK2189"
+    "SK2190"
+    "SK2079"
+    
     })
 
 ;; #dataset #missing
@@ -1006,11 +1042,15 @@
     (filter
      (fn [monument]
        (and
-        (not (contains? mapped (get-in monument [:tags "ref:RS:nkd"])))
+        (not (contains? mapped
+                        (get-in monument [:tags "ref:RS:nkd"])))
         (not (contains? missing-ignore-first-phase
                         (get-in monument [:tags "ref:RS:nkd"])))))
      monument-seq)))
+
 #_(count active-seq)
+;; 20211207 1749
+;; 20211121 1836
 ;; 20211013 2094
 
 (with-open [os (fs/output-stream (path/child dataset-path "monuments-missing.geojson"))]
@@ -1098,7 +1138,8 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 
-(def canditate-seq
+;; done <20211207
+(def candidate-seq
   (let [has-wikidata-map (into {}
                               (filter
                                #(some? (first %))
@@ -1118,6 +1159,7 @@
             :osm osm})))
      active-seq))))
 
+
 #_(run!
  #(do
        (println "assign to" (get-in % [:osm :type]) (get-in % [:osm :id]))
@@ -1126,10 +1168,81 @@
  candidate-seq)
 
 #_(count monument-seq) ;; 2478
-#_(count active-seq) ;; 2094
+#_(count active-seq) ;; 1836 ;; 2094
 #_(count (deref has-wikidata-seq)) ;; 1091
-#_(count canditate-seq) ;; 118 260 
+#_(count candidate-seq) ;; 15 ;; 118 260 
 
+(osmeditor/task-report
+ "spomenik-manual-match"
+ ;; todo, currently not used, data from theme-data inside osmeditor is used
+ "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"
+ (fn [task-id description candidate]
+  (let [id (:id candidate)]
+    [:tr 
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      id]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (get-in candidate [:tags "ref:RS:nkd"])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (get-in candidate [:tags "heritage:RS:name"])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (map
+       (fn [[key value]]
+         [:div {:style "color:green;"} (str key " = " value)])
+       (get-in candidate [:tags]))]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (filter
+       some?
+       [
+        [:a
+         {
+          :href (get-in candidate [:tags "heritage:website"])
+          :target "_blank"}
+         "spomenik"]
+        [:br]
+        [:a
+         {
+          :href (wikidata/wikipedia->url (get-in candidate [:tags "wikipedia"]))
+          :target "_blank"}
+         "wikipedia"]
+        [:br]
+        [:a
+         {
+          :href (wikidata/wikidata->url (get-in candidate [:tags "wikidata"]))
+          :target "_blank"}
+         "wikidata"]])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [
+        :a
+        {
+         :href (str "javascript:applyChange(\"" task-id "\",\"" (:id candidate) "\")")}
+        "match"]]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      [:div
+       {
+        :id (str (:id candidate))}
+       (if (:done candidate) "done" "pending")]]]))
+ (fn [task-id description candidate]
+   (let [id (get-in candidate [:id])]
+     (ring.util.response/redirect
+      (str "/projects/thematic-editor/" id))))
+ (map
+  (fn [candidate]
+    (assoc
+     candidate
+     :id
+     (get-in candidate [:tags "ref:RS:nkd"])))
+  ;; use only belgrade
+  (filter
+   (fn [monument]
+     (and
+      (> (:longitude monument) 20.22446)
+      (< (:longitude monument) 20.65292)
+      (> (:latitude monument) 44.69111)
+      (< (:latitude monument) 44.95022)))
+   active-seq)))
+
+;; create tasks for missing monuments
 (osmeditor/task-report
  "spomenik-wiki-match"
  "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"
@@ -1241,7 +1354,9 @@
          :tag key
          :value value} )
       (get-in candidate [:monument :tags]))))
-  canditate-seq))
+  candidate-seq))
+
+
 
 
 #_(first osm-seq)

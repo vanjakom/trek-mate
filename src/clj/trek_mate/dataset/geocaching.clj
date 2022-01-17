@@ -2,6 +2,8 @@
   (:use
    clj-common.clojure)
   (:require
+   [clojure.xml :as xml]
+   [hiccup.core :as hiccup]
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.edn :as edn]
@@ -22,6 +24,7 @@
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.map :as map]
+   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
@@ -47,7 +50,7 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
-#_(def myfind-dotstore-pipeline nil)
+(def myfind-dotstore-pipeline nil)
 #_(let [context (context/create-state-context)
       context-thread (context/create-state-context-reporting-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
@@ -109,6 +112,11 @@
    (channel-provider :in)
    (var my-finds-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+#_(count my-finds-seq)
+;; 859 20220107
+;; 831 20211122
+;; 822
 
 (def my-finds-set
   (into
@@ -229,73 +237,6 @@
 #_(count geocache-not-found-seq) ;; 257 ;; 262 ;; 267
 
 
-;; #hungary2021 #favorite
-(def favorite-100-seq nil)
-(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (geocaching/pocket-query-go
-   (context/wrap-scope context "read")
-   (path/child list-path "budapest-favorite-100.gpx")
-   (channel-provider :in))
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :in)
-   (var favorite-100-seq))
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-(def favorite-100-set (into #{} (map #(get-in % [:geocaching :code]) favorite-100-seq)))
-(count favorite-100-set) ;; 25
-
-(def favorite-50-seq nil)
-(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (geocaching/pocket-query-go
-   (context/wrap-scope context "read")
-   (path/child list-path "budapest-favorite-50.gpx")
-   (channel-provider :in))
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :in)
-   (var favorite-50-seq))
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-(def favorite-50-set (into #{} (map #(get-in % [:geocaching :code]) favorite-50-seq)))
-(count favorite-50-set) ;; 93
-
-(def favorite-10-seq nil)
-(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (geocaching/pocket-query-go
-   (context/wrap-scope context "read")
-   (path/child list-path "budapest-favorite-10.gpx")
-   (channel-provider :in))
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :in)
-   (var favorite-10-seq))
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-(def favorite-10-set (into #{} (map #(get-in % [:geocaching :code]) favorite-10-seq)))
-
-(def hungary-seq (map
-                  (fn [geocache]
-                    (let [id (get-in geocache [:geocaching :code])]
-                      (cond
-                        (contains? favorite-100-set id)
-                        (update-in geocache [:tags] conj "#favorite-100")
-                        (contains? favorite-50-set id)
-                        (update-in geocache [:tags] conj "#favorite-50")
-                        (contains? favorite-10-set id)
-                        (update-in geocache [:tags] conj "#favorite-10")
-                        :else
-                        geocache)))
-                  geocache-not-found-seq))
-
-(first )
-
-(first geocache-not-found-seq)
-
-
 (web/register-dotstore
  "geocache-not-found"
  (fn [zoom x y]
@@ -312,69 +253,6 @@
          %
          [:longitude :latitude :tags])
        geocache-not-found-seq) ))))
-
-(map/define-map
-  "geocache-not-found"
-  (map/tile-layer-osm)
-  (map/tile-layer-bing-satellite false)
-  (map/geojson-style-marker-layer
-   "all"
-   (geojson/geojson
-    (map
-     geojson/location->feature
-     geocache-not-found-seq))
-   true
-   false)
-  (map/geojson-style-marker-layer
-   "favorite-100"
-   (geojson/geojson
-    (map
-     geojson/location->feature
-     (filter #(contains? (get-in % [:tags]) "#favorite-100") hungary-seq)))
-   false
-   false)
-  (map/geojson-style-marker-layer
-   "favorite-50"
-   (geojson/geojson
-    (map
-     geojson/location->feature
-     (filter #(contains? (get-in % [:tags]) "#favorite-50") hungary-seq)))
-   false
-   false)
-  (map/geojson-style-marker-layer
-   "favorite-10"
-   (geojson/geojson
-    (map
-     geojson/location->feature
-     (filter #(contains? (get-in % [:tags]) "#favorite-10") hungary-seq)))
-   false
-   false))
-
-(storage/import-location-v2-seq-handler
- (map
-  #(add-tag % "#geocache-hungary-2021")
-  (vals
-   (reduce
-    (fn [location-map location]
-      (let [location-id (util/location->location-id location)]
-        (if-let [stored-location (get location-map location-id)]
-          (do
-            (report "duplicate")
-            (report "\t" stored-location)
-            (report "\t" location)
-            (assoc
-             location-map
-             location-id
-             {
-              :longitude (:longitude location)
-              :latitude (:latitude location)
-              :tags (clojure.set/union (:tags stored-location) (:tags location))}))
-          (assoc location-map location-id location))))
-    {}
-    hungary-seq))))
-
-
-
 
 ;; import not found geocaches to icloud
 ;; change date to date of import to be able to filter out
@@ -577,6 +455,74 @@
 (defn l [longitude latitude & tags]
   {:longitude longitude :latitude latitude :tags (into #{}  tags)})
 
+
+;; find geocaches which should be logged but are not
+(def garmin-finds-seq
+  (with-open [is (fs/input-stream env/garmin-geocache-path)]
+    (doall
+     (map
+      (fn [geocache]
+        {
+         :code (first (:content (first (filter #(= :code (:tag %)) (:content geocache)))))
+         :timestamp (first (:content (first (filter #(= :time (:tag %)) (:content geocache)))))
+         :status (first (:content (first (filter #(= :result (:tag %)) (:content geocache)))))
+         :comment (first (:content (first (filter #(= :comment (:tag %)) (:content geocache)))))})
+      (:content (xml/parse is))))))
+
+#_(do
+  (println "list of caches found but not logged")
+  (run!
+   println
+   (filter
+    #(and
+      (= (:status %) "found it")
+      (not (contains? my-finds-set (:code %))))
+    garmin-finds-seq)))
+
+;; geocache queue
+(count
+ (filter
+  #(and
+    (= (:status %) "found it")
+    (not (contains? my-finds-set (:code %))))
+  garmin-finds-seq))
+;; 20 20220107
+;; 47 <20220107
+
+(osmeditor/project-report
+ "geocache-queue"
+ "geocaches found but not logged"
+ (compojure.core/routes
+  (compojure.core/GET
+   "/projects/geocache-queue/index"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:html
+            [:body {:style "font-family:arial;"}
+             [:table {:style "border-collapse:collapse;"}
+              (map
+               (fn [geocache]
+                 [:tr
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (:code geocache) "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (:timestamp geocache) "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (:status geocache) "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (osmeditor/hiccup-a
+                    "geocaching.com"
+                    (str "https://geocaching.com/geocache/" (:code geocache)))]])
+               (filter
+                #(and
+                  (= (:status %) "found it")
+                  (not (contains? my-finds-set (:code %))))
+                garmin-finds-seq))]
+             [:br]]])})))
 
 
 
