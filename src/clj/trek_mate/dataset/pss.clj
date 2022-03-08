@@ -32,11 +32,11 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
-(def dataset-path (path/child env/*global-my-dataset-path* "pss.rs"))
+(def dataset-path (path/child env/*dataset-git-path* "pss.rs"))
 
 ;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi
 ;; download routes list and supporting files
-#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
+(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
   (let [terrains-obj (json/read-keyworded
                       (.replace
                        (.trim
@@ -74,16 +74,17 @@
 
     ;; write objects
     (with-open [os (fs/output-stream (path/child dataset-path "types.json"))]
-      (json/write-to-stream types os))
+      (json/write-pretty-print types (io/output-stream->writer os)))
     (with-open [os (fs/output-stream (path/child dataset-path "terrains.json"))]
-      (json/write-to-stream terrains os))
+      (json/write-pretty-print terrains (io/output-stream->writer os)))
     (with-open [os (fs/output-stream (path/child dataset-path "posts.json"))]
-      (json/write-to-stream posts os))))
+      (json/write-pretty-print posts (io/output-stream->writer os)))))
 
 (def posts
   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
     (json/read-keyworded is)))
 #_(count posts)
+;; 260 on 20220308
 ;; 252 on 20210908
 ;; 251 on 20210629
 ;; 242 on 20210311
@@ -135,7 +136,7 @@
                     :planina planina
                     :link link}]
           (with-open [os (fs/output-stream info-path)]
-            (json/write-to-stream info os))
+            (json/write-pretty-print info (io/output-stream->writer os)))
           (with-open [os (fs/output-stream content-path)]
             (io/write-string os content))
           (when (not (empty? gpx))
@@ -472,7 +473,9 @@
 (def relation-seq (overpass/query-string "relation[source=pss_staze];"))
 
 #_(first relation-seq)
-#_(count relation-seq) ;; 141
+#_(count relation-seq)
+;; 155 20220307
+;; 141
 
 ;; report relations
 #_(run!
@@ -563,47 +566,82 @@
       note]]))
 
 ;; prepare wiki table
+;; data should be from OSM, different tool should be develop to prepare diff
+;; between data provided by pss.rs vs data in OSM
 (with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
   (binding [*out* (new java.io.OutputStreamWriter os)]
-    (do
-     (println "== Trenutno stanje ==")
-     (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
-     (println "Staze dostupne na sajtu PSS koje poseduju GPX:\n")
-     (println "{| border=1")
-     (println "! scope=\"col\" | ref")
-     (println "! scope=\"col\" | region")
-     (println "! scope=\"col\" | planina")
-     (println "! scope=\"col\" | uređenost")
-     (println "! scope=\"col\" | naziv")
-     (println "! scope=\"col\" | link")
-     (println "! scope=\"col\" | osm")
-     (println "! scope=\"col\" | note")
-     (doseq [route (sort
-                    #(id-compare %1 %2)
-                    (filter
-                     #(or
-                       ;; in iteration 20201223 some gpx files were not downloaded
-                       ;; which previously existed
-                       (some? (get relation-map (:id %)))
-                       (some? (get % :gpx-path))) (vals routes)))]
-       (let [id (:id route)
-             relation (get relation-map id)]
-         (println "|-")
-         (println "|" id)
-         (println "|" (id->region id))
-         (println "|" (:planina route))
-         (println "|" (:uredjenost route))
-         (println "|" (:title route))
-         (println "|" (str "[" (:link route) " pss]"))
-         (println "|" (if-let [relation-id (:id relation)]
-                        (str "{{relation|" relation-id "}}")
-                        ""))
-         (println "|" (if-let [note (get (:osm relation) "note")]
-                        note
-                        (if-let [note (get note-map id)]
-                          note
-                          "")))))
-     (println "|}"))))
+    (println "== Trenutno stanje ==")
+    (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
+    (println "Staze dostupne unutar OSM baze:\n")
+    (println "{| border=1")
+    (println "! scope=\"col\" | ref")
+    (println "! scope=\"col\" | region")
+    (println "! scope=\"col\" | planina")
+    (println "! scope=\"col\" | uređenost")
+    (println "! scope=\"col\" | naziv")
+    (println "! scope=\"col\" | link")
+    (println "! scope=\"col\" | osm")
+    (println "! scope=\"col\" | note")
+    (doseq [route (sort
+                   #(id-compare %1 %2)
+                   (filter
+                    #(some? (get relation-map (:id %)))
+                    (vals routes)))]
+      (let [id (:id route)
+            relation (get relation-map id)]
+        (do
+          (println "|-")
+          (println "|" (get-in relation [:osm "ref"]))
+          (println "|" (id->region id))
+          (println "|" (:planina route))
+          (println "|" (:uredjenost route))
+          (println "|" (get-in relation [:osm "name:sr"]))
+          (println "|" (str "[" (get-in relation [:osm "website"]) " pss]"))
+          (println "|" (if-let [relation-id (:id relation)]
+                         (str "{{relation|" relation-id "}}")
+                         ""))
+          (println "|" (if-let [note (get (:osm relation) "note")]
+                         note
+                         (if-let [note (get note-map id)]
+                           note
+                           ""))))))
+    (println "|}")
+
+    (println "Staze koje je moguće mapirati:\n")
+    (println "{| border=1")
+    (println "! scope=\"col\" | ref")
+    (println "! scope=\"col\" | region")
+    (println "! scope=\"col\" | planina")
+    (println "! scope=\"col\" | uređenost")
+    (println "! scope=\"col\" | naziv")
+    (println "! scope=\"col\" | link")
+    (println "! scope=\"col\" | note")
+    (doseq [route (sort
+                   #(id-compare %1 %2)
+                   (filter
+                    #(and
+                      (nil? (get relation-map (:id %)))
+                      (some? (get % :gpx-path)))
+                    (vals routes)))]
+      (let [id (:id route)
+            relation (get relation-map id)]
+        (do
+          (println "|-")
+          (println "|" id)
+          (println "|" (id->region id))
+          (println "|" (:planina route))
+          (println "|" (:uredjenost route))
+          (println "|" (:title route))
+          (println "|" (str "[" (:link route) " pss]"))
+          (println "|" (if-let [note (get (:osm relation) "note")]
+                         note
+                         (if-let [note (get note-map id)]
+                           note
+                           ""))))))
+    (println "|}")))
+
+
+
 
 ;; 11260598
 ;; 11105694

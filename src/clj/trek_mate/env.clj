@@ -16,6 +16,11 @@
 (def ^:dynamic *dataset-cloud-path*
   (path/string->path
    (or (jvm/environment-variable "DATASET_CLOUD") "/Users/vanja/dataset-cloud")))
+
+(def ^:dynamic *dataset-git-path*
+  (path/string->path
+   (or (jvm/environment-variable "DATASET_GIT") "/Users/vanja/dataset-git")))
+
 ;; deprecated
 (def *global-my-dataset-path* *dataset-cloud-path*)
 
