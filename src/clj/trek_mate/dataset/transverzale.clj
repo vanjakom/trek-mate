@@ -373,7 +373,7 @@
 (let [location-seq (mapcat
                     (fn [track-name]
                       (with-open [is (fs/input-stream (path/child
-                                                       mine/garmin-track-path
+                                                       env/garmin-track-path
                                                        track-name))]
                         (let [track (gpx/read-track-gpx is)]
                           (apply concat (:track-seq track)))))
