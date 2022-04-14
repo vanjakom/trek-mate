@@ -36,7 +36,7 @@
 
 ;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi
 ;; download routes list and supporting files
-(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
+#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
   (let [terrains-obj (json/read-keyworded
                       (.replace
                        (.trim
@@ -80,15 +80,40 @@
     (with-open [os (fs/output-stream (path/child dataset-path "posts.json"))]
       (json/write-pretty-print posts (io/output-stream->writer os)))))
 
+
+;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarske-transverzale
+;; download routes list only
+#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarske-transverzale")]
+  (let [terrains-obj (json/read-keyworded
+                      (.replace
+                       (.trim
+                        (first
+                         (filter
+                          #(.contains % "var terrainsObj =")
+                          (io/input-stream->line-seq is))))
+                       "var terrainsObj = " ""))
+        posts (:posts terrains-obj)]
+
+    (with-open [os (fs/output-stream (path/child dataset-path "posts-transversal.json"))]
+      (json/write-pretty-print posts (io/output-stream->writer os)))))
+
+
 (def posts
-  (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
-    (json/read-keyworded is)))
+  (concat
+   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
+     (json/read-keyworded is))
+   (with-open [is (fs/input-stream (path/child dataset-path "posts-transversal.json"))]
+     (json/read-keyworded is))))
 #_(count posts)
+;; 280 on 20220410
+;; 278 on 20220321, transversals added
 ;; 260 on 20220308
 ;; 252 on 20210908
 ;; 251 on 20210629
 ;; 242 on 20210311
 ;; 233 on 20201223
+
+#_(first posts)
 
 ;; download route info and gpx if exists, supports restart
 #_(doseq [post posts]
@@ -117,16 +142,22 @@
                        (re-find
                         #"<tr><th>Region</th><td>(.+?)</td>"
                         content)))
-              uredjenost (.trim
-                          (second
-                           (re-find
-                            #"<tr><th>Uređenost</th><td>(.+?)</td>"
-                            content)))
-              planina (.trim
-                       (second
-                        (re-find
-                         #"<tr><th>Planina/predeo</th><td>(.+?)</td>"
-                         content)))
+              uredjenost (when-let [uredjenost (second
+                                              (re-find
+                                               #"<tr><th>Uređenost</th><td>(.+?)</td>"
+                                               content))]
+                           (.trim uredjenost))
+              planina (or
+                       (when-let [planina (second
+                                           (re-find
+                                            #"<tr><th>Planina/predeo</th><td>(.+?)</td>"
+                                            content))]
+                         (.trim planina))
+                       (when-let [planine (second
+                                           (re-find
+                                            #"<tr><th>Planine/predeli</th><td>(.+?)</td>"
+                                            content))]
+                         (.trim planine)))
               info {
                     :id oznaka
                     :gpx gpx
@@ -368,42 +399,44 @@
 
 ;; create custom map for pss trails, html page
 ;; two views each route as point and tiles, tile code should be reusable
-(println "preparing routes")
-(def routes
-  (reduce
-   (fn [routes info-path]
-     (println "processing" (path/path->string info-path))
-     (let [gpx-path (let [gpx-path (path/child
-                                    (path/parent info-path)
-                                    (.replace (last info-path) ".json" ".gpx"))]
-                      (when (fs/exists? gpx-path)
-                        gpx-path))
-           track (when gpx-path
-                   (with-open [is (fs/input-stream gpx-path)] (gpx/read-track-gpx is)))
-           location-seq (when track
-                          (apply concat (:track-seq track)))
-           first-location (when track
-                            (first location-seq))
-           info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))]
-       (assoc
-        routes
-        (:id info)
-        {
-         :id (:id info)
-         :gpx-path gpx-path
-         :info-path info-path
-         :title (:title info)
-         :link (:link info)
-         :location first-location
-         :uredjenost (:uredjenost info)
-         :region (:region info)
-         :planina (:planina info)}))
-     )
-   {}
-   (filter
-    #(.endsWith (last %) ".json")
-    (fs/list (path/child dataset-path "routes")))))
-(println "routes prepared")
+(do
+  (println "preparing routes")
+  (def routes
+    (reduce
+     (fn [routes info-path]
+       (println "processing" (path/path->string info-path))
+       (let [gpx-path (let [gpx-path (path/child
+                                      (path/parent info-path)
+                                      (.replace (last info-path) ".json" ".gpx"))]
+                        (when (fs/exists? gpx-path)
+                          gpx-path))
+             track (when gpx-path
+                     (with-open [is (fs/input-stream gpx-path)] (gpx/read-track-gpx is)))
+             location-seq (when track
+                            (apply concat (:track-seq track)))
+             first-location (when track
+                              (first location-seq))
+             info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))]
+         (assoc
+          routes
+          (:id info)
+          {
+           :id (:id info)
+           :gpx-path gpx-path
+           :info-path info-path
+           :title (:title info)
+           :link (:link info)
+           :location first-location
+           :uredjenost (:uredjenost info)
+           :region (:region info)
+           :planina (:planina info)}))
+       )
+     {}
+     (filter
+      #(.endsWith (last %) ".json")
+      (fs/list (path/child dataset-path "routes")))))
+  (println "routes prepared"))
+
 
 #_(first routes)
 
@@ -470,10 +503,14 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 ;; using overpass for latest results
-(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
+#_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
+;; support for matching other relations
+(def relation-seq (overpass/query-string "relation[type=route][route=hiking](area:3601741311);"))
 
 #_(first relation-seq)
 #_(count relation-seq)
+;; 348 20220410 updated to use 
+;; 163 20220319
 ;; 155 20220307
 ;; 141
 
@@ -641,13 +678,6 @@
     (println "|}")))
 
 
-
-
-;; 11260598
-;; 11105694
-;; 11126557
-;;11126446
-
 ;; #debug #track
 ;; set gpx as track to be used for route order fix and check
 ;; add to id editor http://localhost:8085/tile/raster/pss/{zoom}/{x}/{y}
@@ -801,3 +831,5 @@
                                      :coordinates location-seq}}]})}))))
 
 (web/create-server)
+
+(println "pss dataset loaded")

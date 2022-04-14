@@ -7,7 +7,8 @@
    :type "FeatureCollection"
    :features feature-seq})
 
-(def ^:dynamic *stroke-color* "#0000FF")
+(def ^:dynamic *style-stroke-color* "#0000FF") ;; blue
+(def ^:dynamic *style-stroke-widht* 2)
 
 (defn point [longitude latitude properties]
   {
@@ -21,7 +22,8 @@
   {
    :type "Feature"
    :properties {
-                "stroke" *stroke-color*}
+                "stroke" *style-stroke-color*
+                "stroke-width" *style-stroke-widht*}
    :geometry {
               :type "LineString"
               :coordinates (map

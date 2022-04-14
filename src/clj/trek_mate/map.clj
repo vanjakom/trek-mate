@@ -101,7 +101,7 @@
    "\t\t\t\t\t}\n"
    "\t\t\t})\n\n"))
 
-(defn tile-layer [name url attribution add]
+(defn tile-layer [name url attribution activate]
   (let [var-name (unique-var-name "layer")]
     (str
      "\n"
@@ -113,9 +113,25 @@
      "\t\t\t\t\tbounds: [[-90,-180],[90,180]],\n"
      "\t\t\t\t\tnoWrap: true\n"
      "\t\t\t\t})\n"
-     (when add
+     (when activate
        (str "\t\t\t" var-name ".addTo(map)\n"))
      "\t\t\tlayers.addBaseLayer(" var-name ", '" name "')\n")))
+
+(defn tile-overlay [name url attribution activate]
+  (let [var-name (unique-var-name "overlay")]
+    (str
+     "\n"
+     "\t\t\tvar " var-name " = L.tileLayer(\n"
+     "\t\t\t\t'" url "',\n"
+     "\t\t\t\t{\n"
+     "\t\t\t\t\tattribution: '" attribution "',\n"
+     "\t\t\t\t\tmaxZoom: 21,\n"
+     "\t\t\t\t\tbounds: [[-90,-180],[90,180]],\n"
+     "\t\t\t\t\tnoWrap: true\n"
+     "\t\t\t\t})\n"
+     (when activate
+       (str "\t\t\t" var-name ".addTo(map)\n"))
+     "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n")))
 
 (defn tile-layer-osm []
   (tile-layer
@@ -124,7 +140,21 @@
    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
    true))
 
-(defn tile-layer-bing-satellite [add]
+(defn tile-overlay-waymarked-hiking [activate]
+  (tile-overlay
+   "hiking waymarked trails"
+   "https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png"
+   "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+   activate))
+
+(defn tile-overlay-waymarked-cycling [activate]
+  (tile-overlay
+   "hiking waymarked trails"
+   "https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png"
+   "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+   activate))
+
+(defn tile-layer-bing-satellite [activate]
   (let [var-name (unique-var-name "layer")]
     (str
      "\n"
@@ -136,9 +166,19 @@
      "\t\t\t\t\tbounds: [[-90,-180],[90,180]],\n"
      "\t\t\t\t\tnoWrap: true\n"
      "\t\t\t\t})\n"
-     (when add
+     (when activate
        (str "\t\t\t" var-name ".addTo(map)\n"))
      "\t\t\tlayers.addBaseLayer(" var-name ", 'bing satellite')\n")))
+
+;; styling
+;; styling is supported with simplestyle specs by mapbox
+;; https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
+;; using
+;; https://github.com/rowanwins/leaflet-simplestyle
+;; styling should be embedded in geojson data provided, inside properties
+;; for data that could not have styling embedded in data ( gpx, osm data )
+;; dynamic binding should be used to set styling when constructing data with
+;; trek-mate.integration.geojson ( bindings are defined inside )
 
 (defn geojson-style-layer [name data]
   (let [var-name (unique-var-name "layer")]
@@ -184,6 +224,32 @@
       "\n")))
   ([name data]
    (geojson-style-marker-layer name data false true)))
+
+(defn geojson-photomap-marker-layer
+  "Addition to mapbox simple style, support marker-body, html that will be added
+  to marker popup"
+  ([name data zoom-to activate]
+   (let [var-name (unique-var-name "layer")]
+     (str
+      "\n"
+      "\t\t\tvar " var-name " = L.geoJSON(\n"
+      "\t\t\t\t" (json/write-to-string data) ",\n"
+      "\t\t\t\t{\n"
+      "\t\t\t\t\tpointToLayer: function(geojson, latlng) {\n"
+      "\t\t\t\t\t\tvar marker = L.marker(latlng)\n"
+      "\t\t\t\t\t\tvar markerBody = geojson.properties['marker-body']\n"
+      "\t\t\t\t\t\tmarker.bindPopup(markerBody, {maxWidth: 'auto'})\n"
+      "\t\t\t\t\t\treturn marker\n"
+      "\t\t\t\t\t}\n"
+      "\t\t\t\t})\n"
+      (when activate
+        (str "\t\t\t" var-name ".addTo(map)\n"))
+      "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
+      (when zoom-to
+        (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
+      "\n")))
+  ([name data]
+   (geojson-photomap-marker-layer name data false true)))
 
 (defn geojson-hiking-relation-layer [name relation-id]
   (let [dataset (osmapi/relation-full relation-id)
@@ -343,10 +409,15 @@
     "\t\t\t::-webkit-scrollbar {display: none;}\n"
     "\t\t\t.content {white-space: nowrap;overflow: hidden;}\n"
     "\t\t\t.map {position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px; cursor: crosshair;}\n"
-    "\t\t\t.leaflet-popup {\n"
-    "\t\t\t\twidth: 300px;\n"
-    "\t\t\t\twhite-space: normal;\n"
-    "\t\t\t}\n"
+
+    ;;; removed because of photo layer being broken when showing image
+    ;;; not sure why it was added, probably becasue of tags popopu but it
+    ;;; should be solved there
+    ;;; "\t\t\t.leaflet-popup {\n"
+    ;;; "\t\t\t\twidth: 300px;\n"
+    ;;; "\t\t\t\twhite-space: normal;\n"
+    ;;; "\t\t\t}\n"
+
     "\t\t</style>\n"
     "\t</head>\n"
     "\t<body>\n"
@@ -375,7 +446,7 @@
    layers)
   nil)
 
-
+(keys (deref maps))
 
 ;; ideas for declaration
 #_(map
