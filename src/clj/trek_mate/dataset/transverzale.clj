@@ -359,7 +359,10 @@
    "Track_2021-04-24 181711.gpx"
    "Track_2021-04-30 121435.gpx"
    "Track_2021-05-04 133111.gpx"
-   "Track_2021-05-08 170351.gpx"])
+   "Track_2021-05-08 170351.gpx"
+
+   "Track_2022-03-26 151640.gpx"
+   "Track_2022-03-26 153133.gpx"])
 
 (def fruskogorska-waypoint-seq
   [
@@ -368,12 +371,13 @@
    "Waypoints_24-APR-21"
    "Waypoints_30-APR-21"
    "Waypoints_04-MAY-21"
-   "Waypoints_08-MAY-21"])
+   "Waypoints_08-MAY-21"
+   "Waypoints_26-MAR-22"])
 
 (let [location-seq (mapcat
                     (fn [track-name]
                       (with-open [is (fs/input-stream (path/child
-                                                       mine/garmin-track-path
+                                                       env/garmin-track-path
                                                        track-name))]
                         (let [track (gpx/read-track-gpx is)]
                           (apply concat (:track-seq track)))))
@@ -756,7 +760,7 @@
         (<= (:latitude %) max-latitude))
       (vals (deref dataset))))))
 
-(map/define-map
+#_(map/define-map
   "transverzale"
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)
