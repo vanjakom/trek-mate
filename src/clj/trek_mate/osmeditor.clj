@@ -1671,20 +1671,115 @@
 (def current-dataset (atom {}))
 (def theme-data (atom {}))
 
-#_(do
+;; report monuments project
+(let [comment "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"]
   (swap!
    theme-data
-   (constantly
-    (into
-     {}
-     (map
-      #(vector
-        (get-in % [:tags "ref:RS:nkd"])
-        {
-         :comment "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"
-         :data %} )
-      trek-mate.dataset.spomenik/active-seq))))
+   (fn [theme-data]
+     (into
+      theme-data
+      (map
+       (fn [monument]
+         (vector
+          (get-in monument [:tags "ref:RS:nkd"])
+          {
+           :comment comment
+           :data monument
+           :live-data-fn (fn [dataset]
+                           (geojson/geojson
+                            (concat
+                             (map
+                              (fn [way-id]
+                                (update-in
+                                 (way->feature dataset way-id)
+                                 [:properties :additional-html]
+                                 (constantly
+                                  (str
+                                   "<a href='/api/edit/way/" way-id "/"
+                                   (clojure.string/join
+                                    "/"
+                                    (map
+                                     (fn [[key value]]
+                                       (str "add/" (url-encode key) "/" (url-encode value)))
+                                     (:tags monument)))
+                                   "?comment=" (url-encode comment)
+                                   "' target='_blank'>assign</a></br>"))))
+                              (map
+                               :id
+                               (filter
+                                #(contains? (:tags %) "building")
+                                (vals (:ways dataset)))))
+                             (map
+                              (fn [node-id]
+                                (update-in
+                                 (node->feature dataset node-id)
+                                 [:properties :additional-html]
+                                 (constantly
+                                  (str
+                                   "<a href='/api/edit/node/" node-id "/"
+                                   (clojure.string/join
+                                    "/"
+                                    (map
+                                     (fn [[key value]]
+                                       (str "add/" (url-encode key) "/" (url-encode value)))
+                                     (:tags monument)))
+                                   "?comment=" (url-encode comment)
+                                   "' target='_blank'>assign</a></br>"))))
+                              (map
+                               :id
+                               (filter
+                                #(or
+                                  (= (get-in % [:tags "amenity"]) "place_of_worship" ))
+                                (vals (:nodes dataset))))))))} ))
+       trek-mate.dataset.spomenik/active-seq))))
   nil)
+
+;; report ev11 project
+(let [comment "#serbia-ev11 work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/EuroVelo_11"]
+  (swap!
+   theme-data
+   (fn [theme-data]
+     (assoc
+      theme-data
+      "ev11"
+      {
+       :comment comment
+       ;; todo
+       :data {}
+       :live-data-fn (fn [dataset]
+                       (geojson/geojson
+                        (concat
+                         (map
+                          (fn [way-id]
+                            (update-in
+                             (way->feature dataset way-id)
+                             [:properties :additional-html]
+                             ;; todo
+                             (constantly "")))
+                          (map
+                           :id
+                           (filter
+                            #(contains? (:tags %) "highway")
+                            (vals (:ways dataset)))))
+                         (map
+                          (fn [node-id]
+                            (update-in
+                             (node->feature dataset node-id)
+                             [:properties :additional-html]
+                             ;; todo
+                             (constantly "")))
+                          (map
+                           :id
+                           (filter
+                            #(and
+                              (= (get-in % [:tags "tourism"]) "information")
+                              (= (get-in % [:tags "information"]) "guidepost")
+                              (= (get-in % [:tags "bicycle"]) "yes" ))
+                            (vals (:nodes dataset))))))))})))
+  nil)
+
+
+
 
 #_(second (first (deref theme-data)))
 #_(run! println (take 100 (map first (deref theme-data))))
@@ -1697,53 +1792,11 @@
                  min-longitude min-latitude max-longitude max-latitude)
         theme (get (deref theme-data) theme-id)
         comment (:comment theme)
-        data (:data theme)]
+        data (:data theme)
+        live-data ((:live-data-fn theme) dataset)]
+    ;; todo why?
     (swap! current-dataset (constantly dataset))
-    (geojson/geojson
-     (concat
-      (map
-       (fn [way-id]
-         (update-in
-          (way->feature dataset way-id)
-          [:properties :additional-html]
-          (constantly
-           (str
-            "<a href='/api/edit/way/" way-id "/"
-            (clojure.string/join
-             "/"
-             (map
-              (fn [[key value]]
-                (str "add/" (url-encode key) "/" (url-encode value)))
-              (:tags data)))
-            "?comment=" (url-encode comment)
-            "' target='_blank'>assign</a></br>"))))
-       (map
-        :id
-        (filter
-         #(contains? (:tags %) "building")
-         (vals (:ways dataset)))))
-      (map
-       (fn [node-id]
-         (update-in
-          (node->feature dataset node-id)
-          [:properties :additional-html]
-          (constantly
-           (str
-            "<a href='/api/edit/node/" node-id "/"
-            (clojure.string/join
-             "/"
-             (map
-              (fn [[key value]]
-                (str "add/" (url-encode key) "/" (url-encode value)))
-              (:tags data)))
-            "?comment=" (url-encode comment)
-            "' target='_blank'>assign</a></br>"))))
-       (map
-        :id
-        (filter
-         #(or
-           (= (get-in % [:tags "amenity"]) "place_of_worship" ))
-         (vals (:nodes dataset)))))))))
+    live-data))
 
 #_(prepare-thematic-data
  "SK1283"

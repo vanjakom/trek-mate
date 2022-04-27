@@ -170,6 +170,14 @@
        (str "\t\t\t" var-name ".addTo(map)\n"))
      "\t\t\tlayers.addBaseLayer(" var-name ", 'bing satellite')\n")))
 
+
+(defn tile-layer-google-satellite [add]
+  (tile-layer
+   "google satellite tile"
+   "http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}"
+   "&copy; Google"
+   add))
+
 ;; styling
 ;; styling is supported with simplestyle specs by mapbox
 ;; https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
@@ -452,7 +460,7 @@
    layers)
   nil)
 
-(keys (deref maps))
+#_(keys (deref maps))
 
 ;; ideas for declaration
 #_(map

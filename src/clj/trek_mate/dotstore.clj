@@ -83,14 +83,12 @@
     (apply
      path/child
      root-path
-     (concat
-      (map
-       str
-       quadkey)
-      ["dotstore"]))))
+     (map
+      str
+      quadkey))))
 
 #_ (tile->path ["tmp" "dotstore"] [7 70 46])
-;; ["tmp" "dotstore" "1" "2" "0" "2" "3" "3" "0" "dotstore"]
+;; ["tmp" "dotstore" "1" "2" "0" "2" "3" "3" "0"]
 
 (defn downscale-tile
   [[zoom x y] new-zoom]
@@ -265,7 +263,7 @@
          buffer buffer]
     (when-let [zoom (first zoom-seq)]
       (let [[zoom x y] (downscale-tile [default-zoom tile-x tile-y] zoom)
-            tile-path (tile->path root-path [zoom x y])
+            tile-path (path/child (tile->path root-path [zoom x y]) "dotstore")
             buffer (if (fs/exists? tile-path)
                      (let [tile (bitset-merge-tile (bitset-read-tile tile-path) buffer)]
                        (bitset-write-tile tile-path tile)
@@ -326,8 +324,8 @@
               (if (>= (count buffer) buffer-size)
                 (do
                   (doseq [[tile-coords tile] buffer]
-                    (bitset-write-all-tile resource-controller path tile-coords tile))
-                  (context/counter context "write")
+                    (bitset-write-all-tile resource-controller path tile-coords tile)
+                    (context/counter context "write"))
                   {})
                 buffer)))))
         (do
@@ -337,9 +335,74 @@
           (context/counter context "write")
           (context/set-state context "completion"))))))
 
+;; *** locset ***
+;; locations are grouped based on tile they belong to
 ;; work on support for fixed zoom location split
 ;; idea:
 ;; choose fixed zoom for which all locations will be grouped into tiles
 ;; group locations belonging to single tile into human readable file
 
+(def ^:dynamic *locset-buffer-size* 1000)
+
+(defn locset-create-tile [] {})
+
+(defn locset-key [location]
+  (str (:longitude location) "@" (:latitude location)))
+
+(defn locset-update-tile [tile location]
+  (let [key (locset-key location)]
+    (assoc tile key location)))
+
+(defn locset-read-tile [path]
+  (with-open [is (fs/input-stream path)]
+    ;; not using keywords
+    (json/read is)))
+
+(defn locset-write-tile [path tile]
+  (with-open [os (fs/output-stream path)]
+    (json/write-pretty-print
+     tile
+     (io/output-stream->writer os))))
+
+;; no need for render function
+;; bitset render is based on user knowing internal structure ( path )
+;; maybe transform to (render dotstore-alias zoom x y background color)
+
+(defn locset-write-go
+  "Accepts location on in channel, buffers and writes to fs.
+  Locations are grouped into tiles at fixed zoom level."
+  [context resource-controller in path zoom]
+  (async/go
+    (context/set-state context "init")
+    (loop [location (async/<! in)
+           buffer {}]
+      (if location
+        (do
+          (context/set-state context "step")
+          (let [[tile-x tile-y _ _] (longitude-latitude-zoom->tile-coords
+                                     (:longitude location) (:latitude location)
+                                     zoom)
+                tile (or
+                      (get buffer [tile-x tile-y])
+                      (locset-create-tile))]
+            (locset-update-tile tile location)
+            (recur
+             (async/<! in)
+             (let [buffer (assoc buffer [tile-x tile-y] tile)]
+               (if (>= (count buffer) *locset-buffer-size*)
+                 (do
+                   (doseq [[[x y] tile] buffer]
+                     (locset-write-tile
+                      (path/child (tile->path [zoom x y]))
+                      tile)
+                     (context/counter context "write"))
+                   {})
+                 buffer)))))
+        (do
+          ;; write all buffered tiles
+          (doseq [[[x y] tile] buffer]
+            (locset-write-tile
+             (path/child (tile->path [zoom x y]))
+             tile)
+            (context/counter context "write")))))))
 

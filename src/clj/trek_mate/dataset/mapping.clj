@@ -439,6 +439,6 @@
 #_(prepare-name-tags "Вршачка трансверзала")
 #_(prepare-name-tags "Стаза здравља")
 #_(prepare-name-tags "Зграда царинарнице у Земуну")
-
+#_(prepare-name-tags "Институт „Доктор Јосиф Панчић”")
 
 
