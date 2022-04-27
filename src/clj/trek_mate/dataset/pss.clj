@@ -509,7 +509,8 @@
 
 #_(first relation-seq)
 #_(count relation-seq)
-;; 348 20220410 updated to use 
+;; 350 20220417
+;; 348 20220410 updated to use all relations not just ones with source=pss_staze
 ;; 163 20220319
 ;; 155 20220307
 ;; 141
@@ -631,7 +632,7 @@
           (println "|" (get-in relation [:osm "ref"]))
           (println "|" (id->region id))
           (println "|" (:planina route))
-          (println "|" (:uredjenost route))
+          (println "|" (or (:uredjenost route) ""))
           (println "|" (get-in relation [:osm "name:sr"]))
           (println "|" (str "[" (get-in relation [:osm "website"]) " pss]"))
           (println "|" (if-let [relation-id (:id relation)]
@@ -667,7 +668,7 @@
           (println "|" id)
           (println "|" (id->region id))
           (println "|" (:planina route))
-          (println "|" (:uredjenost route))
+          (println "|" (or (:uredjenost route) ""))
           (println "|" (:title route))
           (println "|" (str "[" (:link route) " pss]"))
           (println "|" (if-let [note (get (:osm relation) "note")]

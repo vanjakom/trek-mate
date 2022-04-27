@@ -46,6 +46,8 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+(def dataset-path (path/child env/*dataset-cloud-path* "transverzale"))
+
 (def dataset (atom {}))
 
 (defn dataset-add [location]
@@ -362,7 +364,13 @@
    "Track_2021-05-08 170351.gpx"
 
    "Track_2022-03-26 151640.gpx"
-   "Track_2022-03-26 153133.gpx"])
+   "Track_2022-03-26 153133.gpx"
+
+   "Track_2022-04-16 153041.gpx"
+   "Track_2022-04-16 154724.gpx"
+   "Track_2022-04-23 140244.gpx"
+   "Track_2022-04-23 142524.gpx"
+   ])
 
 (def fruskogorska-waypoint-seq
   [
@@ -372,7 +380,8 @@
    "Waypoints_30-APR-21"
    "Waypoints_04-MAY-21"
    "Waypoints_08-MAY-21"
-   "Waypoints_26-MAR-22"])
+   "Waypoints_26-MAR-22"
+   "Waypoints_16-APR-22"])
 
 (let [location-seq (mapcat
                     (fn [track-name]
@@ -395,7 +404,7 @@
 
 ;; support for mapping of trail based on collected dots
 ;; generic copy moved to mapping, use that
-(let [location-seq(mapcat
+#_(let [location-seq(mapcat
                    (fn [waypoint-name]
                      (filter
                       #(contains? (:tags %) "#e7")
@@ -509,6 +518,24 @@
         1)
        nil))
     fruskogorska-kt-seq))
+
+
+;; write done segments to geojson
+#_(doseq [track-name fruskogorska-track-seq]
+  (with-open [os (fs/output-stream
+                  (path/child dataset-path "fruskogorska" (str track-name ".geojson")))]
+    (json/write-to-stream
+     (geojson/geojson
+      [
+       (with-open [is (fs/input-stream (path/child
+                                        env/garmin-track-path
+                                        track-name))]
+         (let [track (gpx/read-track-gpx is)
+               location-seq (apply concat (:track-seq track))]
+           (geojson/line-string location-seq)))])
+     os)))
+
+
 
 ;; write fruskogorska transverzala KT to dataset
 (doseq [location fruskogorska-kt-seq]
@@ -773,3 +800,5 @@
                                    "cika_duskove_rajacke_staze"
                                    "itt.rs-track.gpx"))]
     (map/geojson-gpx-layer "gpxLayer" is)))
+
+(println "loaded")

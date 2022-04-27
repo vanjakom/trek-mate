@@ -269,6 +269,12 @@
                                       :latitude (as/as-double (:latitude node))}))
                                  (:nodes (get-in dataset [:ways (:id member)])))]
                       (geojson/line-string nodes))
+                    (= (:type member) :node)
+                    (let [node (get-in dataset [:nodes (:id member)])]
+                      (geojson/point
+                       (as/as-double (:longitude node))
+                       (as/as-double (:latitude node))
+                       {"title" (get-in node [:tags "ref"])}))
                     :else
                     nil))
                 (:members relation))))]
