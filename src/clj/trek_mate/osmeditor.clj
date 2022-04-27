@@ -1672,7 +1672,7 @@
 (def theme-data (atom {}))
 
 ;; report monuments project
-(let [comment "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"]
+#_(let [comment "#serbia-monuments work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Nepokretna_kulturna_dobra"]
   (swap!
    theme-data
    (fn [theme-data]
