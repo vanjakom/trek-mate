@@ -77,17 +77,22 @@
 #_(tile->quadkey [6 35 23]) ;; "120233"
 #_(tile->quadkey [0 0 0]) ;; ""
 
+;; 20220428 changed to append dotstore at the end
 (defn tile->path
   [root-path tile]
   (let [quadkey (tile->quadkey tile)]
-    (apply
-     path/child
-     root-path
-     (map
-      str
-      quadkey))))
+    (path/child
+     (apply
+      path/child
+      root-path
+      (map
+       str
+       quadkey))
+     "dotstore")))
 
 #_ (tile->path ["tmp" "dotstore"] [7 70 46])
+;; ["tmp" "dotstore" "1" "2" "0" "2" "3" "3" "0" "dotstore"]
+;; old
 ;; ["tmp" "dotstore" "1" "2" "0" "2" "3" "3" "0"]
 
 (defn downscale-tile
@@ -263,7 +268,7 @@
          buffer buffer]
     (when-let [zoom (first zoom-seq)]
       (let [[zoom x y] (downscale-tile [default-zoom tile-x tile-y] zoom)
-            tile-path (path/child (tile->path root-path [zoom x y]) "dotstore")
+            tile-path (tile->path root-path [zoom x y])
             buffer (if (fs/exists? tile-path)
                      (let [tile (bitset-merge-tile (bitset-read-tile tile-path) buffer)]
                        (bitset-write-tile tile-path tile)
@@ -274,8 +279,7 @@
          (rest zoom-seq)
          (bitset-downscale-tile [zoom x y] buffer))))))
 
-#_(bitset-write-all-tile
- nil ["tmp" "dotstore"] [36148 23854] nil)
+#_(bitset-write-all-tile nil ["tmp" "dotstore"] [36148 23854] nil)
 ;; [tmp dotstore 1 2 0 2 3 3 0 3 0 0 3 1 2 3 2 0 dotstore]
 ;; [tmp dotstore 1 2 0 2 3 3 0 3 0 0 3 1 2 3 2 dotstore]
 ;; [tmp dotstore 1 2 0 2 3 3 0 3 0 0 3 1 2 3 dotstore]
@@ -331,8 +335,8 @@
         (do
           ;; write all buffered tiles
           (doseq [[tile-coords tile] buffer]
-            (bitset-write-all-tile resource-controller path tile-coords tile))
-          (context/counter context "write")
+            (bitset-write-all-tile resource-controller path tile-coords tile)
+            (context/counter context "write"))
           (context/set-state context "completion"))))))
 
 ;; *** locset ***
@@ -358,6 +362,13 @@
     ;; not using keywords
     (json/read is)))
 
+(defn locset-merge-tile [tile-a tile-b]
+  (reduce
+   (fn [tile location]
+     (assoc tile (locset-key location) location))
+   tile-a
+   (vals tile-b)))
+
 (defn locset-write-tile [path tile]
   (with-open [os (fs/output-stream path)]
     (json/write-pretty-print
@@ -382,27 +393,37 @@
           (let [[tile-x tile-y _ _] (longitude-latitude-zoom->tile-coords
                                      (:longitude location) (:latitude location)
                                      zoom)
-                tile (or
-                      (get buffer [tile-x tile-y])
-                      (locset-create-tile))]
-            (locset-update-tile tile location)
+                tile (locset-update-tile
+                      (or
+                       (get buffer [tile-x tile-y])
+                       (locset-create-tile))
+                      location)]
             (recur
              (async/<! in)
              (let [buffer (assoc buffer [tile-x tile-y] tile)]
                (if (>= (count buffer) *locset-buffer-size*)
                  (do
                    (doseq [[[x y] tile] buffer]
-                     (locset-write-tile
-                      (path/child (tile->path [zoom x y]))
-                      tile)
-                     (context/counter context "write"))
+                     (let [path (tile->path path [zoom x y])
+                           tile (if (fs/exists? path)
+                                  (locset-merge-tile
+                                   (locset-read-tile path)
+                                   tile)
+                                  tile)]
+                       (locset-write-tile path tile)
+                       (context/counter context "write")))
                    {})
                  buffer)))))
         (do
           ;; write all buffered tiles
           (doseq [[[x y] tile] buffer]
-            (locset-write-tile
-             (path/child (tile->path [zoom x y]))
-             tile)
-            (context/counter context "write")))))))
+            (let [path (tile->path path [zoom x y])
+                  tile (if (fs/exists? path)
+                         (locset-merge-tile
+                          (locset-read-tile path)
+                          tile)
+                         tile)]
+              (locset-write-tile path tile)
+              (context/counter context "write")))
+          (context/set-state context "completion"))))))
 
