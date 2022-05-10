@@ -188,8 +188,9 @@
 ;; dynamic binding should be used to set styling when constructing data with
 ;; trek-mate.integration.geojson ( bindings are defined inside )
 
-(defn geojson-style-layer [name data]
-  (let [var-name (unique-var-name "layer")]
+(defn geojson-style-layer 
+  ([name data activate zoom-to]
+   (let [var-name (unique-var-name "layer")]
     (str
      "\n"
      "\t\t\tvar " var-name " = L.geoJSON(\n"
@@ -197,8 +198,13 @@
      "\t\t\t\t{\n"
      "\t\t\t\t\tuseSimpleStyle: true\n"
      "\t\t\t\t})\n"
-     "\t\t\t" var-name ".addTo(map)\n"
-     "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n")))
+     (when activate
+       (str "\t\t\t" var-name ".addTo(map)\n"))
+     "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
+     (when zoom-to
+       (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n")))))
+  ([name data]
+   (geojson-style-layer name data true false)))
 
 (defn geojson-style-marker-layer
   "Addition to mapbox simple style, support marker-body, html that will be added
@@ -259,41 +265,47 @@
   ([name data]
    (geojson-photomap-marker-layer name data false true)))
 
-(defn geojson-hiking-relation-layer [name relation-id]
-  (let [dataset (osmapi/relation-full relation-id)
-        relation (get-in dataset [:relations relation-id])
-        data (geojson/geojson
-              (filter
-               some?
-               (map
-                (fn [member]
-                  (cond
-                    (= (:type member) :way)
-                    (let [nodes (map
-                                 (fn [id]
-                                   (let [node (get-in dataset [:nodes id])]
-                                     {
-                                      :longitude (as/as-double (:longitude node))
-                                      :latitude (as/as-double (:latitude node))}))
-                                 (:nodes (get-in dataset [:ways (:id member)])))]
-                      (geojson/line-string nodes))
-                    (= (:type member) :node)
-                    (let [node (get-in dataset [:nodes (:id member)])]
-                      (geojson/point
-                       (as/as-double (:longitude node))
-                       (as/as-double (:latitude node))
-                       {"title" (get-in node [:tags "ref"])}))
-                    :else
-                    nil))
-                (:members relation))))]
-    (geojson-style-layer name data)))
+(defn geojson-hiking-relation-layer
+  ([name relation-id activate zoom-to]
+   (let [dataset (osmapi/relation-full relation-id)
+         relation (get-in dataset [:relations relation-id])
+         data (geojson/geojson
+               (filter
+                some?
+                (map
+                 (fn [member]
+                   (cond
+                     (= (:type member) :way)
+                     (let [nodes (map
+                                  (fn [id]
+                                    (let [node (get-in dataset [:nodes id])]
+                                      {
+                                       :longitude (as/as-double (:longitude node))
+                                       :latitude (as/as-double (:latitude node))}))
+                                  (:nodes (get-in dataset [:ways (:id member)])))]
+                       (geojson/line-string nodes))
+                     (= (:type member) :node)
+                     (let [node (get-in dataset [:nodes (:id member)])]
+                       (geojson/point
+                        (as/as-double (:longitude node))
+                        (as/as-double (:latitude node))
+                        {"title" (get-in node [:tags "ref"])}))
+                     :else
+                     nil))
+                 (:members relation))))]
+     (geojson-style-layer name data activate zoom-to)))
+  ([name relation-id]
+   (geojson-hiking-relation-layer name relation-id true false)))
 
-(defn geojson-gpx-layer [name gpx-is]
-  (let [data (geojson/geojson
-              (map
-               geojson/line-string
-               (:track-seq (gpx/read-gpx gpx-is))))]
-    (geojson-style-layer name data)))
+(defn geojson-gpx-layer
+  ([name gpx-is activate zoom-to]
+   (let [data (geojson/geojson
+               (map
+                geojson/line-string
+                (:track-seq (gpx/read-gpx gpx-is))))]
+     (geojson-style-layer name data activate zoom-to)))
+  ([name gpx-is]
+   (geojson-gpx-layer name gpx-is true false)))
 
 (defn geojson-gpx-garmin-layer [name track-id]
   (with-open [gpx-is (fs/input-stream

@@ -16,7 +16,7 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-common.view :as view]
-   [clj-geo.import.geojson :as geojson]
+   [trek-mate.integration.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
@@ -25,6 +25,7 @@
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.map :as map]
    [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
@@ -113,10 +114,33 @@
 ;; 242 on 20210311
 ;; 233 on 20201223
 
+
+;; 20220509 - club was not extracted into info path initially
+;; create lookup from posts
+(def clubs
+  (reduce
+  (fn [clubs post]
+    (let [post (update-in post [:postmeta] #(view/seq->map :label %))]
+      (assoc
+       clubs
+       (get-in post [:postmeta "Oznaka" :value])
+       (or
+        (get-in post [:postmeta "Društvo/klub" :value 0 :post_title])
+        ;; support transverzals
+        (get-in post [:postmeta "Društvo" :value 0 :post_title])))))
+  {}
+  posts))
+
 #_(first posts)
+#_(get clubs "T-3-2")
+#_(filter
+ (fn [post]
+   (let [post (update-in post [:postmeta] #(view/seq->map :label %))]
+     (= (get-in post [:postmeta "Oznaka" :value])  "T-3-2")))
+ posts)
 
 ;; download route info and gpx if exists, supports restart
-#_(doseq [post posts]
+(doseq [post posts]
   (let [post (update-in post [:postmeta] #(view/seq->map :label %))
         postid (:ID post)
         title (:title post)
@@ -128,7 +152,8 @@
     (println oznaka "-" title)
     (println "\t" postid)
     (println "\t" link)
-    (if (not (fs/exists? info-path))
+    ;; 20220507 retry posts without gpx
+    (if (not (fs/exists? gpx-path))
       (do
         (println "\tdownloading post ...")
         (let [content (io/input-stream->string (http/get-as-stream link))
@@ -290,7 +315,7 @@
  posts)
 
 
-;; stats per club
+;; stats per club does it has track
 #_(doseq [[club [sum y n]] (reverse
                       (sort-by
                        (fn [[club [sum y n]]] sum)
@@ -429,7 +454,9 @@
            :location first-location
            :uredjenost (:uredjenost info)
            :region (:region info)
-           :planina (:planina info)}))
+           :planina (:planina info)
+           ;; 20220509 - club was not extracted into info path initially
+           :drustvo (get clubs (:id info))}))
        )
      {}
      (filter
@@ -509,6 +536,7 @@
 
 #_(first relation-seq)
 #_(count relation-seq)
+
 ;; 350 20220417
 ;; 348 20220410 updated to use all relations not just ones with source=pss_staze
 ;; 163 20220319
@@ -579,27 +607,49 @@
      [:td {:style "border: 1px solid black; padding: 5px; width: 150px;"}
       (:planina route)]
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px; text-align: center;"}
+      (get clubs id)]
+     [:td {:style "border: 1px solid black; padding: 5px; width: 100px; text-align: center;"}
       (:uredjenost route)]
      [:td {:style "border: 1px solid black; padding: 5px; width: 600px;"}
       (:title route )]
      [:td {:style "border: 1px solid black; padding: 5px; width: 40px; text-align: center;"}
       [:a {:href (:link route) :target "_blank"} "pss"]]
      [:td {:style "border: 1px solid black; padding: 5px; width: 80px; text-align: center;"}
-      (when-let [osm-id (:id relation)]
+      (if-let [osm-id (:id relation)]
         (list
           [:a {
              :href (str "https://openstreetmap.org/relation/" osm-id)
                :target "_blank"} "osm"]
           [:br]
           [:a {
-             :href (str "http://localhost:7077/view/relation/" osm-id)
-               :target "_blank"} "order"]
+             :href (str "http://localhost:7077/view/osm/history/relation/" osm-id)
+               :target "_blank"} "history"]
           [:br]
           [:a {
              :href (str "http://localhost:7077/route/edit/" osm-id)
-               :target "_blank"} "edit"]          
+               :target "_blank"} "order edit"]          
           [:br]
-          osm-id))]
+          [:a {
+             :href (str "http://localhost:7077/projects/pss/check/" id)
+               :target "_blank"} "gpx check"]          
+          [:br]
+          [:a {
+               :href (str
+                      "https://www.openstreetmap.org/edit?editor=id"
+                      "&relation=" osm-id
+                      "&#gpx=" (url-encode (str "http://localhost:7077/projects/pss/raw/" id ".gpx")))
+               :target "_blank"} "iD edit"]
+          [:br]
+          [:a {
+               :href (str "http://level0.osmz.ru/?url=relation/" osm-id)
+               :target "_blank"} "level0"]
+          [:br]          
+          osm-id)
+        [:a {
+             :href (str
+                    "https://www.openstreetmap.org/edit?editor=id"
+                    "&#gpx=" (url-encode (str "http://localhost:7077/projects/pss/raw/" id ".gpx")))
+             :target "_blank"} "iD edit"])]
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
       note]]))
 
@@ -716,7 +766,9 @@
             [:body
              [:a {:href "/projects/pss/map"} "map"]
              [:br]
-             [:a {:href "/projects/pss/state"} "list"]
+             [:a {:href "/projects/pss/state"} "list of unmapped / mapped"]
+             [:br]
+             [:a {:href "/projects/pss/list/club"} "list by club"]
              [:br]]])})
   (compojure.core/GET
    "/projects/pss/map"
@@ -778,6 +830,33 @@
                  #(id-compare %1 %2)
                  rest-of-routes))]]]))})
   (compojure.core/GET
+   "/projects/pss/list/club"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (let [by-club (group-by
+                         :drustvo
+                         (vals routes))]
+            (hiccup/html
+             [:html
+              [:body {:style "font-family:arial;"}
+               [:br]
+               (map
+                (fn [[club routes]]
+                  (list
+                   [:div (str (or club "Nepoznat") " (" (count routes) ")")]
+                   [:br]
+                   [:table {:style "border-collapse:collapse;"}
+                    (map
+                     (comp
+                      render-route
+                      :id)
+                     routes)]
+                   [:br]))
+                by-club)]]))})
+  (compojure.core/GET
    "/projects/pss/data/list"
    _
    {
@@ -806,6 +885,49 @@
                                                    (:latitude (:location route))]}})
                        (vals routes))})})
   (compojure.core/GET
+   "/projects/pss/check/:id"
+   [id]
+   (try
+     (let [relation (get relation-map id)
+           osm-id (get relation :id) 
+           ref (get-in relation [:osm "ref"])]
+       (println relation)
+       {
+        :status 200
+        :headers {
+                  "Content-Type" "text/html; charset=UTF-8"}
+        :body (map/render-raw
+               [
+                (map/tile-layer-osm)
+                (map/tile-layer-bing-satellite false)
+                (map/tile-overlay-waymarked-cycling false)
+                (binding [geojson/*style-stroke-color* "#FF0000"
+                          geojson/*style-stroke-widht* 4]
+                  (map/geojson-hiking-relation-layer "OSM" osm-id true false))
+                (binding [geojson/*style-stroke-color* "#00FF00"
+                          geojson/*style-stroke-widht* 2]
+                  (with-open [is (fs/input-stream (path/child
+                                                   dataset-path
+                                                   "routes"
+                                                   (str ref ".gpx")))]
+                    (map/geojson-gpx-layer "gpxLayer" is true true)))])})
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))
+  (compojure.core/GET
+   "/projects/pss/raw/:id.gpx"
+   [id]
+   {
+    :status 200
+    :headers {
+              "Access-Control-Allow-Origin" "*"}
+    :body (with-open [is (fs/input-stream (path/child
+                                           dataset-path
+                                           "routes"
+                                           (str id ".gpx")))]
+            (let [buffer (io/input-stream->bytes is)]
+              (io/bytes->input-stream buffer)))})
+  (compojure.core/GET
    "/projects/pss/data/route/:id"
    [id]
    (let [route (get routes id)
@@ -833,4 +955,23 @@
 
 (web/create-server)
 
+
+(map/define-map
+  "pss-check"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/tile-overlay-waymarked-cycling false)
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "OSM" 12525333))
+  (binding [geojson/*style-stroke-color* "#00FF00"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
+                                     dataset-path
+                                     "routes"
+                                     "3-20-7.gpx"))]
+    (map/geojson-gpx-layer "gpxLayer" is))))
+
+
 (println "pss dataset loaded")
+
