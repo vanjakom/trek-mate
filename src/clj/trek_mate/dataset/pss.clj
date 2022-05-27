@@ -98,14 +98,34 @@
     (with-open [os (fs/output-stream (path/child dataset-path "posts-transversal.json"))]
       (json/write-pretty-print posts (io/output-stream->writer os)))))
 
+;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=evropski-pesacki-putevi-u-srbiji
+;; download routes list only
+#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=evropski-pesacki-putevi-u-srbiji")]
+  (let [terrains-obj (json/read-keyworded
+                      (.replace
+                       (.trim
+                        (first
+                         (filter
+                          #(.contains % "var terrainsObj =")
+                          (io/input-stream->line-seq is))))
+                       "var terrainsObj = " ""))
+        posts (:posts terrains-obj)]
+
+    (with-open [os (fs/output-stream (path/child dataset-path "posts-e-paths.json"))]
+      (json/write-pretty-print posts (io/output-stream->writer os)))))
+
+
 
 (def posts
   (concat
    (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
      (json/read-keyworded is))
    (with-open [is (fs/input-stream (path/child dataset-path "posts-transversal.json"))]
+     (json/read-keyworded is))
+   (with-open [is (fs/input-stream (path/child dataset-path "posts-e-paths.json"))]
      (json/read-keyworded is))))
 #_(count posts)
+;; 311 on 20220517, e paths added
 ;; 280 on 20220410
 ;; 278 on 20220321, transversals added
 ;; 260 on 20220308
@@ -131,6 +151,13 @@
   {}
   posts))
 
+#_(run!
+ println
+ (into #{} (vals clubs)))
+(count (into #{} (vals clubs)))
+;; 52 20220517
+
+
 #_(first posts)
 #_(get clubs "T-3-2")
 #_(filter
@@ -140,7 +167,7 @@
  posts)
 
 ;; download route info and gpx if exists, supports restart
-(doseq [post posts]
+#_(doseq [post posts]
   (let [post (update-in post [:postmeta] #(view/seq->map :label %))
         postid (:ID post)
         title (:title post)
@@ -152,8 +179,12 @@
     (println oznaka "-" title)
     (println "\t" postid)
     (println "\t" link)
-    ;; 20220507 retry posts without gpx
-    (if (not (fs/exists? gpx-path))
+    ;; depending on use case either try all without gpx or info file
+    ;; in case of gpx most htmls will change because of news
+    (if (not
+         ;; (fs/exists? gpx-path)
+         (fs/exists? info-path)
+         )
       (do
         (println "\tdownloading post ...")
         (let [content (io/input-stream->string (http/get-as-stream link))
@@ -162,11 +193,11 @@
                                  #"<tr><th>GPX</th><td><a href=\"(.+?)\""
                                  content))]
                     (.trim gpx))
-              region (.trim
-                      (second
-                       (re-find
-                        #"<tr><th>Region</th><td>(.+?)</td>"
-                        content)))
+              region (when-let [region (second
+                                        (re-find
+                                         #"<tr><th>Region</th><td>(.+?)</td>"
+                                         content))]
+                       (.trim region))
               uredjenost (when-let [uredjenost (second
                                               (re-find
                                                #"<tr><th>Uređenost</th><td>(.+?)</td>"
@@ -582,14 +613,33 @@
 
 (defn id-compare
   [route1 route2]
-  (let [[region1 club1 number1] (.split (:id route1) "-")
-        [region2 club2 number2] (.split (:id route2) "-")
-        ;; hotfix for T-3-13
-        region1 (str (first (:region route1)))
-        region2 (str (first (:region route2)))]
-    (compare
-     (+ (* (as/as-long region1) 10000) (* (as/as-long club1) 100) (as/as-long number1))
-     (+ (* (as/as-long region2) 10000) (* (as/as-long club2) 100) (as/as-long number2)))))
+  ;; support for E paths, example: E7-6
+  (let [id1 (:id route1)
+        id2 (:id route2)]
+    (cond
+      (and (.startsWith id1 "E") (.startsWith id2 "E"))
+      ;; hotfix for E7-12a
+      (let [[road1 segment1] (.split (.replace (.substring id1 1) "a" "") "-")
+            [road2 segment2] (.split (.replace (.substring id2 1) "a" "") "-")]
+        (compare
+         (+ (* (as/as-long road1) 100) (as/as-long segment1))
+         (+ (* (as/as-long road2) 100) (as/as-long segment2))))
+
+      (.startsWith id1 "E")
+      -1
+
+      (.startsWith id2 "E")
+      1
+
+      :else
+      (let [[region1 club1 number1] (.split id1 "-")
+            [region2 club2 number2] (.split id2 "-")
+            ;; hotfix for transversals, example: T-3-13
+            region1 (str (first (:region route1)))
+            region2 (str (first (:region route2)))]
+        (compare
+         (+ (* (as/as-long region1) 10000) (* (as/as-long club1) 100) (as/as-long number1))
+         (+ (* (as/as-long region2) 10000) (* (as/as-long club2) 100) (as/as-long number2)))))))
 
 (defn render-route
   "prepares hiccup html for route"
@@ -975,3 +1025,60 @@
 
 (println "pss dataset loaded")
 
+;; E4 - european path
+
+(map/define-map
+  "E4"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/tile-overlay-waymarked-hiking false)
+  
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4" 9928151))
+
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4" 14185952))
+  
+  (binding [geojson/*style-stroke-color* "#0000FF"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-git-path*
+                                     "pss.rs"
+                                     "routes"
+                                     "E4-1.gpx"))]
+      (map/geojson-gpx-layer "E4-1" is)))
+  (binding [geojson/*style-stroke-color* "#0000FF"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-git-path*
+                                     "pss.rs"
+                                     "routes"
+                                     "E4-2.gpx"))]
+      (map/geojson-gpx-layer "E4-2" is)))
+  (binding [geojson/*style-stroke-color* "#0000FF"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-git-path*
+                                     "pss.rs"
+                                     "routes"
+                                     "E4-3.gpx"))]
+      (map/geojson-gpx-layer "E4-3" is)))
+  (binding [geojson/*style-stroke-color* "#0000FF"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-git-path*
+                                     "pss.rs"
+                                     "routes"
+                                     "E4-4.gpx"))]
+      (map/geojson-gpx-layer "E4-4" is)))
+  (binding [geojson/*style-stroke-color* "#0000FF"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-git-path*
+                                     "pss.rs"
+                                     "routes"
+                                     "E4-11.gpx"))]
+      (map/geojson-gpx-layer "E4-11" is)))
+  )

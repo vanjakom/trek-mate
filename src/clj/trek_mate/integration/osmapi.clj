@@ -44,6 +44,15 @@
 
 ;; conversion utils
 
+(def time-formatter (new java.text.SimpleDateFormat "yyyy-MM-dd'T'HH:mm:ss'Z'"))
+(defn time-string->timestamp [time-string]
+  (.getTime (.parse time-formatter time-string)))
+(defn timestamp->time-string [timestamp]
+  (.format time-formatter (new java.util.Date timestamp)))
+
+#_(.getTime (.parse time-formatter "2021-05-10T12:12:50Z")) ;; 1620641570000
+#_(.format time-formatter (new java.util.Date 1620641570000)) ;; "2021-05-10T12:12:50Z"
+
 (defn node-xml->node
   [node]
   {
@@ -51,7 +60,9 @@
    :type :node
    :version (as/as-long (:version (:attrs node)))
    :changeset (as/as-long (:changeset (:attrs node)))
-   ;; keep longitude and latitude as strings to prevent diff as result of conversion ?
+   :timestamp (time-string->timestamp (:timestamp (:attrs node)))
+   ;; keep longitude and latitude as strings to prevent diff as
+   ;; result of conversion ?
    :longitude (:lon (:attrs node))
    :latitude (:lat (:attrs node))
    :tags (reduce
@@ -71,6 +82,7 @@
     :id (str (:id node))
     :version (str (:version node))
     :changeset (str (:changeset node))
+    :timestamp (timestamp->time-string (:timestamp node))
     :lon (:longitude node)
     :lat (:latitude node)}
    (map
@@ -86,6 +98,7 @@
              :type :way
              :version (as/as-long (:version (:attrs way-xml)))
              :changeset (as/as-long (:changeset (:attrs way-xml)))
+             :timestamp (time-string->timestamp (:timestamp (:attrs way-xml)))
              :tags (reduce
                     (fn [tags tag]
                       (assoc
@@ -118,7 +131,8 @@
    {
     :id (str (:id way))
     :version (str (:version way))
-    :changeset (str (:changeset way))}
+    :changeset (str (:changeset way))
+    :timestamp (timestamp->time-string (:timestamp way))}
    (concat
     (map
      (fn [id]
@@ -139,6 +153,7 @@
    :type :relation
    :version (as/as-long (:version (:attrs relation)))
    :changeset (as/as-long (:changeset (:attrs relation)))
+   :timestamp (time-string->timestamp (:timestamp (:attrs relation)))
    :tags (reduce
           (fn [tags tag]
             (assoc
@@ -167,7 +182,8 @@
    {
     :id (str (:id relation))
     :version (str (:version relation))
-    :changeset (str (:changeset relation))}
+    :changeset (str (:changeset relation))
+    :timestamp (timestamp->time-string (:timestamp relation))}
    (concat
     (map
      (fn [member]
@@ -356,6 +372,104 @@
    {}
    elements))
 
+(defn full-xml->histset
+  "Creates history dataset (histset) which could be used for historical data
+  observation. Similar to dataset but each entry (node, way, relation)  has
+  seq of objects sorted by version"
+  [elements]
+  (reduce
+   (fn [dataset element]
+     (cond
+       (= (:tag element) :node)
+       (let [node (node-xml->node element)]
+         (update-in
+          dataset
+          [:nodes (:id node)]
+          (fn [versions]
+            (sort-by :version (conj versions node)))))
+       (= (:tag element) :way)
+       (let [way (way-xml->way element)]
+         (update-in
+          dataset
+          [:ways (:id way)]
+          (fn [versions]
+            (sort-by :version (conj versions way)))))
+       (= (:tag element) :relation)
+       (let [relation (relation-xml->relation element)]
+         (update-in
+          dataset
+          [:relations (:id relation)]
+          (fn [versions]
+            (sort-by :version (conj versions relation)))))
+       :else
+       dataset))
+   {}
+   elements))
+
+;; util functions to work with extracted dataset
+(defn merge-histsets [& histset-seq]
+  (let  [update-fn (fn [element-map element-seq]
+                     (println "map" element-map)
+                     (reduce
+                      (fn [element-map element]
+                        (println "element" element)
+                        (let [id (:id (first element))]
+                          (println id)
+                          (if-let [old-element (get element-map id)]
+                            ;; element with most versions win
+                            (if (> (count old-element) (count element))
+                              element-map
+                              (assoc element-map id element))
+                            (assoc element-map id element))))
+                      element-map
+                      element-seq))]
+    (reduce
+     (fn [final histset]
+       {
+        :nodes
+        (update-fn (or (:nodes final) {}) (vals (:nodes histset)))
+        :ways
+        (update-fn (or (:ways final) {}) (vals (:ways histset)))
+        :relations
+        (update-fn (or (:relations final) {}) (vals (:relations histset)))})
+     (first histset-seq)
+     (rest histset-seq))))
+
+(defn dataset-at-t [histset timestamp]
+  {
+   :nodes
+   (reduce
+    (fn [element-map versions]
+      (if-let [element (reduce
+                        (fn [final version]
+                          (if (> (:timestamp version) timestamp )
+                            (reduced final)
+                            version))
+                        nil
+                        versions)]
+        (assoc element-map (:id element) element)
+        element-map))
+
+    ;; todo
+    
+    )}
+  )
+
+#_(merge-histsets
+ {
+  :nodes
+  {
+   1 [{:id 1 :version 1} {:id 1 :version 2} {:id 1 :version 3}]}}
+ {
+  :nodes
+  {
+   1 [{:id 1 :version 1} {:id 1 :version 2} {:id 1 :version 3} {:id 1 :version 4}]}})
+#_{
+ :nodes
+ {1 [{:id 1, :version 1} {:id 1, :version 2} {:id 1, :version 3} {:id 1, :version 4}]},
+ :ways {},
+ :relations {}}
+
 (defn node
   "Performs /api/0.6/[node|way|relation]/#id"
   [id]
@@ -492,9 +606,17 @@
   "Performs /api/0.6/[node|way|relation]/#id/history"
   [id]
   (println (str "[osmapi] /node/" id "/history"))
-  (json/read-keyworded
-   (http/get-as-stream
-    (str *server* "/api/0.6/node/" id "/history.json"))))
+  (full-xml->histset
+   (:content
+    (xml/parse
+     (http/get-as-stream
+      (str *server* "/api/0.6/node/" id "/history"))))))
+
+#_(run!
+ #(println (:tags %))
+ (get-in
+     (node-history 2496289175)
+     [:nodes 2496289175]))
 
 (defn way
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -600,9 +722,17 @@
   /api/0.6/[node|way|relation]/#id/history"
   [id]
   (println (str "[osmapi] /way/" id "/history"))
-  (json/read-keyworded
-   (http/get-as-stream
-    (str *server* "/api/0.6/way/" id "/history.json"))))
+  (full-xml->histset
+   (:content
+    (xml/parse
+     (http/get-as-stream
+      (str *server* "/api/0.6/way/" id "/history"))))))
+
+#_(run!
+ #(println (:tags %))
+ (get-in
+  (way-history 484429139)
+  [:ways 484429139]))
 
 (defn relation
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -716,9 +846,17 @@
   /api/0.6/[node|way|relation]/#id/history"
   [id]
   (println (str "[osmapi] /relation/" id "/history"))
-  (json/read-keyworded
-   (http/get-as-stream
-    (str *server* "/api/0.6/relation/" id "/history.json"))))
+  (full-xml->histset
+   (:content
+    (xml/parse
+     (http/get-as-stream
+      (str *server* "/api/0.6/relation/" id "/history"))))))
+
+#_(run!
+ #(println "count of members:" (count (:members %)))
+ (get-in
+  (relation-history 12693206)
+  [:relations 12693206]))
 
 #_(def a (relation-history 10903395))
 #_(first (:members (first (:elements a))))

@@ -1,15 +1,17 @@
 (ns trek-mate.map
   (:require
    compojure.core
+   [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.http-server :as server]
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-geo.import.gpx :as gpx]
+   [trek-mate.dotstore :as dotstore]
+   [trek-mate.env :as env]
    [trek-mate.integration.geojson :as geojson]
-   [trek-mate.integration.osmapi :as osmapi]
-   [trek-mate.env :as env]))
+   [trek-mate.integration.osmapi :as osmapi]))
 
 (defn indent [value]
   (str "\t" value))
@@ -152,6 +154,13 @@
    "hiking waymarked trails"
    "https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png"
    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+   activate))
+
+(defn tile-overlay-dotstore [name color radius activate]
+  (tile-overlay
+   (str "dotstore: " name)
+   (str "/tile/raster/dotstore/" name "/" color "/" radius)
+   nil
    activate))
 
 (defn tile-layer-bing-satellite [activate]
@@ -481,13 +490,36 @@
   "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
   "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"))
 
+
+(def dotstore-root-path (path/child env/*dataset-local-path* "dotstore"))
+
 (server/create-server
  7071
  (compojure.core/routes
   (compojure.core/GET
    "/view/:map"
    [map]
-   (render map))))
+   (render map))
+  ;; dotstore tile rendering
+  (compojure.core/GET
+   "/tile/raster/dotstore/:name/:color/:radius/:zoom/:x/:y"
+   [name color radius zoom x y]
+   (try
+     (let [path (dotstore/tile->path (path/child dotstore-root-path name) [zoom x y])]
+      (if (fs/exists? path)
+        (let [tile (dotstore/bitset-read-tile path)]
+          {
+           :status 200
+           :body (draw/image-context->input-stream
+                  (dotstore/bitset-render-tile
+                   tile
+                   draw/color-transparent
+                   (draw/hex->color (str "#" color))
+                   (as/as-integer radius)))})
+        {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))))
 
 ;; example url
 ;; http://localhost:7071/view/hungary2021#map=14/47.498328925473245/19.056215286254886

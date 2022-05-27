@@ -1407,6 +1407,8 @@
     :status 200
     :body (jvm/resource-as-stream ["web" "poi.html"])})
 
+  ;; todo
+  ;; it seems it's not implemented to end, only takes history of relation in account
   (compojure.core/GET
    "/view/relation/:id/:version"
    [id version]
