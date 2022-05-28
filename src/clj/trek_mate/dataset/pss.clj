@@ -1035,11 +1035,15 @@
   
   (binding [geojson/*style-stroke-color* "#FF0000"
             geojson/*style-stroke-widht* 4]
-    (map/geojson-hiking-relation-layer "E4" 9928151))
+    (map/geojson-hiking-relation-layer "E4 - Граница Мађарске - Хоргош 2 - Ада" 9928151))
 
   (binding [geojson/*style-stroke-color* "#FF0000"
             geojson/*style-stroke-widht* 4]
     (map/geojson-hiking-relation-layer "E4" 14185952))
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4 - Ада - Зрењанин" 14191834))
+
   
   (binding [geojson/*style-stroke-color* "#0000FF"
             geojson/*style-stroke-widht* 2]
