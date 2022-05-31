@@ -567,7 +567,7 @@
 
 #_(first relation-seq)
 #_(count relation-seq)
-
+;; 356 20220531
 ;; 350 20220417
 ;; 348 20220410 updated to use all relations not just ones with source=pss_staze
 ;; 163 20220319
@@ -1032,17 +1032,30 @@
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)
   (map/tile-overlay-waymarked-hiking false)
+
+  ;; old, now container relation
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4" 9928151))
   
   (binding [geojson/*style-stroke-color* "#FF0000"
             geojson/*style-stroke-widht* 4]
-    (map/geojson-hiking-relation-layer "E4 - Граница Мађарске - Хоргош 2 - Ада" 9928151))
-
-  (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
-    (map/geojson-hiking-relation-layer "E4" 14185952))
+    (map/geojson-hiking-relation-layer "E4 - Граница Мађарске - Хоргош 2 - Ада" 14185952))
   (binding [geojson/*style-stroke-color* "#FF0000"
             geojson/*style-stroke-widht* 4]
     (map/geojson-hiking-relation-layer "E4 - Ада - Зрењанин" 14191834))
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4 - Зрењанин - Падина" 14192820))
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4 - Падина - Крњача (Београд)" 14194463))
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "Ђердап - Неготин (незванично)" 14206055))
+  (binding [geojson/*style-stroke-color* "#FF0000"
+            geojson/*style-stroke-widht* 4]
+    (map/geojson-hiking-relation-layer "E4 - Кривељ - Сокобања" 14206054))
 
   
   (binding [geojson/*style-stroke-color* "#0000FF"
@@ -1086,3 +1099,23 @@
                                      "E4-11.gpx"))]
       (map/geojson-gpx-layer "E4-11" is)))
   )
+
+;; report transversal relations in OSM
+#_(run!
+ #(println
+   (get-in % [:id])
+   (get-in % [:osm "ref"])
+   (get-in % [:osm "network"])
+   (get-in % [:osm "name"]))
+ (filter
+  #(.startsWith (or (get-in % [:osm "ref"]) "") "T-")
+  relation-seq))
+
+#_(println
+ (clojure.string/join
+  ","
+  (map
+   #(str "r" (get % :id))
+   (filter
+    #(.startsWith (or (get-in % [:osm "ref"]) "") "T-")
+    relation-seq))))
