@@ -306,6 +306,9 @@
     ;; hungary
     12702712
 
+    ;; romania
+    5652184
+
     ;; montenegro
     13755926 ;; Katun Road - Pešter Grasslands
     })

@@ -459,6 +459,13 @@
   (binding [geojson/*style-stroke-color* "#0000FF"
             geojson/*style-stroke-widht* 2]
     (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-cloud-path*
+                                     "dragan_dimitrijevic"
+                                     "E7-9 Divčibare-Rajac-Rudnik-Ovčar banja.gpx"))]
+      (map/geojson-gpx-layer "E7-9" is)))
+  #_(binding [geojson/*style-stroke-color* "#0000FF"
+            geojson/*style-stroke-widht* 2]
+    (with-open [is (fs/input-stream (path/child
                                      env/*dataset-git-path*
                                      "pss.rs"
                                      "routes"
