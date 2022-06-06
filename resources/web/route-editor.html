@@ -340,6 +340,8 @@
       // pointer to relation from dataset, mutates with changes and it's reported
       var relation = null
 
+      var sourceLayer = L.featureGroup()
+      sourceLayer.addTo(map)
       var relationLayer = L.featureGroup()
       relationLayer.addTo(map)
       var selectedLayer = null
@@ -354,6 +356,18 @@
       var refreshRelationFn = function() {
 	  // reset anchor to prevent confusion
 	  anchor = null
+
+	  // add source geojson first to show under data
+	  sourceLayer.clearLayers()
+	  // show source layer if exists
+	  if (relationDataset["source-geojson"] != null) {
+	      sourceLayer.addLayer(
+		  L.geoJson(
+		      relationDataset["source-geojson"],
+		      {
+			  "style": {
+			      "color": "#FF0000"}}))
+	  }
 	  
 	  var memberMap = new Map()
 	  relation.members.forEach(function (member, index) {
@@ -457,7 +471,7 @@
 		  console.log(selectedIndex)
 	      }})
 	      featureLayer.select()
-	  })
+	  })	  
 
 	  if (relationDataset.connected) {
 	      setStatusFn("connected")
@@ -470,6 +484,7 @@
 	  relationDataset = data
 	  relation = data.relations[routeId]
 	  refreshRelationFn()
+	  
 	  map.fitBounds(relationLayer.getBounds())
       })
       
@@ -637,7 +652,7 @@
 	  function (e) {
 	      clearInterval(mousedownInterval)})
 
-            var baseMaps = {
+      var baseMaps = {
 	  "open street map": osmTile,
 	  "mapbox outdoor": mapboxOutdoorTile,
 	  "mapbox basic": mapboxBasicTile,
@@ -651,7 +666,8 @@
       }
       
       var overlayMaps = {
-	  "data": relationLayer,
+	  "source": sourceLayer,
+	  "route": relationLayer,
 	  "cycle path": mapboxBicycleTile,
 	  "osm gpx": osmGpxTile,
 	  "tile bounds": boundsTile,

@@ -652,6 +652,15 @@
     (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
       (println "\t" (:id way) "[" (first (:nodes way)) "," (last (:nodes way)) "]"))))
 
+;; to be populated by datasets to show overlay ( geojon ) in route order edit
+;; should be used to check if relation in OSM matches one provided by official
+;; source and to check direction of travel
+;; updated directly from datasets ( pss )
+;; key is relation id
+;; value should be geojson containing line strings that represent source route
+;; and markers to show direction of travel ( on each 10, 100 points one marker
+;; with incrementing number could be shown )
+(def route-source-map (atom {}))
 
 (defn prepare-route-data [id]
   (let [dataset (dataset-relation id)
@@ -666,11 +675,13 @@
                                (:id member)
                                (get-in dataset [:ways (:id member)])]))
                           (:members relation))))
-        [connected-way-seq connected] (check-connected? way-map relation)]
+        [connected-way-seq connected] (check-connected? way-map relation)
+        source-geojson (get (deref route-source-map) id)]
     (assoc
      dataset
      :connected connected
-     :connected-way-seq connected-way-seq)))
+     :connected-way-seq connected-way-seq
+     :source-geojson source-geojson)))
 
 #_(prepare-route-data 10948917)
 #_(osmapi/relation-full 10948917)
@@ -1235,56 +1246,57 @@
   (compojure.core/GET
    "/view/osm/history/:type/:id"
    [type id]
-   (cond
-     (or (= type "node") (= type "way") (= type "relation"))
-     {
-      :status 200
-      :headers {
-                "Content-Type" "text/html; charset=utf-8"}
-      :body
-      (hiccup/html
-       [:html
-        [:head [:title (str
-                        (cond
-                          (= type "way")
-                          "w"
-                          (= type "node")
-                          "n"
-                          (= type "relation")
-                          "r")
-                        id)]]
-        [:body {:style "font-family:arial;"}
-         (cond
-           (= type "node")
-           [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id]
-            " "
-            [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
-            " "
-            [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
-            [:br]]
-           (= type "way")
-           [:div
-            "way: "
-            [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id]
-            " "
-            [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
-            " "
-            [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
-            [:br]]
-           (= type "relation")
-           [:div
-            "relation: "
-            [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
-            " "
-            [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
-            " "
-            [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
-            " "
-            [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
-            [:br]])
-         (reverse
-          (first
-           (reduce
+   (let [id (as/as-long id)]
+     (cond
+      (or (= type "node") (= type "way") (= type "relation"))
+      {
+       :status 200
+       :headers {
+                 "Content-Type" "text/html; charset=utf-8"}
+       :body
+       (hiccup/html
+        [:html
+         [:head [:title (str
+                         (cond
+                           (= type "way")
+                           "w"
+                           (= type "node")
+                           "n"
+                           (= type "relation")
+                           "r")
+                         id)]]
+         [:body {:style "font-family:arial;"}
+          (cond
+            (= type "node")
+            [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id]
+             " "
+             [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+             " "
+             [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+             [:br]]
+            (= type "way")
+            [:div
+             "way: "
+             [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id]
+             " "
+             [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+             " "
+             [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+             [:br]]
+            (= type "relation")
+            [:div
+             "relation: "
+             [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id]
+             " "
+             [:a {:href (str "http://localhost:8080/#id=" (first type) id) :target "_blank"} "iD(localhost)"]
+             " "
+             [:a {:href (str "http://level0.osmz.ru/?url=" type "/" id) :target "_blank"} "level0"]
+             " "
+             [:a {:href (str "http://localhost:7077/route/edit/" id) :target "_blank"} "order"]
+             [:br]])
+          (reverse
+           (first
+            (reduce
              (fn [[changes version] change]
                (let [changes (if (not (= version (:version change)))
                                (conj
@@ -1296,10 +1308,10 @@
                                  ", c: " [:a {:href (str "https://www.openstreetmap.org/changeset/" (:changeset change)) :target "_blank"} (:changeset change)]
                                  ", u: " [:a {:href (str "https://www.openstreetmap.org/user/" (:user change)) :target "_blank"} (:user change)]])
                                changes)]
-                [(conj
-                  changes
-                  (render-change change))
-                 (:version change)]))
+                 [(conj
+                   changes
+                   (render-change change))
+                  (:version change)]))
              ['() nil]
              (cond
                (= type "node")
@@ -1307,7 +1319,7 @@
                (= type "way")
                (osmapi/calculate-way-change id)
                (= type "relation")
-               (osmapi/calculate-relation-change id)))))]])}))
+               (osmapi/calculate-relation-change id)))))]])})))
   (compojure.core/GET
    "/view/osm/history/changeset/:id"
    [id]
@@ -1838,3 +1850,5 @@
        :headers {
                  "Content-Type" "application/json; charset=utf-8"}
        :body (json/write-to-string data)}))))
+
+

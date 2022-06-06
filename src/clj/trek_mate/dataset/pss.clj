@@ -1100,6 +1100,22 @@
       (map/geojson-gpx-layer "E4-11" is)))
   )
 
+;; report all routes sources
+(swap!
+ osmeditor/route-source-map
+ #(update-in
+   %
+   [12452310]
+   (constantly
+    (with-open [is (fs/input-stream
+                    (path/child env/*dataset-git-path* "pss.rs" "routes" "3-14-1.gpx"))]
+      (geojson/geojson
+       (map
+        geojson/line-string
+        (:track-seq (gpx/read-gpx is))))))))
+
+
+
 ;; report transversal relations in OSM
 #_(run!
  #(println

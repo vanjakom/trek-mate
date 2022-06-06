@@ -58,6 +58,7 @@
   {
    :id (as/as-long (:id (:attrs node)))
    :type :node
+   :user (:user (:attrs node))
    :version (as/as-long (:version (:attrs node)))
    :changeset (as/as-long (:changeset (:attrs node)))
    :timestamp (time-string->timestamp (:timestamp (:attrs node)))
@@ -96,6 +97,7 @@
   (let [way {
              :id (as/as-long (:id (:attrs way-xml)))
              :type :way
+             :user (:user (:attrs way-xml))
              :version (as/as-long (:version (:attrs way-xml)))
              :changeset (as/as-long (:changeset (:attrs way-xml)))
              :timestamp (time-string->timestamp (:timestamp (:attrs way-xml)))
@@ -151,6 +153,7 @@
   {
    :id (as/as-long (:id (:attrs relation)))
    :type :relation
+   :user (:user (:attrs relation))
    :version (as/as-long (:version (:attrs relation)))
    :changeset (as/as-long (:changeset (:attrs relation)))
    :timestamp (time-string->timestamp (:timestamp (:attrs relation)))
@@ -167,6 +170,7 @@
    :members (map
              (fn [member]
                {
+                ;; todo, why?
                 :id (as/as-long (:ref (:attrs member)))
                 :type (keyword (:type (:attrs member)))
                 :role (let [role (:role (:attrs member))]
@@ -878,8 +882,8 @@
                            [before hit (conj after elem)]))
                        [[] nil []]
                        coll))
-        old-seq (map #(assoc % :id (str (str (first (:type %))) (:ref %))) old-seq)
-        new-seq (map #(assoc % :id (str (str (first (:type %))) (:ref %))) new-seq)]
+        old-seq (map #(assoc % :id (str (str (first (name (:type %)))) (:id %))) old-seq)
+        new-seq (map #(assoc % :id (str (str (first (name (:type %)))) (:id %))) new-seq)]
     (if (not (= old-seq new-seq))
       (loop [old-seq old-seq
              new-seq new-seq
@@ -902,7 +906,7 @@
                               :version version
                               :changeset changeset
                               :type (:type before)
-                              :id (:ref before)
+                              :id (:id before)
                               :role (if (not (empty? (:role before))) (:role before) nil)})
                             (concat before-seq after-seq)]
                            [
@@ -915,7 +919,7 @@
                               :version version
                               :changeset changeset
                               :type (:type before)
-                              :id (:ref before)
+                              :id (:id before)
                               :role (if (not (empty? (:role before))) (:role before) nil)})
                             rest-old-seq])))
                      [[] (rest old-seq)]
@@ -938,7 +942,7 @@
                  :version version
                  :changeset changeset
                  :type (:type old)
-                 :id (:ref old)
+                 :id (:id old)
                  :role (if (not (empty? (:role old))) (:role old) nil)}))))
           (concat
            change-seq
@@ -951,7 +955,7 @@
                :version version
                :changeset changeset
                :type (:type member)
-               :id (:ref member)
+               :id (:id member)
                :role (if (not (empty? (:role member))) (:role member) nil)})
             new-seq))))
       [])))
@@ -965,6 +969,24 @@
  1 1 1 1
  [{:id 1 :type "way" :ref 1} {:id 2 :type "way" :ref 2}]
  [{:id 2 :type "way" :ref 2} {:id 3 :type "way" :ref 3}])
+
+
+#_(calculate-member-change
+ 1 1 1 1
+ [{:id 1 :type "way"} {:id 2 :type "way" :ref 2}]
+ [{:id 2 :type "way"} {:id 3 :type "way" :ref 3}])
+#_(
+ {:change :member-remove, :user 1, :timestamp 1, :version 1, :changeset 1, :type "way", :id "w1", :role nil}
+ {:change :member-add, :user 1, :timestamp 1, :version 1, :changeset 1, :type "way", :id "w3", :role nil})
+
+
+#_(calculate-member-change
+ 1 1 1 1
+ [{:id 1 :type "way"} {:id 2 :type "way"}]
+ [{:id 2 :type "way"} {:id 1 :type "way"}])
+#_(
+ {:change :member-order, :user 1, :timestamp 1, :version 1, :changeset 1, :type "way", :id "w2", :role nil})
+
 
 #_(let [relation-history (relation-history 11043543)]
     (calculate-member-change
@@ -1048,10 +1070,10 @@
                         ;; test location, nodes and members
                         ;; switch depending on type
                         (cond
-                          (= (:type new) "node")
+                          (= (:type new) :node)
                           (when (or
-                                 (not (= (:lon old) (:lon new)))
-                                 (not (= (:lat old) (:lat new))))
+                                 (not (= (:longitude old) (:longitude new)))
+                                 (not (= (:latitude old) (:latitude new))))
                             [{
                               :change :location
                               :user (:user new)
@@ -1061,7 +1083,7 @@
                               :old (select-keys old [:lon :lat])
                               :new (select-keys new [:lon :lat])}])
 
-                          (= (:type new) "way")
+                          (= (:type new) :way)
                           (when (not (= (:nodes old) (:nodes new)))
                             [{
                               :change :nodes
@@ -1072,7 +1094,7 @@
                               :old (:nodes old)
                               :new (:nodes new)}])
 
-                          (= (:type new) "relation")
+                          (= (:type new) :relation)
                           (when (not (= (:members old) (:members new)))
                             (calculate-member-change
                              (:user new) (:timestamp new) (:version new) (:changeset new)
@@ -1150,9 +1172,9 @@
          (compare-element previous next))
         next])
      []
-     (:elements (node-history id)))))
+     (get-in (node-history id) [:nodes id]))))
   ([id version]
-   (let [versions (:elements (node-history id))]
+   (let [versions (get-in (node-history id) [:nodes id])]
      (compare-element
       (first
        (filter #(= (:version %) (dec version)) versions))
@@ -1177,9 +1199,9 @@
          (compare-element previous next))
         next])
      []
-     (:elements (way-history id)))))
+     (get-in (way-history id) [:ways id]))))
   ([id version]
-   (let [versions (:elements (way-history id))]
+   (let [versions (get-in (way-history id) [:ways id])]
      (compare-element
       (first
        (filter #(= (:version %) (dec version)) versions))
@@ -1187,6 +1209,7 @@
        (filter #(= (:version %) version) versions))))))
 
 #_(keys (relation-history 12452310))
+#_(first (:members (first (get-in (relation-history 12452310) [:relations 12452310]))))
 
 (defn calculate-relation-change
   "Support two modes, retrieve entire history or just at given version"
@@ -1200,14 +1223,22 @@
          (compare-element previous next))
         next])
      []
-     (:elements (relation-history id)))))
+     (get-in (relation-history id) [:relations id]))))
   ([id version]
-   (let [versions (:elements (relation-history id))]
+   (let [versions (get-in (relation-history id) [:relatiosns id])]
      (compare-element
       (first
        (filter #(= (:version %) (dec version)) versions))
       (first
        (filter #(= (:version %) version) versions))))))
+
+#_(run!
+   println
+   (calculate-relation-change 12452310))
+
+#_(run!
+ #(println (clojure.string/join "," (map :id (:members %))))
+ (get-in (relation-history 12452310) [:relations 12452310]))
 
 (defn report-change [version change]
   (when (not (= version (:version change)))
