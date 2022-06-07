@@ -366,7 +366,16 @@
 		      relationDataset["source-geojson"],
 		      {
 			  "style": {
-			      "color": "#FF0000"}}))
+			      "color": "#FF0000"},
+			  "pointToLayer": function(geoJsonPoint, latlng) {
+			      let marker = L.marker(latlng)
+			      let icon = L.divIcon({
+				  iconSize: [20, 20],
+				  iconAnchor: [10, 10],
+				  html: geoJsonPoint.properties.title})
+			      marker.setIcon(icon)
+			      return marker
+			  }}))
 	  }
 	  
 	  var memberMap = new Map()

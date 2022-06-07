@@ -1109,12 +1109,18 @@
    (constantly
     (with-open [is (fs/input-stream
                     (path/child env/*dataset-git-path* "pss.rs" "routes" "3-14-1.gpx"))]
-      (geojson/geojson
-       (map
-        geojson/line-string
-        (:track-seq (gpx/read-gpx is))))))))
-
-
+      (let [track-seq (:track-seq (gpx/read-gpx is))]
+        (def a track-seq)
+        (geojson/geojson
+         (concat
+          (map geojson/line-string track-seq)
+          (map-indexed
+           (fn [index location]
+             (geojson/point
+              (:longitude location)
+              (:latitude location)
+              {:title(str index)}))
+           (take-nth 10 (apply concat track-seq))))))))))
 
 ;; report transversal relations in OSM
 #_(run!
