@@ -1101,28 +1101,40 @@
   )
 
 ;; report all routes sources
-(do
-  (swap!
-   osmeditor/route-source-map
-   #(update-in
-     %
-     [12452310]
-     (constantly
-      (with-open [is (fs/input-stream
-                      (path/child env/*dataset-git-path* "pss.rs" "routes" "3-14-1.gpx"))]
-        (let [track-seq (:track-seq (gpx/read-gpx is))]
-          (def a track-seq)
-          (geojson/geojson
-           (concat
-            (map geojson/line-string track-seq)
-            (map-indexed
-             (fn [index location]
-               (geojson/point
-                (:longitude location)
-                (:latitude location)
-                {:title(str index)}))
-             (take-nth 10 (apply concat track-seq))))))))))
-  nil)
+(doseq [relation relation-seq]
+  (let [id (:id relation)]
+    (println "assigning source for" id (get-in relation [:osm "name"]))
+    (if-let [ref (get-in relation [:osm "ref"])]
+      (let [path (path/child env/*dataset-git-path* "pss.rs" "routes" (str ref ".gpx"))]
+        (if (fs/exists? path)
+          (swap!
+           osmeditor/route-source-map
+           #(update-in
+             %
+             [id]
+             (constantly
+              (with-open [is (fs/input-stream path)]
+                (let [track-seq (:track-seq (gpx/read-gpx is))]
+                  (def a track-seq)
+                  (geojson/geojson
+                   (concat
+                    (map geojson/line-string track-seq)
+                    (map-indexed
+                     (fn [index location]
+                       (geojson/point
+                        (:longitude location)
+                        (:latitude location)
+                        {
+                         :title
+                         (str
+                          "<div style='text-align:center;vertical-align:middle;line-height:20px;font-size: 10px;background-color: #00FF00'>"
+                          "<span style='color:white'>"
+                          index
+                          "</span>"
+                          "</div>")}))
+                     (take-nth 100 (apply concat track-seq))))))))))
+          (println "[WARN] no path for" id "," ref)))
+      (println "[WARN] not pss trail" id (get-in relation [:osm "name"])))))
 
 ;; report transversal relations in OSM
 #_(run!
