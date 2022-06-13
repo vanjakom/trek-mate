@@ -317,6 +317,7 @@
 ;; report is connected
 ;; does relation contains nodes ( guidepost and map )
 
+
 (defn render-route
   "prepares hiccup html for route"
   [relation]
@@ -326,6 +327,8 @@
       osm-id]
      [:td {:style "border: 1px solid black; padding: 5px;"}
       (get-in relation [:osm "route"])]
+     [:td {:style "border: 1px solid black; padding: 5px;"}
+      (get-in relation [:osm "ref"])]
      [:td {:style "border: 1px solid black; padding: 5px;"}
       (get-in relation [:osm "name"])]
      [:td {:style "border: 1px solid black; padding: 5px;"}

@@ -483,6 +483,7 @@
   "Performs /api/0.6/[nodes|ways|relations]?#parameters
   Returns dataset object"
   [node-id-seq]
+  (println "[OSMAPI /nodes]" (clojure.string/join "," node-id-seq))
   (let [nodes (xml/parse
                (http/get-as-stream
                 (str
@@ -491,7 +492,7 @@
                  (clojure.string/join "," node-id-seq))))]
     (full-xml->dataset (:content nodes))))
 
-#_(def a (nodes [5360954914 7579653984]))
+#_(nodes [5360954914 7579653984])
 
 (defn node-create
   "Performs /api/0.6/[node|way|relation]/create
@@ -768,6 +769,8 @@
                    (str *server* "/api/0.6/relation/" id "/" version)))]
     (relation-xml->relation (first (:content relation)))))
 
+#_(relation-version 11043232 1)
+
 (defn relation-update
   "Performs /api/0.6/[node|way|relation]/#id
   Note: changeset should be open changeset
@@ -851,6 +854,17 @@
     (xml/parse
      (http/get-as-stream
       (str *server* "/api/0.6/relation/" id "/history"))))))
+
+(defn relation-histset
+  "Creates histset containing relation and all ways and nodes required over time"
+  ;; go over relation members, accumulate
+  ;; retrieve all ways needed for relation over time
+  ;; retrieve all nodes needed for relation over time
+
+
+  ;; todo
+  
+  )
 
 #_(run!
  #(println "count of members:" (count (:members %)))

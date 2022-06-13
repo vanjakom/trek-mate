@@ -543,6 +543,7 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 #_(count my-finds-seq)
+;; 914 20220611
 ;; 859 20220107
 ;; 831 20211122
 ;; 822
@@ -885,7 +886,7 @@
   {:longitude longitude :latitude latitude :tags (into #{}  tags)})
 
 
-;; find geocaches which should be logged but are not
+;; geocaches found on garmin
 (def garmin-finds-seq
   (with-open [is (fs/input-stream env/garmin-geocache-path)]
     (doall
@@ -893,30 +894,176 @@
       (fn [geocache]
         {
          :code (first (:content (first (filter #(= :code (:tag %)) (:content geocache)))))
-         :timestamp (first (:content (first (filter #(= :time (:tag %)) (:content geocache)))))
+         :timestamp (let [date (first
+                                (:content
+                                 (first
+                                  (filter #(= :time (:tag %)) (:content geocache)))))
+                          splits (.split date "T")
+                          splits (.split (first splits) "-")
+                          formatted (str (nth splits 0) (nth splits 1) (nth splits 2))]
+                      (println formatted date)
+                      formatted)
          :status (first (:content (first (filter #(= :result (:tag %)) (:content geocache)))))
          :comment (first (:content (first (filter #(= :comment (:tag %)) (:content geocache)))))})
       (:content (xml/parse is))))))
 
-#_(do
-  (println "list of caches found but not logged")
+#_(count garmin-finds-seq)
+;; 208 20220611
+;; 162
+
+
+
+(def trek-mate-finds-seq
+  (let [tag-starting-with-fn (fn [prefix location]
+                               (first
+                                (filter #(.startsWith % prefix)
+                                        (:tags location))))]
+    (filter
+     some?
+     (map
+      (fn [location]
+        (let [gccode (let [gccode (or
+                                   (tag-starting-with-fn "GC" location)
+                                   (tag-starting-with-fn "#GC" location)
+                                   (tag-starting-with-fn "@GC" location)
+                                   (when-let [url (tag-starting-with-fn "|url|" location)]
+                                     (let [splits (.split url "\\|")]
+                                       (nth splits 2)))
+                                   (when-let [title (tag-starting-with-fn "!" location)]
+                                     (cond
+                                       (= title "!HasitschkaCB")
+                                       "GC6443F"
+                                       (= title "!VIENNA TOILET CACHE")
+                                       "GC389ZE")))]
+                       (when-let [gccode gccode]
+                         (when (.startsWith gccode "GC")
+                           gccode)))
+              date (let [date (or
+                               (tag-starting-with-fn "@20" location)
+                               (tag-starting-with-fn "20" location)
+                               (tag-starting-with-fn "#20" location))]
+                     (if-let [date date]
+                       (let [date (.replace
+                                   (.replace date "#" "")
+                                   "@" "")]
+                         (if (= (count date) 8)
+                           date
+                           nil))))
+              dnf (contains? (:tags location) "@dnf")]
+          (if (and gccode date)
+            {
+             :code (.replace
+                    (.replace gccode "#" "")
+                    "@" "")
+             :timestamp date
+             :status (if dnf "did not found it" "found it")}
+            (do
+              (println "[CHECK]" location)
+              nil))))
+      (filter
+       #(and
+         (contains? (:tags %) "#geocache")
+         (or
+          (tag-starting-with-fn "#20" %)
+          (tag-starting-with-fn "@20" %)
+          (tag-starting-with-fn "20" %)))
+       (mapcat
+        storage/location-request-file->location-seq
+        (fs/list env/trek-mate-location-path)))))))
+
+
+#_(count trek-mate-finds-seq)
+;; 20220611 851, afer removing ones without date in format YYYYMMDD
+;; 20220611 861
+
+
+(run!
+ #(println (:code %) (:timestamp %))
+ trek-mate-finds-seq)
+
+;; debug, see other tags for GC
+(do
+  (println "results")
   (run!
    println
    (filter
-    #(and
-      (= (:status %) "found it")
-      (not (contains? my-finds-set (:code %))))
-    garmin-finds-seq)))
+    (fn [location]
+      (some?
+       (first
+        (filter #(.contains % "GC4HQGC") (:tags location)))))
+    (mapcat
+     storage/location-request-file->location-seq
+     (fs/list env/trek-mate-location-path)))))
 
-;; geocache queue
-(count
- (filter
-  #(and
-    (= (:status %) "found it")
-    (not (contains? my-finds-set (:code %))))
-  garmin-finds-seq))
+;; our data about geocaches to consult for lists
+(def earth-cache-set
+  #{
+    ;; earth caches bulgaria
+    "GC3W1BP" "GC8EN4R"
+
+    ;; earth caches hungary
+    "GC7EVXX"
+
+    ;; earth caches montenegro
+    "GC2A1PC"
+    })
+
+(def our-cache-set
+  #{
+    "GC8M6A1"
+    "GC88W4C"
+    "GC825A6"
+    "GC825B5"
+    "GC7ZMCD"
+    "GC805CE"
+    "GC7YDCG"
+    "GC7TAD4" ;; Gradski park Zemun
+
+    "GC7XAXY"
+    "GC7XAYC"
+    "GC7VCCD"
+    })
+
+;; geocaches which should not be reported as not logged but found
+;; from some reason
+(def ignore-report-to-log-set
+  #{
+    "GC3EACY" ;; idiot nas obrisao
+
+    "GC5W63P" ;; dva puta dolazi u logu, jednom je dnf, drugi put sam koristion #datum za tagove
+    })
+
+(def note-map
+  {
+   "GC67Y1Y" "logovan na opencaching, treba da se loguje"
+   "GC4HQGC" "nismo ga nasli al nije upisan dnf"})
+
+;; report geocaches which should be logged but are not
+(def should-be-logged-seq
+  (filter
+   #(and
+     ;; todo, my finds do not report dnf but we want to log them
+      (= (:status %) "found it")
+      (not (contains? my-finds-set (:code %)))
+      (not (contains? our-cache-set (:code %)))
+      (not (contains? ignore-report-to-log-set (:code %))))
+    (concat
+     garmin-finds-seq
+     trek-mate-finds-seq)))
+
+#_(count should-be-logged-seq)
+;; 20220611 75 ( after date cleanup )
+;; 20220611 83 (added trek-mate )
+;; 26 20220611
 ;; 20 20220107
 ;; 47 <20220107
+
+
+(do
+  (println "list of caches found but not logged")
+  (run!
+   println
+   should-be-logged-seq))
 
 (osmeditor/project-report
  "geocache-queue"
@@ -943,15 +1090,22 @@
                   [:td {:style "border: 1px solid black; padding: 5px;"}
                    (or (:status geocache) "")]
                   [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (cond
+                     (contains? earth-cache-set (:code geocache))
+                     "Earth cache"
+
+                     :else
+                     "")]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
                    (osmeditor/hiccup-a
                     "geocaching.com"
-                    (str "https://geocaching.com/geocache/" (:code geocache)))]])
-               (filter
-                #(and
-                  (= (:status %) "found it")
-                  (not (contains? my-finds-set (:code %))))
-                garmin-finds-seq))]
+                    (str "https://geocaching.com/geocache/" (:code geocache)))]
+                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (or (get note-map (:code geocache)) "")]
+                  ])
+               (sort-by
+                :timestamp
+                should-be-logged-seq))]
              [:br]]])})))
-
 
 

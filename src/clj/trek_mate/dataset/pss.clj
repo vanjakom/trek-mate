@@ -1103,7 +1103,7 @@
 ;; report all routes sources
 (doseq [relation relation-seq]
   (let [id (:id relation)]
-    (println "assigning source for" id (get-in relation [:osm "name"]))
+    (println "assigning source for" id (get-in relation [:osm "ref"]) (get-in relation [:osm "name"]))
     (if-let [ref (get-in relation [:osm "ref"])]
       (let [path (path/child env/*dataset-git-path* "pss.rs" "routes" (str ref ".gpx"))]
         (if (fs/exists? path)
@@ -1135,6 +1135,8 @@
                      (take-nth 100 (apply concat track-seq))))))))))
           (println "[WARN] no path for" id "," ref)))
       (println "[WARN] not pss trail" id (get-in relation [:osm "name"])))))
+
+#_(get (deref osmeditor/route-source-map) 14194463)
 
 ;; report transversal relations in OSM
 #_(run!

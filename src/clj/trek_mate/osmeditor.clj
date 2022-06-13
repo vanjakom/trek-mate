@@ -458,7 +458,7 @@
             (cond
               (nil? end-set)
               (recur
-               #{first-node last-node}
+               (conj #{first-node} last-node)
                ways
                (conj connected-way-seq way-id))
 
@@ -683,7 +683,7 @@
      :connected-way-seq connected-way-seq
      :source-geojson source-geojson)))
 
-#_(prepare-route-data 10948917)
+#_(:source-geojson (prepare-route-data 14194463))
 #_(osmapi/relation-full 10948917)
 
 #_(defn prepare-explore-data [id left top right bottom]
@@ -1424,21 +1424,25 @@
   (compojure.core/GET
    "/view/relation/:id/:version"
    [id version]
-   (let [id (as/as-long id)
-        version (as/as-long version)
-        relation (osmapi/relation-version id version)
-        way-id-seq (map :id (filter #(= (:type %) :way) (:members relation)))
-        way-dataset (osmapi/ways way-id-seq)
-        node-id-seq (into
-                     #{}
-                     (concat
-                      (map :id (filter #(= (:type %) :node) (:members relation)))
-                      (mapcat :nodes (vals (:ways way-dataset)))))
-        node-dataset (when (not (empty? node-id-seq)) (osmapi/nodes node-id-seq))
-        data (extract-relation-geometry
-              (merge {:relations {id relation}} way-dataset node-dataset)
-              id)]
-     (render-relation-geometry data)))
+   (try
+     (let [id (as/as-long id)
+          version (as/as-long version)
+          relation (osmapi/relation-version id version)
+          way-id-seq (map :id (filter #(= (:type %) :way) (:members relation)))
+          way-dataset (osmapi/ways way-id-seq)
+          node-id-seq (into
+                       #{}
+                       (concat
+                        (map :id (filter #(= (:type %) :node) (:members relation)))
+                        (mapcat :nodes (vals (:ways way-dataset)))))
+          node-dataset (when (not (empty? node-id-seq)) (osmapi/nodes node-id-seq))
+          data (extract-relation-geometry
+                (merge {:relations {id relation}} way-dataset node-dataset)
+                id)]
+       (render-relation-geometry data))
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))
   
   (compojure.core/GET
    "/view/relation/:id"

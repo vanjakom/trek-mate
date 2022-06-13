@@ -524,3 +524,4 @@
 ;; example url
 ;; http://localhost:7071/view/hungary2021#map=14/47.498328925473245/19.056215286254886
 
+(println "[LOADED] trek-mate.map")
