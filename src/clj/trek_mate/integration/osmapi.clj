@@ -857,13 +857,14 @@
 
 (defn relation-histset
   "Creates histset containing relation and all ways and nodes required over time"
+  [histset id]
   ;; go over relation members, accumulate
   ;; retrieve all ways needed for relation over time
   ;; retrieve all nodes needed for relation over time
 
 
   ;; todo
-  
+  nil
   )
 
 #_(run!

@@ -1256,6 +1256,61 @@
         (async/close! relation-ch))
       (context/set-state context "completion"))))
 
+;; todo handle delete, use isVisible inside metadata
+(defn read-osm-pbf-osm4j-go
+  "Uses osm4j to read pbf, should support historical pbfs"
+  [context path node-ch way-ch relation-ch]
+  (async/thread
+    (context/set-state context "init")
+    (with-open [is (fs/input-stream path)]
+      (let [iterator (new  de.topobyte.osm4j.pbf.seq.PbfIterator is false)]
+        (while (.hasNext iterator)
+          (let [next (.next iterator)
+                entity (.getEntity next)
+                id (.getId entity)
+                tags (into {} (map (fn [index]
+                                     (let [tag (.getTag entity index)]
+                                       [(.getKey tag) (.getValue tag)]))
+                                   (range (.getNumberOfTags entity))))
+                metadata (.getMetadata entity)
+                user (when metadata (.getUser metadata))
+                timestamp (when metadata (.getTimestamp metadata))]
+            (cond
+              (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Node)
+              (let [node {
+                          :type :node
+                          :id id
+                          :longitude (.getLongitude entity)
+                          :latitude (.getLatitude entity)
+                          ;; todo remove, legacy
+                          :osm tags
+                          :tags tags
+                          :user user
+                          :timestamp timestamp}]
+                (async/>!! node-ch node)
+                (context/counter context "node-out"))
+
+              (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Way)
+              (do
+                (async/>!! way-ch {})
+                (context/counter context "way-out"))
+
+              (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Relation)
+              (do
+                (async/>!! relation-ch {})
+                (context/counter context "relation-out"))
+
+              :else
+              (context/counter context "unknown-type"))))))
+    (when node-ch
+      (async/close! node-ch))
+    (when way-ch
+      (async/close! way-ch))
+    (when relation-ch
+      (async/close! relation-ch))
+    (context/set-state context "completion")))
+
+
 (defn position-way-go
   "Reads in all ways into inverse index, then iterates over nodes replacing
   node refs with coordinates. Once all nodes are consumed writes ways out.

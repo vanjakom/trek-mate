@@ -107,6 +107,24 @@
                     osm-extract-path
                     "relation.edn"))
 
+;; history files
+(def osm-history-pbf-path (path/child
+                           osm-pbf-root-path
+                           "serbia-internal.osh.pbf"))
+(def osm-history-extract-path (path/child
+                               env/*dataset-local-path*
+                               "serbia-history"))
+(def osm-history-node-path (path/child
+                            osm-history-extract-path
+                            "node.edn"))
+(def osm-history-way-path (path/child
+                           osm-history-extract-path
+                           "way.edn"))
+(def osm-history-relation-path (path/child
+                                osm-history-extract-path
+                                "relation.edn"))
+
+
 
 ;; download latest serbia geofabrik export
 ;; #serbia-latest
@@ -178,6 +196,39 @@
    (context/wrap-scope context "write-relation")
    resource-controller
    osm-relation-path
+   (channel-provider :relation-in))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+;; #history
+;; split historical file to node, way, relation
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (osm/read-osm-pbf-osm4j-go
+   (context/wrap-scope context "read")
+   (path/child osm-pbf-root-path "andorra-internal.osh.pbf")
+   #_osm-history-pbf-path
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in))
+  
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-node")
+   resource-controller
+   osm-history-node-path
+   (channel-provider :node-in))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-way")
+   resource-controller
+   osm-history-way-path
+   (channel-provider :way-in))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-relation")
+   resource-controller
+   osm-history-relation-path
    (channel-provider :relation-in))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
