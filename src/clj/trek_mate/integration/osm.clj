@@ -15,7 +15,8 @@
    [clj-common.pipeline :as pipeline]
    [trek-mate.tag :as tag]
    [clj-geo.import.osm :as import]
-   [clj-geo.math.tile :as tile-math]))
+   [clj-geo.math.tile :as tile-math]
+   [trek-mate.integration.osmapi :as osmapi]))
 
 ;;; old version with extraction
 #_(defn osm-tags->tags [osm-tags]
@@ -1263,7 +1264,7 @@
   (async/thread
     (context/set-state context "init")
     (with-open [is (fs/input-stream path)]
-      (let [iterator (new  de.topobyte.osm4j.pbf.seq.PbfIterator is false)]
+      (let [iterator (new  de.topobyte.osm4j.pbf.seq.PbfIterator is true)]
         (while (.hasNext iterator)
           (let [next (.next iterator)
                 entity (.getEntity next)
@@ -1273,31 +1274,59 @@
                                        [(.getKey tag) (.getValue tag)]))
                                    (range (.getNumberOfTags entity))))
                 metadata (.getMetadata entity)
-                user (when metadata (.getUser metadata))
-                timestamp (when metadata (.getTimestamp metadata))]
-            (cond
-              (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Node)
-              (let [node {
+                user (when (some? metadata) (.getUser metadata))
+                timestamp (when (some? metadata) (.getTimestamp metadata))
+                visible (when (some? metadata) (.isVisible metadata))
+                object {
                           :type :node
                           :id id
-                          :longitude (.getLongitude entity)
-                          :latitude (.getLatitude entity)
-                          ;; todo remove, legacy
-                          :osm tags
+                          ;; removed, legacy, to reduce footprint
+                          ;; :osm tags
                           :tags tags
                           :user user
-                          :timestamp timestamp}]
+                          :timestamp timestamp
+                        :visible visible}]
+            (def a entity)
+            (cond
+              (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Node)
+              (let [node (assoc object
+                                :longitude (when visible (.getLongitude entity))
+                                :latitude (when visible (.getLatitude entity)))]
                 (async/>!! node-ch node)
                 (context/counter context "node-out"))
 
               (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Way)
-              (do
-                (async/>!! way-ch {})
+              (let [way (assoc object
+                               :nodes (map (fn [index]
+                                             (.getNodeId entity index))
+                                           (range (.getNumberOfNodes entity))))]
+                (async/>!! way-ch way)
                 (context/counter context "way-out"))
 
               (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Relation)
-              (do
-                (async/>!! relation-ch {})
+              (let [relation (assoc object
+                                    :members
+                                    (map
+                                     (fn [index]
+                                       (let [member (.getMember entity index)]
+                                         {
+                                          :type (cond
+                                                  (= (.getType member)
+                                                     de.topobyte.osm4j.core.model.iface.EntityType/Node)
+                                                 :node
+                                                 (= (.getType member)
+                                                    de.topobyte.osm4j.core.model.iface.EntityType/Way)
+                                                 :way
+                                                 (= (.getType member)
+                                                    de.topobyte.osm4j.core.model.iface.EntityType/Relation)
+                                                 :relation
+
+                                                 :else
+                                                 nil)
+                                          :id (.getId member)
+                                          :role (.getRole member)}))
+                                     (range (.getNumberOfMembers entity))))]
+                (async/>!! relation-ch relation)
                 (context/counter context "relation-out"))
 
               :else
@@ -1310,6 +1339,83 @@
       (async/close! relation-ch))
     (context/set-state context "completion")))
 
+(defn relation-histset-go
+  "First reads relations, aggregating all versions in histset and all node and
+  way ids that need to find in way-in and node-in. Next reads ways, aggregates
+  needed and accumulates nodes that are required. At the end adds to histset
+  required nodes by reading all nodes from node channel."
+  [context relation-id node-in way-in relation-in histset-out]
+  (async/go
+    (context/set-state context "init")
+    ;; go over relations
+    (loop [node-set #{}
+           way-set #{}
+           histset (osmapi/histset-create)
+           relation (async/<! relation-in)]
+      (if relation
+        (do
+          (context/set-state context "relation-scan")
+          (context/increment-counter context "relation-in")
+          (if (= (:id relation) relation-id)
+            (do
+              (context/increment-counter context "relation-match")
+              [
+              (into node-set (filter some? (map
+                                            (fn [member]
+                                              (when (= (:type member) :node)
+                                                (:id member)))
+                                            (:members relation))))
+              (into way-set (filter some? (map
+                                           (fn [member]
+                                             (when (= (:type member) :way)
+                                               (:id member)))
+                                           (:members relation))))
+              (osmapi/histset-append-relation histset relation)
+              (async/<! relation-in)])
+            [
+             node-set
+             way-set
+             histset
+             (async/<! relation-in)]))
+        ;; go over ways
+        (loop [node-set node-set
+               histset histset
+               way (async/<! way-in)]
+          (if way
+            (do
+              (context/set-state context "way-scan")
+              (context/increment-counter context "way-in")
+              (if (contains? way-set (:id way))
+                (do
+                  (context/increment-counter context "way-match")
+                  [
+                   (into node-set (:nodes way))
+                   (osmapi/histset-append-way histset way)
+                   (async/<! way-in)])
+                [
+                 node-set
+                 histset
+                 (async/<! way-in)]))
+            ;; go over nodes
+            (loop [histset histset
+                   node (async/<! node-in)]
+              (if node
+                (do
+                  (context/set-state context "node-scan")
+                  (context/increment-counter context "node-in")
+                  (if (contains? node-set (:id node))
+                    (do
+                      (context/increment-counter context "node-match")
+                      [
+                       (osmapi/histset-append-node histset node)
+                       (async/<! node-in)])
+                    [
+                     histset
+                     (async/<! node-in)]))
+                (do
+                  (async/>! histset-out histset)
+                  (async/close! histset-out)
+                  (context/set-state context "completion"))))))))))
 
 (defn position-way-go
   "Reads in all ways into inverse index, then iterates over nodes replacing

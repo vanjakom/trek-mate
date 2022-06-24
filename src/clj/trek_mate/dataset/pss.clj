@@ -125,6 +125,7 @@
    (with-open [is (fs/input-stream (path/child dataset-path "posts-e-paths.json"))]
      (json/read-keyworded is))))
 #_(count posts)
+;; 321 on 20220620
 ;; 311 on 20220517, e paths added
 ;; 280 on 20220410
 ;; 278 on 20220321, transversals added
@@ -154,7 +155,8 @@
 #_(run!
  println
  (into #{} (vals clubs)))
-(count (into #{} (vals clubs)))
+#_(count (into #{} (vals clubs)))
+;; 52 20220620
 ;; 52 20220517
 
 
@@ -181,81 +183,83 @@
     (println "\t" link)
     ;; depending on use case either try all without gpx or info file
     ;; in case of gpx most htmls will change because of news
-    (if (not
-         ;; (fs/exists? gpx-path)
-         (fs/exists? info-path)
-         )
-      (do
-        (println "\tdownloading post ...")
-        (let [content (io/input-stream->string (http/get-as-stream link))
-              gpx (if-let [gpx (second
-                                (re-find
-                                 #"<tr><th>GPX</th><td><a href=\"(.+?)\""
-                                 content))]
-                    (.trim gpx))
-              region (when-let [region (second
-                                        (re-find
-                                         #"<tr><th>Region</th><td>(.+?)</td>"
-                                         content))]
-                       (.trim region))
-              uredjenost (when-let [uredjenost (second
-                                              (re-find
-                                               #"<tr><th>Uređenost</th><td>(.+?)</td>"
-                                               content))]
-                           (.trim uredjenost))
-              planina (or
-                       (when-let [planina (second
-                                           (re-find
-                                            #"<tr><th>Planina/predeo</th><td>(.+?)</td>"
-                                            content))]
-                         (.trim planina))
-                       (when-let [planine (second
-                                           (re-find
-                                            #"<tr><th>Planine/predeli</th><td>(.+?)</td>"
-                                            content))]
-                         (.trim planine)))
-              info {
-                    :id oznaka
-                    :gpx gpx
-                    :region region
-                    :title title
-                    :uredjenost uredjenost
-                    :planina planina
-                    :link link}]
-          (with-open [os (fs/output-stream info-path)]
-            (json/write-pretty-print info (io/output-stream->writer os)))
-          (with-open [os (fs/output-stream content-path)]
-            (io/write-string os content))
-          (when (not (empty? gpx))
-            (println "\tdownloading gpx ...")
-            (if (not (fs/exists? gpx-path))
-              (if-let [is (http/get-as-stream gpx)]
-               (with-open [os (fs/output-stream gpx-path)]
-                 (io/copy-input-to-output-stream is os))
-               (println "\tdownload failed ..."))
-              (println "\tallready downloaded ..."))))
-        
-        ;; old version, before 20201222
-        #_(let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
-              matcher (.matcher
-                       pattern
-                       (io/input-stream->string (http/get-as-stream link)))]
-          (.find matcher)
-          (let [entry (update-in
-                       (json/read-keyworded (.group matcher 1))
-                       [:post :postmeta]
-                       #(view/seq->map :label %))]
+    (if (not (empty? oznaka))
+      (if (not
+           ;; (fs/exists? gpx-path)
+           (fs/exists? info-path)
+           )
+        (do
+          (println "\tdownloading post ...")
+          (let [content (io/input-stream->string (http/get-as-stream link))
+                gpx (if-let [gpx (second
+                                  (re-find
+                                   #"<tr><th>GPX</th><td><a href=\"(.+?)\""
+                                   content))]
+                      (.trim gpx))
+                region (when-let [region (second
+                                          (re-find
+                                           #"<tr><th>Region</th><td>(.+?)</td>"
+                                           content))]
+                         (.trim region))
+                uredjenost (when-let [uredjenost (second
+                                                  (re-find
+                                                   #"<tr><th>Uređenost</th><td>(.+?)</td>"
+                                                   content))]
+                             (.trim uredjenost))
+                planina (or
+                         (when-let [planina (second
+                                             (re-find
+                                              #"<tr><th>Planina/predeo</th><td>(.+?)</td>"
+                                              content))]
+                           (.trim planina))
+                         (when-let [planine (second
+                                             (re-find
+                                              #"<tr><th>Planine/predeli</th><td>(.+?)</td>"
+                                              content))]
+                           (.trim planine)))
+                info {
+                      :id oznaka
+                      :gpx gpx
+                      :region region
+                      :title title
+                      :uredjenost uredjenost
+                      :planina planina
+                      :link link}]
             (with-open [os (fs/output-stream info-path)]
-              (json/write-to-stream entry os))
-            (let [gpx-link (get-in entry [:post :postmeta "GPX" :value])]
-              (when (not (empty? gpx-link))
-                (println "\tdownloading gpx ...")
-                (with-open [os (fs/output-stream gpx-path)]
-                  (io/copy-input-to-output-stream
-                   (http/get-as-stream gpx-link)
-                   os))))))
-        (Thread/sleep 3000))
-      (println "\tpost already downloaded ..."))))
+              (json/write-pretty-print info (io/output-stream->writer os)))
+            (with-open [os (fs/output-stream content-path)]
+              (io/write-string os content))
+            (when (not (empty? gpx))
+              (println "\tdownloading gpx ...")
+              (if (not (fs/exists? gpx-path))
+                (if-let [is (http/get-as-stream gpx)]
+                  (with-open [os (fs/output-stream gpx-path)]
+                    (io/copy-input-to-output-stream is os))
+                  (println "\tdownload failed ..."))
+                (println "\tallready downloaded ..."))))
+          
+          ;; old version, before 20201222
+          #_(let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
+                  matcher (.matcher
+                           pattern
+                           (io/input-stream->string (http/get-as-stream link)))]
+              (.find matcher)
+              (let [entry (update-in
+                           (json/read-keyworded (.group matcher 1))
+                           [:post :postmeta]
+                           #(view/seq->map :label %))]
+                (with-open [os (fs/output-stream info-path)]
+                  (json/write-to-stream entry os))
+                (let [gpx-link (get-in entry [:post :postmeta "GPX" :value])]
+                  (when (not (empty? gpx-link))
+                    (println "\tdownloading gpx ...")
+                    (with-open [os (fs/output-stream gpx-path)]
+                      (io/copy-input-to-output-stream
+                       (http/get-as-stream gpx-link)
+                       os))))))
+          (Thread/sleep 3000))
+        (println "\tpost already downloaded ..."))
+      (println "[ERROR] ref not extracted for:" link))))
 
 ;; find references to E7 and E4
 #_(doseq [post posts]
@@ -567,6 +571,7 @@
 
 #_(first relation-seq)
 #_(count relation-seq)
+;; 372 20220624
 ;; 356 20220531
 ;; 350 20220417
 ;; 348 20220410 updated to use all relations not just ones with source=pss_staze
@@ -586,6 +591,60 @@
 
 (def relation-map
   (view/seq->map #(get-in % [:osm "ref"]) relation-seq))
+
+;; count of pss trails in osm
+#_(count
+ (filter
+  some?
+  (map
+   (fn [route]
+     (when-let [relation (get relation-map (:id route))]
+       [route relation]))
+   (vals routes))))
+;; 200 20220624
+
+
+#_(do
+  (println "routes")
+  (run!
+   (fn [[route relation]]
+     (println
+      (str
+       (get-in relation [:tags "ref"]) "\t"
+       (get relation :id) "\t"
+       (get-in relation [:tags "network"]) )))
+   (filter
+    #(= (get-in (second %) [:tags "network"]) "lwn")
+    (filter
+     some?
+     (map
+      (fn [route]
+        (when-let [relation (get relation-map (:id route))]
+          [route relation]))
+      (sort-by :id (vals routes)))))))
+
+;; 20220624 find lwn routes and change to rwn
+#_(run!
+ println
+ (map
+  #(clojure.string/join "," %)
+  (partition
+   20
+   20
+   nil 
+   (map
+    #(str "r" (get (second %) :id))
+    (filter
+     #(= (get-in (second %) [:tags "network"]) "lwn")
+     (filter
+      some?
+      (map
+       (fn [route]
+         (when-let [relation (get relation-map (:id route))]
+           [route relation]))
+       (sort-by :id (vals routes)))))))))
+
+
 
 ;; mapping notes to be displayed in wiki
 (def note-map
@@ -616,30 +675,34 @@
   ;; support for E paths, example: E7-6
   (let [id1 (:id route1)
         id2 (:id route2)]
-    (cond
-      (and (.startsWith id1 "E") (.startsWith id2 "E"))
-      ;; hotfix for E7-12a
-      (let [[road1 segment1] (.split (.replace (.substring id1 1) "a" "") "-")
-            [road2 segment2] (.split (.replace (.substring id2 1) "a" "") "-")]
-        (compare
-         (+ (* (as/as-long road1) 100) (as/as-long segment1))
-         (+ (* (as/as-long road2) 100) (as/as-long segment2))))
+    (try
+      (cond
+        (and (.startsWith id1 "E") (.startsWith id2 "E"))
+        ;; hotfix for E7-12a
+        (let [[road1 segment1] (.split (.replace (.substring id1 1) "a" "") "-")
+              [road2 segment2] (.split (.replace (.substring id2 1) "a" "") "-")]
+          (compare
+           (+ (* (as/as-long road1) 100) (as/as-long segment1))
+           (+ (* (as/as-long road2) 100) (as/as-long segment2))))
 
-      (.startsWith id1 "E")
-      -1
+        (.startsWith id1 "E")
+        -1
 
-      (.startsWith id2 "E")
-      1
+        (.startsWith id2 "E")
+        1
 
-      :else
-      (let [[region1 club1 number1] (.split id1 "-")
-            [region2 club2 number2] (.split id2 "-")
-            ;; hotfix for transversals, example: T-3-13
-            region1 (str (first (:region route1)))
-            region2 (str (first (:region route2)))]
-        (compare
-         (+ (* (as/as-long region1) 10000) (* (as/as-long club1) 100) (as/as-long number1))
-         (+ (* (as/as-long region2) 10000) (* (as/as-long club2) 100) (as/as-long number2)))))))
+        :else
+        (let [[region1 club1 number1] (.split id1 "-")
+              [region2 club2 number2] (.split id2 "-")
+              ;; hotfix for transversals, example: T-3-13
+              region1 (str (first (:region route1)))
+              region2 (str (first (:region route2)))]
+          (compare
+           (+ (* (as/as-long region1) 10000) (* (as/as-long club1) 100) (as/as-long number1))
+           (+ (* (as/as-long region2) 10000) (* (as/as-long club2) 100) (as/as-long number2)))))
+      (catch Exception e
+        (println "[EXCEPTION] Unable to compare: " id1 " with " id2)
+        (throw (ex-info "Id compare problem" {:route1 route1 :route2 route2} e))))))
 
 (defn render-route
   "prepares hiccup html for route"
@@ -829,56 +892,60 @@
   (compojure.core/GET
    "/projects/pss/state"
    _
-   {
-    :status 200
-    :headers {
-              "Content-Type" "text/html; charset=utf-8"}
-    :body (let [[mapped-routes routes-with-gpx rest-of-routes]
-                (reduce
-                 (fn [[mapped gpx rest-of] route]
-                   (if (some? (get relation-map (:id route)))
-                     [(conj mapped route) gpx rest-of]
-                     (if (some? (get route :gpx-path))
-                       [mapped (conj gpx route) rest-of]
-                       [mapped gpx (conj rest-of route)])))
-                 [[] [] []]
-                 (vals routes))]
-            (hiccup/html
-            [:html
-             [:body {:style "font-family:arial;"}
-              [:br]
-              [:div (str "rute koje poseduju gpx a nisu mapirane (" (count routes-with-gpx) ")")]
-              [:br]
-              [:table {:style "border-collapse:collapse;"}
-               (map
-                (comp
-                 render-route
-                 :id)
-                (sort
-                 #(id-compare %1 %2)
-                 routes-with-gpx))]
-              [:br]
-              [:div (str "mapirane rute (" (count mapped-routes)  ")")]
-              [:br]
-              [:table {:style "border-collapse:collapse;"}
-               (map
-                (comp
-                 render-route
-                 :id)
-                (sort
-                 #(id-compare %1 %2)
-                 mapped-routes))]
-              [:br]
-              [:div (str "ostale rute (" (count rest-of-routes) ")")]
-              [:br]
-              [:table {:style "border-collapse:collapse;"}
-               (map
-                (comp
-                 render-route
-                 :id)
-                (sort
-                 #(id-compare %1 %2)
-                 rest-of-routes))]]]))})
+   (try
+     {
+      :status 200
+      :headers {
+                "Content-Type" "text/html; charset=utf-8"}
+      :body (let [[mapped-routes routes-with-gpx rest-of-routes]
+                  (reduce
+                   (fn [[mapped gpx rest-of] route]
+                     (if (some? (get relation-map (:id route)))
+                       [(conj mapped route) gpx rest-of]
+                       (if (some? (get route :gpx-path))
+                         [mapped (conj gpx route) rest-of]
+                         [mapped gpx (conj rest-of route)])))
+                   [[] [] []]
+                   (vals routes))]
+              (hiccup/html
+               [:html
+                [:body {:style "font-family:arial;"}
+                 [:br]
+                 [:div (str "rute koje poseduju gpx a nisu mapirane (" (count routes-with-gpx) ")")]
+                 [:br]
+                 [:table {:style "border-collapse:collapse;"}
+                  (map
+                   (comp
+                    render-route
+                    :id)
+                   (sort
+                    #(id-compare %1 %2)
+                    routes-with-gpx))]
+                 [:br]
+                 [:div (str "mapirane rute (" (count mapped-routes)  ")")]
+                 [:br]
+                 [:table {:style "border-collapse:collapse;"}
+                  (map
+                   (comp
+                    render-route
+                    :id)
+                   (sort
+                    #(id-compare %1 %2)
+                    mapped-routes))]
+                 [:br]
+                 [:div (str "ostale rute (" (count rest-of-routes) ")")]
+                 [:br]
+                 [:table {:style "border-collapse:collapse;"}
+                  (map
+                   (comp
+                    render-route
+                    :id)
+                   (sort
+                    #(id-compare %1 %2)
+                    rest-of-routes))]]]))}
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))
   (compojure.core/GET
    "/projects/pss/list/club"
    _
@@ -1157,3 +1224,5 @@
    (filter
     #(.startsWith (or (get-in % [:osm "ref"]) "") "T-")
     relation-seq))))
+
+(println "pss dataset loaded")

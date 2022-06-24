@@ -410,8 +410,11 @@
    {}
    elements))
 
-;; util functions to work with extracted dataset
-(defn merge-histsets [& histset-seq]
+;; util functions
+
+(defn histset-create [] {})
+
+(defn histset-merge [& histset-seq]
   (let  [update-fn (fn [element-map element-seq]
                      (println "map" element-map)
                      (reduce
@@ -438,6 +441,30 @@
         (update-fn (or (:relations final) {}) (vals (:relations histset)))})
      (first histset-seq)
      (rest histset-seq))))
+
+(defn histset-append-relation
+  [histset relation]
+  (update-in
+   histset
+   [:relations (:id relation)]
+   #(conj (or % []) relation)))
+
+
+(defn histset-append-way
+  [histset way]
+  (update-in
+   histset
+   [:ways (:id way)]
+   #(conj (or % []) way)))
+
+
+(defn histset-append-node
+  [histset node]
+  (update-in
+   histset
+   [:nodes (:id node)]
+   #(conj (or % []) node)))
+
 
 (defn dataset-at-t [histset timestamp]
   (let [extract-fn (fn [element-map versions]

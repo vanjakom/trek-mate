@@ -207,8 +207,8 @@
       resource-controller (pipeline/create-trace-resource-controller context)]
   (osm/read-osm-pbf-osm4j-go
    (context/wrap-scope context "read")
-   (path/child osm-pbf-root-path "andorra-internal.osh.pbf")
-   #_osm-history-pbf-path
+   #_(path/child osm-pbf-root-path "andorra-internal.osh.pbf")
+   osm-history-pbf-path
    (channel-provider :node-in)
    (channel-provider :way-in)
    (channel-provider :relation-in))

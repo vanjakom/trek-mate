@@ -176,7 +176,9 @@
   {
    :type :node
    :id (:id element)
+   ;; legacy, remove osm key
    :osm (clojure.walk/stringify-keys (:tags element))
+   :tags (clojure.walk/stringify-keys (:tags element))
    :user (:user element)
    :version (:version element)})
 
@@ -185,7 +187,9 @@
   {
    :type :way
    :id (:id element)
+   ;; legacy, remove osm key
    :osm (clojure.walk/stringify-keys (:tags element))
+   :tags (clojure.walk/stringify-keys (:tags element))
    :nodes (:nodes element)
    :user (:user element)
    :version (:version element)})
@@ -195,7 +199,9 @@
   {
    :type :relation
    :id (:id element)
+   ;; legacy, remove osm key
    :osm (clojure.walk/stringify-keys (:tags element))
+   :tags (clojure.walk/stringify-keys (:tags element))
    :members (map
              (fn [member]
                {
