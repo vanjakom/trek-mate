@@ -1,6 +1,10 @@
 (ns trek-mate.integration.geojson
   (:require
-   [clj-common.json :as json]))
+   [clojure.core.async :as async]
+   [clj-common.context :as context]
+   [clj-common.io :as io]
+   [clj-common.json :as json]
+   [clj-common.localfs :as fs]))
 
 (defn geojson [feature-seq]
   {
@@ -8,7 +12,7 @@
    :features feature-seq})
 
 (def ^:dynamic *style-stroke-color* "#0000FF") ;; blue
-(def ^:dynamic *style-stroke-widht* 2)
+(def ^:dynamic *style-stroke-width* 2)
 
 (defn point [longitude latitude properties]
   {
@@ -18,18 +22,22 @@
                :type "Point"
                :coordinates [longitude latitude]}})
 
-(defn line-string [location-seq]
-  {
-   :type "Feature"
-   :properties {
-                "stroke" *style-stroke-color*
-                "stroke-width" *style-stroke-widht*}
-   :geometry {
-              :type "LineString"
-              :coordinates (map
-                            (fn [location]
-                              [(:longitude location) (:latitude location)])
-                            location-seq)}})
+(defn line-string
+  ([location-seq]
+   (line-string {} location-seq))
+  ([properties location-seq]
+   {
+    :type "Feature"
+    :properties (assoc
+                 properties
+                 "stroke" *style-stroke-color*
+                 "stroke-width" *style-stroke-width*)
+    :geometry {
+               :type "LineString"
+               :coordinates (map
+                             (fn [location]
+                               [(:longitude location) (:latitude location)])
+                             location-seq)}}))
 
 (defn location->feature [location]
   {
@@ -136,3 +144,29 @@
            :latitude (second location)})
         (:coordinates (:geometry feature))))
      (:features geojson))))
+
+(defn write-geojson-go
+  [context path feature-in]
+  (async/go
+    (context/set-state context "init")
+    (with-open [os (fs/output-stream path)]
+      (io/write-line os "{")
+      (io/write-line os "\t\"type\":\"FeatureCollection\",")
+      (io/write-line os "\t\"features\": [")
+
+      (loop [feature (async/<! feature-in)
+             first true]
+        (context/set-state context "step")
+        (when feature
+          (context/increment-counter context "feature-out")
+          (when (not first)
+            (io/write-string os ",\n"))
+          (let [serialized (json/write-to-string feature)]
+            (io/write-string os (str "\t\t" serialized)))
+          (recur
+           (async/<! feature-in)
+           false)))
+
+      (io/write-line os "\t]")
+      (io/write-line os "}")
+      (context/set-state context "completion"))))

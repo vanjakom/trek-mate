@@ -2,6 +2,8 @@
   (:use
    clj-common.clojure)
   (:require
+   [clojure.core.async :as async]
+   
    [hiccup.core :as hiccup]   
    [clj-common.2d :as draw]
    [clj-common.as :as as]
@@ -20,6 +22,7 @@
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
+   [trek-mate.dataset.hike-and-bike :as hike-and-bike]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -543,11 +546,11 @@
    (filter
     (fn [relation]
       (and
-       (= (get-in relation [:osm "type"]) "route")
-       (= (get-in relation [:osm "route"]) "hiking"))))
-   (channel-provider :filter-pss))
+       (= (get-in relation [:tags "type"]) "route")
+       (= (get-in relation [:tags "route"]) "hiking"))))
+   (channel-provider :filter-ignore))
 
-  (pipeline/transducer-stream-go
+  #_(pipeline/transducer-stream-go
    (context/wrap-scope context "filter-pss")
    (channel-provider :filter-pss)
    (filter
@@ -558,6 +561,15 @@
        (some? (get-in relation [:osm "ref"])))))
    (channel-provider :capture))
 
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-ignore")
+   (channel-provider :filter-ignore)
+   (filter
+    (fn [relation]
+      (not (contains? hike-and-bike/ignore-set (:id relation)))))
+   (channel-provider :capture))
+
+  
   (pipeline/capture-var-seq-go
    (context/wrap-scope context "capture")
    (channel-provider :capture)
@@ -568,6 +580,23 @@
 #_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
 ;; support for matching other relations
 (def relation-seq (overpass/query-string "relation[type=route][route=hiking](area:3601741311);"))
+
+;; to diff between file and overpass
+#_(let [file-set (into #{} (map :id relation-seq))
+      overpass-set (into #{} (map :id relation-seq-a))]
+  (println "has file only:")
+  (doseq [relation relation-seq]
+    (when (not (contains? overpass-set (:id relation)))
+      (println (:id relation))
+      (doseq [[tag value] (:tags relation)]
+        (println "\t" tag "=" value ))))
+
+  (println "has overpass only:")
+  (doseq [relation relation-seq-a]
+    (when (not (contains? file-set (:id relation)))
+      (println (:id relation))
+      (doseq [[tag value] (:tags relation)]
+        (println "\t" tag "=" value )))))
 
 #_(first relation-seq)
 #_(count relation-seq)
@@ -1094,7 +1123,7 @@
 
 ;; E4 - european path
 
-(map/define-map
+#_(map/define-map
   "E4"
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)
@@ -1224,5 +1253,208 @@
    (filter
     #(.startsWith (or (get-in % [:osm "ref"]) "") "T-")
     relation-seq))))
+
+;; #dataset osm-pss-trails-geometry
+;; prepare dataset
+;; extract relations, then nodes, then ways
+
+
+
+(def serbia-extract-path (path/child env/*dataset-local-path* "serbia-extract"))
+(def osm-pss-extract-path (path/child env/*dataset-local-path* "osm-pss-extract"))
+(def osm-pss-map-path (path/child env/*dataset-local-path* "osm-pss-map"))
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-node")
+   resource-controller
+   (path/child serbia-extract-path "node.edn")
+   (channel-provider :node-in))
+
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-way")
+   resource-controller
+   (path/child serbia-extract-path "way.edn")
+   (channel-provider :way-in))
+
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-relation")
+   resource-controller
+   (path/child serbia-extract-path "relation.edn")
+   (channel-provider :relation-in))
+
+  (osm/extract-recursive-from-split
+   (context/wrap-scope context "extract")
+   #{}
+   #{}
+   (into #{} (filter
+              some?
+              (map
+               (fn [route]
+                 (when-let [relation (get relation-map (:id route))]
+                   (:id relation)))
+               (vals routes))))
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :relation-in)
+
+   (channel-provider :node-out)
+   (channel-provider :way-out)
+   (channel-provider :relation-out))
+  
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-node")
+   resource-controller
+   (path/child osm-pss-extract-path "node.edn")
+   (channel-provider :node-out))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-way")
+   resource-controller
+   (path/child osm-pss-extract-path "way.edn")
+   (channel-provider :way-out))
+
+  (pipeline/write-edn-go
+   (context/wrap-scope context "write-relation")
+   resource-controller
+   (path/child osm-pss-extract-path "relation.edn")
+   (channel-provider :relation-out))
+  
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+;; write-node write = 107337
+;; write-way write = 4634
+;; write-relation write = 200
+
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-node")
+   resource-controller
+   (path/child osm-pss-extract-path "node.edn")
+   (channel-provider :node-in))
+
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-way")
+   resource-controller
+   (path/child osm-pss-extract-path "way.edn")
+   (channel-provider :way-in))
+
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-relation")
+   resource-controller
+   (path/child osm-pss-extract-path "relation.edn")
+   (channel-provider :relation-in))
+
+  #_(pipeline/create-lookup-go
+   (context/wrap-scope context "relation-lookup")
+   (channel-provider :relation-in)
+   :id
+   identity
+   (channel-provider :relation-lookup-in))
+
+  (pipeline/reducing-go
+   (context/wrap-scope context "way-lookup")
+   (channel-provider :relation-in)
+   (fn
+     ([] {})
+     ([state relation]
+      (let [network (get-in relation [:tags "network"])
+            trail (get-in relation [:tags "ref"])]
+        (reduce
+         (fn [state member]
+           (assoc
+            state
+            (:id member)
+            (if-let [way (get state (:id member))]
+              {
+               :networks
+               (conj (or (get way :networks) #{}) network)
+               :trails
+               (conj (or (get way :trails) #{}) trail)}
+              {
+               :networks #{network}
+               :trails #{trail}})))
+         state
+         (filter #(= (:type %) :way) (:members relation)))))
+     ([state] state))
+   (channel-provider :way-lookup-drain))
+
+  (pipeline/drain-go
+   (context/wrap-scope context "way-lookup-drain")
+   (channel-provider :way-lookup-drain)
+   (channel-provider :way-lookup))
+  
+  (osm/resolve-way-geometry-in-memory-go
+   (context/wrap-scope context "resolve-geometry")
+   (channel-provider :node-in)
+   (channel-provider :way-in)
+   (channel-provider :way-out))
+
+  (async/go
+    (let [context (context/wrap-scope context "transform")
+          way-lookup-in (channel-provider :way-lookup)
+          resolved-way-in (channel-provider :way-out)
+          feature-out (channel-provider :feature-in)]
+      (let [way-lookup (or (async/<! way-lookup-in) {})]
+        (def a way-lookup)
+        (loop [way (async/<! resolved-way-in)]
+          (context/set-state context "step")
+          (when way
+            (context/increment-counter context "way-in")
+            (if-let [metadata (get way-lookup (:id way))]
+              (let [networks (get metadata :networks)
+                    width (cond
+                            (contains? networks "iwn") 6
+                            (contains? networks "nwn") 4
+                            (contains? networks "rwn") 2
+                            :else 1)]
+                (context/increment-counter context (str "width-" width))
+                (context/increment-counter context "way-out")
+                (context/increment-counter context "lookup-match")
+                (async/>!
+                 feature-out
+                 (binding [geojson/*style-stroke-width* width
+                           geojson/*style-stroke-color* "#FF0000"]
+                   (geojson/line-string metadata (:coords way)))))
+              (do
+                (context/increment-counter context "way-out")
+                (context/increment-counter context "lookup-mismatch")
+                (async/>!
+                 feature-out
+                 (binding [geojson/*style-stroke-width* 1
+                           geojson/*style-stroke-color* "#FF0000"]
+                   (geojson/line-string {} (:coords way))))))
+            (recur (async/<! resolved-way-in))))
+        (async/close! feature-out)
+        (context/set-state context "completion"))))
+  
+  #_(pipeline/transducer-stream-go
+   (context/wrap-scope context "transform")
+   (channel-provider :way-out)
+   (map (fn [way]
+          (geojson/line-string (:coords way))))
+   (channel-provider :feature-in))
+
+  (geojson/write-geojson-go
+   (context/wrap-scope context "write-geojson")
+   (path/child osm-pss-map-path "map.geojson")
+   (channel-provider :feature-in))
+
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+(map/define-map
+  "osm-pss-map"
+  (map/tile-layer-osm)
+  (map/tile-overlay-mapbox
+   "vanjakom"
+   "cl4vushrv002k14og8qmnpme5"
+   "pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw"
+   "osm-pss-map"
+   true))
 
 (println "pss dataset loaded")

@@ -1119,7 +1119,10 @@
     (out-fn)
     (context/set-state context "completion")))
 
-(defn read-pbf-tags
+;; old version using osmosis, not working since I added osm4j support
+;; swithced to use osm4j, bellow
+
+#_(defn read-pbf-tags
   [tags]
   (reduce
    (fn [tag-map tag]
@@ -1130,7 +1133,7 @@
    {}
    tags))
 
-(defn read-entity-type
+#_(defn read-entity-type
   [type]
   (cond
     (= type org.openstreetmap.osmosis.core.domain.v0_6.EntityType/Bound)
@@ -1144,7 +1147,7 @@
     :else
     (throw (ex-info "unknown type" {:type type}))))
 
-(defn read-pbf-node
+#_(defn read-pbf-node
   [container]
   (let [entity (.getEntity container)
         tags (read-pbf-tags (.getTags entity))]
@@ -1160,7 +1163,7 @@
      :user (.getName (.getUser entity))
      :timestamp (/ (.getTime (.getTimestamp entity)) 1000)}))
 
-(defn read-pbf-way
+#_(defn read-pbf-way
   [container]
   (let [entity (.getEntity container)
         tags (read-pbf-tags (.getTags entity))]
@@ -1178,7 +1181,7 @@
                (.getNodeId way-node))
              (.getWayNodes entity))}))
 
-(defn read-pbf-relation
+#_(defn read-pbf-relation
   [container]
   (let [entity (.getEntity container)
         tags (read-pbf-tags (.getTags entity))]
@@ -1202,7 +1205,7 @@
                             role))})
                (.getMembers entity))}))
 
-(defn read-osm-pbf-go
+#_(defn read-osm-pbf-go
   "Reads osm pbf and emits nodes, ways and relations to specific channels. If
   given channel is nil emit will be ignored.
   note: structure of data returned should mimic one returned by reading xml
@@ -1258,7 +1261,7 @@
       (context/set-state context "completion"))))
 
 ;; todo handle delete, use isVisible inside metadata
-(defn read-osm-pbf-osm4j-go
+(defn read-osm-pbf-go
   "Uses osm4j to read pbf, should support historical pbfs"
   [context path node-ch way-ch relation-ch]
   (async/thread
@@ -1292,16 +1295,22 @@
               (let [node (assoc object
                                 :longitude (when visible (.getLongitude entity))
                                 :latitude (when visible (.getLatitude entity)))]
-                (async/>!! node-ch node)
-                (context/counter context "node-out"))
+                (if node-ch
+                  (do
+                    (async/>!! node-ch node)
+                    (context/counter context "node-out"))
+                  (context/counter context "node-skip")))
 
               (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Way)
               (let [way (assoc object
                                :nodes (map (fn [index]
                                              (.getNodeId entity index))
                                            (range (.getNumberOfNodes entity))))]
-                (async/>!! way-ch way)
-                (context/counter context "way-out"))
+                (if way-ch
+                  (do
+                    (async/>!! way-ch way)
+                    (context/counter context "way-out"))
+                  (context/counter context "way-skip")))
 
               (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Relation)
               (let [relation (assoc object
@@ -1326,8 +1335,11 @@
                                           :id (.getId member)
                                           :role (.getRole member)}))
                                      (range (.getNumberOfMembers entity))))]
-                (async/>!! relation-ch relation)
-                (context/counter context "relation-out"))
+                (if relation-ch
+                  (do
+                    (async/>!! relation-ch relation)
+                    (context/counter context "relation-out"))
+                  (context/counter context "relation-skip")))
 
               :else
               (context/counter context "unknown-type"))))))
@@ -1359,24 +1371,24 @@
           (if (= (:id relation) relation-id)
             (do
               (context/increment-counter context "relation-match")
-              [
-              (into node-set (filter some? (map
+              (recur
+               (into node-set (filter some? (map
+                                             (fn [member]
+                                               (when (= (:type member) :node)
+                                                 (:id member)))
+                                             (:members relation))))
+               (into way-set (filter some? (map
                                             (fn [member]
-                                              (when (= (:type member) :node)
+                                              (when (= (:type member) :way)
                                                 (:id member)))
                                             (:members relation))))
-              (into way-set (filter some? (map
-                                           (fn [member]
-                                             (when (= (:type member) :way)
-                                               (:id member)))
-                                           (:members relation))))
-              (osmapi/histset-append-relation histset relation)
-              (async/<! relation-in)])
-            [
+               (osmapi/histset-append-relation histset relation)
+               (async/<! relation-in)))
+            (recur
              node-set
              way-set
              histset
-             (async/<! relation-in)]))
+             (async/<! relation-in))))
         ;; go over ways
         (loop [node-set node-set
                histset histset
@@ -1388,14 +1400,14 @@
               (if (contains? way-set (:id way))
                 (do
                   (context/increment-counter context "way-match")
-                  [
+                  (recur
                    (into node-set (:nodes way))
                    (osmapi/histset-append-way histset way)
-                   (async/<! way-in)])
-                [
+                   (async/<! way-in)))
+                (recur
                  node-set
                  histset
-                 (async/<! way-in)]))
+                 (async/<! way-in))))
             ;; go over nodes
             (loop [histset histset
                    node (async/<! node-in)]
@@ -1406,12 +1418,12 @@
                   (if (contains? node-set (:id node))
                     (do
                       (context/increment-counter context "node-match")
-                      [
+                      (recur
                        (osmapi/histset-append-node histset node)
-                       (async/<! node-in)])
-                    [
+                       (async/<! node-in)))
+                    (recur
                      histset
-                     (async/<! node-in)]))
+                     (async/<! node-in))))
                 (do
                   (async/>! histset-out histset)
                   (async/close! histset-out)
@@ -1621,4 +1633,102 @@
            (async/close! result-out)
            (context/set-state context "completion")))))))
 
+(defn extract-recursive-from-split
+  "Takes node-set, way-set, relation-set and input streams of nodes, ways and relations.
+  Reads first relations, writes to out ones needed, accumulates ways, then reads ways,
+  writes needed to output and accumulates nodes. Finally reads nodes and writes
+  to out needed."
+  [context node-set way-set relation-set
+   node-in way-in relation-in
+   node-out way-out relation-out]
+  (async/go
+    (context/set-state context "init")
+    (loop [node-set node-set
+           way-set way-set
+           relation (async/<! relation-in)]
+      (context/set-state context "relation-scan")
+      (if relation
+        (if (contains? relation-set (:id relation))
+          (do
+            (async/>! relation-out relation)
+            (context/increment-counter context "relation-out")
+            (recur
+             (into node-set (filter some? (map
+                                           (fn [member]
+                                             (when (= (:type member) :node)
+                                               (:id member)))
+                                           (:members relation))))
+             (into way-set (filter some? (map
+                                          (fn [member]
+                                            (when (= (:type member) :way)
+                                              (:id member)))
+                                          (:members relation))))
+             (async/<! relation-in)))
+          (recur
+           node-set
+           way-set
+           (async/<! relation-in)))
+        (loop [node-set node-set
+               way (async/<! way-in)]
+          (context/set-state context "way-scan")
+          (if way
+            (if (contains? way-set (:id way))
+              (do
+                (async/>! way-out way)
+                (context/increment-counter context "way-out")
+                (recur
+                 (into node-set (:nodes way))
+                 (async/<! way-in)))
+              (recur
+               node-set
+               (async/<! way-in)))
+            (loop [node (async/<! node-in)]
+              (context/set-state context "node-scan")
+              (if node
+                (if (contains? node-set (:id node))
+                  (do
+                    (context/increment-counter context "node-out")
+                    (async/>! node-out node)
+                    (recur (async/<! node-in)))
+                  (recur (async/<! node-in)))
+                (do
+                  (async/close! node-out)
+                  (async/close! way-out)
+                  (async/close! relation-out)
+                  (context/set-state context "completion"))))))))))
 
+(defn resolve-way-geometry-in-memory-go
+  "First creates index from nodes on node-in. Afterwards performs node lookup
+  of ways on way-in. Adds :coords to ways containing longitude latitude pairs.
+  Writes ways to way-out"
+  [context node-in way-in way-out]
+  (async/go
+    (context/set-state context "init")
+    (loop [node-map {}
+           node (async/<! node-in)]
+      (context/set-state context "create-lookup")
+      (if node
+        (do
+          (context/increment-counter context "node-in")
+          (recur
+           (assoc node-map (:id node) (select-keys node [:longitude :latitude]))
+           (async/<! node-in)))
+        (loop [way (async/<! way-in)]
+          (if way
+            (do
+              (context/set-state context "resolve-way")
+              (context/increment-counter context "way-in")
+              (let [coords (map
+                            (fn [id]
+                              (if-let [node (get node-map id)]
+                                node
+                                (do
+                                  ;; should not happen
+                                  (context/increment-counter context "invalid-id")
+                                  {:longitude nil :latitude nil})))
+                            (:nodes way))]
+                (async/>! way-out (assoc way :coords coords))
+                (recur (async/<! way-in))))
+            (do
+              (async/close! way-out)
+              (context/set-state context "completion"))))))))

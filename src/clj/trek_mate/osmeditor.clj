@@ -17,6 +17,7 @@
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
+   [clj-common.time :as time]
    [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.osmapi :as osmapi]
@@ -1304,7 +1305,7 @@
                                 [:div
                                  [:br]
                                  "v: " (:version change)
-                                 ", t: " (:timestamp change) 
+                                 ", t: " (time/timestamp->date-in-timezone (:timestamp change)) 
                                  ", c: " [:a {:href (str "https://www.openstreetmap.org/changeset/" (:changeset change)) :target "_blank"} (:changeset change)]
                                  ", u: " [:a {:href (str "https://www.openstreetmap.org/user/" (:user change)) :target "_blank"} (:user change)]])
                                changes)]

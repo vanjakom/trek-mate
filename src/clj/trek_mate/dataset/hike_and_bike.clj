@@ -282,6 +282,10 @@
 ;; set of relation ids to be ignored, either temporary or permanently
 (def ignore-set
   #{
+    ;; global E roads, we need only local ones
+    371740
+    9928151 ;; Serbia root E4, not needed we have relations for segments
+    
     ;; E roads
     1175707 ;; E3 bulgaria
     6023218 ;; E3 romania
@@ -308,6 +312,10 @@
 
     ;; romania
     5652184
+    2064956
+    5690433
+    6543719
+    10035146
 
     ;; montenegro
     13755926 ;; Katun Road - Pešter Grasslands

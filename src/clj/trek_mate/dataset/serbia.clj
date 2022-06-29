@@ -205,9 +205,9 @@
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
-  (osm/read-osm-pbf-osm4j-go
+  (osm/read-osm-pbf-go
    (context/wrap-scope context "read")
-   #_(path/child osm-pbf-root-path "andorra-internal.osh.pbf")
+   #_(path/child osm-pbf-root-path "serbia-internal.osh.pbf")
    osm-history-pbf-path
    (channel-provider :node-in)
    (channel-provider :way-in)

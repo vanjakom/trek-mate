@@ -163,6 +163,16 @@
    nil
    activate))
 
+(defn tile-overlay-mapbox [username style token name activate]
+  (tile-overlay
+   name
+   (str
+    "https://api.mapbox.com/styles/v1/"
+    username "/" style "/tiles/256/{z}/{x}/{y}?access_token=" token)
+   "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+   activate))
+
+
 (defn tile-layer-bing-satellite [activate]
   (let [var-name (unique-var-name "layer")]
     (str
