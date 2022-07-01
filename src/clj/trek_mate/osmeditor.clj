@@ -269,7 +269,9 @@
      (when (some? (:role change))
        (str " as " (:role change) " "))
      [:a {
-          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+          :href (str
+                 "http://www.openstreetmap.org/"
+                 (name (:type change)) "/" (.substring (:id change) 1))
           :target "_blank"}
       "osm"]]
 
@@ -288,7 +290,9 @@
      (when (some? (:role change))
        (str " as " (:role change) " "))
      [:a {
-          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+          :href (str
+                 "http://www.openstreetmap.org/"
+                 (name (:type change)) "/" (.substring (:id change) 1))
           :target "_blank"}
       "osm"]]
 
@@ -307,13 +311,15 @@
      (when (some? (:role change))
        (str " as " (:role change) " "))
      [:a {
-          :href (str "http://www.openstreetmap.org/" (:type change) "/" (:id change))
+          :href (str
+                 "http://www.openstreetmap.org/"
+                 (name (:type change)) "/" (.substring (:id change) 1))
           :target "_blank"}
       "osm"]]
 
     ;; deprecated
-    (= (:change change) :members)
-    (concat
+    #_(= (:change change) :members)
+    #_(concat
      (list
       [:div "changed members order or made circular:"])
      (map

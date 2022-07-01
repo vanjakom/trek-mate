@@ -600,6 +600,7 @@
 
 #_(first relation-seq)
 #_(count relation-seq)
+;; 383 20220629
 ;; 372 20220624
 ;; 356 20220531
 ;; 350 20220417
@@ -619,7 +620,7 @@
 #_(first relation-seq)
 
 (def relation-map
-  (view/seq->map #(get-in % [:osm "ref"]) relation-seq))
+  (view/seq->map #(get-in % [:tags "ref"]) relation-seq))
 
 ;; count of pss trails in osm
 #_(count
@@ -630,6 +631,7 @@
      (when-let [relation (get relation-map (:id route))]
        [route relation]))
    (vals routes))))
+;; 202 20220629
 ;; 200 20220624
 
 
