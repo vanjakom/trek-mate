@@ -21,6 +21,12 @@
   (path/string->path
    (or (jvm/environment-variable "DATASET_GIT") "/Users/vanja/dataset-git")))
 
+(def ^:dynamic *dataset-dotstore-path*
+  (path/string->path
+   (or (jvm/environment-variable "DATASET_DOTSTORE") "/Users/vanja/dataset-dotstore")))
+
+
+
 ;; deprecated
 (def *global-my-dataset-path* *dataset-cloud-path*)
 

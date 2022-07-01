@@ -253,7 +253,9 @@
       (comp
        operation/force-replace
        location-v2->cloudkit-record)
-      location-seq)))
+      location-seq))
+  ;; prevent systemout
+  nil)
 
 (defn upload-tile-at-zoom [zoom bounds]
   (store-tile-from-path-to-tile-v1

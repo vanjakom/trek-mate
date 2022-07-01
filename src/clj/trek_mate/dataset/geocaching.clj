@@ -55,15 +55,232 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
+(def geocache-seq nil)
 
-;; 20220427
-;; #dotstore #balaton2022
+(def active-pipeline nil)
+#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
+
+(def my-finds-seq nil)
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)]
+  (geocaching/my-find-go
+   (context/wrap-scope context "read")
+   (path/child pocket-query-path "21837783.gpx")
+   (channel-provider :in))
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :in)
+   (var my-finds-seq))
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+#_(count my-finds-seq)
+;; 914 20220611
+;; 859 20220107
+;; 831 20211122
+;; 822
+
+(def my-finds-set
+  (into
+   #{}
+   (map
+   (comp
+    :code
+    :geocaching)
+   my-finds-seq)))
+
 ;; support for creation of dotstore for all world's geocaches
 ;; up to level 12 create bitset
 ;; on level 12 create locset
-(def dotstore-bitset-path (path/child env/*dataset-local-path* "dotstore" "geocache-bitset"))
-(def dotstore-locset-path (path/child env/*dataset-local-path* "dotstore" "geocache-locset"))
+(def dotstore-bitset-path (path/child env/*dataset-dotstore-path* "geocache-bitset"))
+(def dotstore-locset-path (path/child env/*dataset-dotstore-path* "geocache-locset"))
 
+;; 20220630
+;; #dotstore #vienna2022
+;; bitset and locset dotstore
+#_(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-1")
+   (path/child
+    pocket-query-path
+    "22258980_vienna-1.gpx")
+   (channel-provider :funnel-in-1))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-2")
+   (path/child
+    pocket-query-path
+    "22258992_vienna-2.gpx")
+   (channel-provider :funnel-in-2))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-3")
+   (path/child
+    pocket-query-path
+    "22259005_vienna-3.gpx")
+   (channel-provider :funnel-in-3))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-4")
+   (path/child
+    pocket-query-path
+    "24531017_vienna-4.gpx")
+   (channel-provider :funnel-in-4))
+  (geocaching/list-gpx-go
+   (context/wrap-scope context "0_read-5")
+   (path/child
+    list-path
+    "24531022_Belgrade - Vienna.gpx")
+   (channel-provider :funnel-in-5))
+  
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-6")
+   (path/child
+    list-path
+    "vienna-favorite-100.gpx")
+   (channel-provider :favorite-100))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "favorite-100-map")
+   (channel-provider :favorite-100)
+   (map
+    (fn [geocache]
+      (update-in geocache [:tags] conj "#geocache-favorite-100")))
+   (channel-provider :funnel-in-6))
+  
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-7")
+   (path/child
+    list-path
+    "vienna2022.gpx")
+   (channel-provider :favorite-vienna2022))
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "vienna2022-map")
+   (channel-provider :favorite-vienna2022)
+   (map
+    (fn [geocache]
+      (update-in geocache [:tags] conj "#geocache-vienna2022")))
+   (channel-provider :funnel-in-7))
+  
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :funnel-in-1)
+    (channel-provider :funnel-in-2)
+    (channel-provider :funnel-in-3)
+    (channel-provider :funnel-in-4)
+    (channel-provider :funnel-in-5)
+    (channel-provider :funnel-in-6)
+    (channel-provider :funnel-in-7)]
+   (channel-provider :write))
+  
+  #_(pipeline/for-each-go
+     (context/wrap-scope context "for-each")
+     (channel-provider :write-in)
+     println)
+
+  (pipeline/broadcast-go
+   (context/wrap-scope context "broadcast")
+   (channel-provider :write)
+   #_(channel-provider :write-bitset)
+   #_(channel-provider :write-locset)
+   (channel-provider :geocache-seq-filter))
+  
+  #_(dotstore/bitset-write-go
+   (context/wrap-scope context "1_bitset-write")
+   resource-controller
+   (channel-provider :write-bitset)
+   dotstore-bitset-path
+   1000)
+
+  #_(dotstore/locset-write-go
+   (context/wrap-scope context "1_locset-write")
+   resource-controller
+   (channel-provider :write-locset)
+   dotstore-locset-path
+   12)
+  
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-my-finds")
+   (channel-provider :geocache-seq-filter)
+   (filter #(not (contains? my-finds-set (get-in % [:geocaching :code]))))
+   (channel-provider :geocache-seq-map))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "geocache-seq-map")
+   (channel-provider :geocache-seq-map)
+   (map
+    (fn [geocache]
+      (if (and
+           (contains? (:tags geocache) "#last-found")
+           (contains? (:tags geocache) "#traditional-cache"))
+        (update-in geocache [:tags] conj "#geocache-sigurica")
+        geocache)))
+   (channel-provider :geocache-seq-hotfix))
+
+  ;; todo
+  ;; waypoints are being transfered, remove tags
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "geocache-seq-hotfix")
+   (channel-provider :geocache-seq-hotfix)
+   (map
+    (fn [geocache]
+      (if (some?
+           (first
+            (filter #(.startsWith % "|link|geocaching|GC") (:tags geocache))))
+        geocache
+        (update-in
+         geocache
+         [:tags]
+         disj
+         "#geocache"
+         "#geocache-sigurica"
+         "#geocache-favorite-100"
+         "#geocache-vienna2022"))))
+   (channel-provider :capture))
+  
+  
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var geocache-seq))
+  
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+#_(count geocache-seq) ;; 3887
+#_(first geocache-seq)
+#_(into #{} (filter #(.startsWith % "#") (mapcat :tags geocache-seq)))
+;; #{"#wherigo-cache" "#geocache-sigurica" "#multi-cache" "#earth-cache" "#mistery-cache" "#last-found" "#virtual-cache" "#geocaching.com" "#geocache" "#letterbox-cache" "#traditional-cache"}
+
+#_(count (filter #(contains? (:tags %) "#geocache-favorite-100") geocache-seq)) ;; 249
+#_(count (filter #(contains? (:tags %) "#geocache-vienna2022") geocache-seq)) ;; 23
+#_(first (filter #(contains? (:tags %) "#geocache-favorite-100") geocache-seq))
+#_(first (filter #(contains? (:tags %) "#geocache-vienna2022") geocache-seq))
+
+
+#_(storage/import-location-v2-seq-handler
+ (map
+  #(add-tag % "#vienna2022-geocache")
+  (vals
+   (reduce
+    (fn [location-map location]
+      (let [location-id (util/location->location-id location)]
+        (if-let [stored-location (get location-map location-id)]
+          (do
+            #_(report "duplicate")
+            #_(report "\t" stored-location)
+            #_(report "\t" location)
+            (assoc
+             location-map
+             location-id
+             {
+              :longitude (:longitude location)
+              :latitude (:latitude location)
+              :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+          (assoc location-map location-id location))))
+    {}
+    geocache-seq))))
+
+;; 20220427
+;; #dotstore #balaton2022
 ;; bitset dotstore
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
@@ -148,25 +365,6 @@
    1000)
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(web/register-dotstore
- "geocache-bitset"
- (fn [zoom x y]
-   (try
-     (let [zoom (as/as-long zoom)
-           x (as/as-long x)
-           y (as/as-long y)
-           path (dotstore/tile->path dotstore-bitset-path [zoom x y])]
-       (if (fs/exists? path)
-         (let [tile (dotstore/bitset-read-tile path)]
-           {
-            :status 200
-            :body (draw/image-context->input-stream
-                   (dotstore/bitset-render-tile tile draw/color-transparent draw/color-red 2))})
-         {:status 404}))
-     (catch Exception e
-       (.printStackTrace e)
-       {
-        :status 500}))))
 
 ;; locset dotstore
 #_(let [context (context/create-state-context)
@@ -252,6 +450,26 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 (web/register-dotstore
+ "geocache-bitset"
+ (fn [zoom x y]
+   (try
+     (let [zoom (as/as-long zoom)
+           x (as/as-long x)
+           y (as/as-long y)
+           path (dotstore/tile->path dotstore-bitset-path [zoom x y])]
+       (if (fs/exists? path)
+         (let [tile (dotstore/bitset-read-tile path)]
+           {
+            :status 200
+            :body (draw/image-context->input-stream
+                   (dotstore/bitset-render-tile tile draw/color-transparent draw/color-red 2))})
+         {:status 404}))
+     (catch Exception e
+       (.printStackTrace e)
+       {
+        :status 500}))))
+
+(web/register-dotstore
  "geocache-locset"
  (fn [zoom x y]
    (try
@@ -278,11 +496,15 @@
        []))))
 
 
+(defn add-tag
+  [location & tag-seq]
+  (update-in
+   location
+   [:tags]
+   clojure.set/union
+   (into #{} (map as/as-string tag-seq))))
+
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
-
-
-
-(def geocache-seq nil)
 
 ;; #balaton2022
 #_(let [context (context/create-state-context)
@@ -372,9 +594,9 @@
    (var geocache-seq))
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(count geocache-seq) ;; 7914
+#_(count geocache-seq) ;; 7914
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag % "#balaton2022-geocache")
   (vals
@@ -512,50 +734,10 @@
    (constantly channel-provider)))
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
-(defn add-tag
-  [location & tag-seq]
-  (update-in
-   location
-   [:tags]
-   clojure.set/union
-   (into #{} (map as/as-string tag-seq))))
-
 ;; todo
 ;; create dot fn to return locations from dotstore, until now dotstore was used
 ;; for rendering with dots set to given zoom level, transform back and return
 ;; also routines for retrieve are pipeline go routines
-
-(def active-pipeline nil)
-#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
-
-(def my-finds-seq nil)
-#_(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)]
-  (geocaching/my-find-go
-   (context/wrap-scope context "read")
-   (path/child pocket-query-path "21837783.gpx")
-   (channel-provider :in))
-  (pipeline/capture-var-seq-atomic-go
-   (context/wrap-scope context "capture")
-   (channel-provider :in)
-   (var my-finds-seq))
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-
-#_(count my-finds-seq)
-;; 914 20220611
-;; 859 20220107
-;; 831 20211122
-;; 822
-
-(def my-finds-set
-  (into
-   #{}
-   (map
-   (comp
-    :code
-    :geocaching)
-   my-finds-seq)))
 
 #_(first (filter #(= "vanjakom" (get-in % [:geocaching :owner])) geocache-seq))
 
@@ -901,7 +1083,6 @@
                           splits (.split date "T")
                           splits (.split (first splits) "-")
                           formatted (str (nth splits 0) (nth splits 1) (nth splits 2))]
-                      (println formatted date)
                       formatted)
          :status (first (:content (first (filter #(= :result (:tag %)) (:content geocache)))))
          :comment (first (:content (first (filter #(= :comment (:tag %)) (:content geocache)))))})
@@ -910,8 +1091,6 @@
 #_(count garmin-finds-seq)
 ;; 208 20220611
 ;; 162
-
-
 
 (def trek-mate-finds-seq
   (let [tag-starting-with-fn (fn [prefix location]
@@ -976,13 +1155,8 @@
 ;; 20220611 851, afer removing ones without date in format YYYYMMDD
 ;; 20220611 861
 
-
-(run!
- #(println (:code %) (:timestamp %))
- trek-mate-finds-seq)
-
 ;; debug, see other tags for GC
-(do
+#_(do
   (println "results")
   (run!
    println
@@ -1109,3 +1283,4 @@
              [:br]]])})))
 
 
+(println "geocaching dataset loaded")

@@ -1805,6 +1805,6 @@
 ;; once dotstore is extracted into separate project this should be moved to
 ;; photo-map project
 
-
+(println "mine dataset loaded")
 
 
