@@ -1362,7 +1362,13 @@
                      :target "_blank"}
                     name]]])
                (reverse
-                (sort
+                (sort-by
+                 (fn [name]
+                   (binding [time/*date-time-format* "dd-MMM-yy"]
+                     (time/date->timestamp (->
+                                            name
+                                            (.replace "Waypoints_" "")
+                                            (.replace "Waypoints2_" "")))))
                  (map
                   #(.replace % ".gpx" "")
                   (filter
@@ -1370,6 +1376,22 @@
                    (map
                     last
                     (fs/list env/garmin-waypoints-path)))))))]]])})
+
+  (compojure.core/GET
+   "/projects/tracks/garmin-wp/:file/raw"
+   [file]
+   (let [file (base64/base64->string file)
+         wp-path (path/child env/garmin-waypoints-path (str file ".gpx"))]
+     (if (fs/exists? wp-path)
+       (let [bytes (with-open [is (fs/input-stream wp-path)]
+                     (io/input-stream->bytes is))]
+         {
+          :status 200
+          :headers {
+                    "Access-Control-Allow-Origin" "*"}
+          :body (io/bytes->input-stream bytes)})
+       {:status 404})))
+  
   (compojure.core/GET
    "/projects/tracks/garmin-wp/:file"
    [file]
@@ -1394,6 +1416,14 @@
                             (base64/string->base64-string file))
                      :target "_blank"}
                     "view on map"]
+                   [:br]
+                   [:a
+                    {:href (str
+                            "https://www.openstreetmap.org/edit?editor=id&#gpx=http%3A%2F%2Flocalhost%3A7077%2Fprojects%2Ftracks%2Fgarmin-wp%2F"
+                            (base64/string->base64-string file)
+                            "%2Fraw")
+                     :target "_blank"}
+                    "edit with iD"]
                    [:br]
                    [:br]
                    [:table {:style "border-collapse:collapse;"}

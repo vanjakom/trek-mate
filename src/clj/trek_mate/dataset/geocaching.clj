@@ -1277,9 +1277,10 @@
                   [:td {:style "border: 1px solid black; padding: 5px;"}
                    (or (get note-map (:code geocache)) "")]
                   ])
-               (sort-by
-                :timestamp
-                should-be-logged-seq))]
+               (reverse
+                (sort-by
+                 :timestamp
+                 should-be-logged-seq)))]
              [:br]]])})))
 
 

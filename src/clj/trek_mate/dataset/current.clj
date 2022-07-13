@@ -134,15 +134,54 @@
 
 (def center (overpass/wikidata-id->location :Q3711))
 
+;; 20220706
+;; planning ravnje - divcibare
+(map/define-map
+  "20220706"
+  (map/tile-layer-osm)
+  (map/tile-layer-bing-satellite false)
+  (map/tile-overlay-waymarked-hiking false)
+  (binding [geojson/*style-stroke-color* "#FFFF00"]
+    (with-open [is (fs/input-stream
+                             (path/child env/*dataset-cloud-path*
+                                         "mine" "krupanj-ljubovija-valjevo-divchibare.gpx"))]
+               (map/geojson-gpx-layer
+                "E7"
+                is
+                true
+                false)))
+  (binding [geojson/*style-stroke-color* "#0000FF"]
+    (with-open [is (fs/input-stream
+                             (path/child env/*dataset-cloud-path*
+                                         "mine" "ravnje-divcibare.gpx"))]
+               (map/geojson-gpx-layer
+                "planirano"
+                is
+                true
+                true)))
+  (binding [geojson/*style-stroke-color* "#FF0000"]
+    (with-open [is (fs/input-stream
+                             (path/child env/*dataset-cloud-path*
+                                         "mine" "ravnje-divcibare.gpx"))]
+      (map/geojson-gpx-garmin-layer
+       "neuspeh"
+       "Track_2022-07-06 185317")))  
+  ;; todo ne radi
+  (map/geojson-style-marker-layer
+   "oznake"
+   (geojson/geojson
+    (geojson/point 20.01430 44.13005 {"marker-body" "pocetak asfalta"}))
+   ))
 
 ;; 20210910
-(l 19.26252, 42.44252 tag/tag-sleep "!Hotel Marienplatz")
-(l 19.25062, 42.36032 tag/tag-airport)
-(l 19.20128, 42.27143 tag/tag-eat "!Plavnica")
-(storage/import-location-v2-seq-handler
- (map
-  #(t % "@urde2021")
-  (vals (deref dataset))))
+#_(do
+  (l 19.26252, 42.44252 tag/tag-sleep "!Hotel Marienplatz")
+  (l 19.25062, 42.36032 tag/tag-airport)
+  (l 19.20128, 42.27143 tag/tag-eat "!Plavnica")
+  (storage/import-location-v2-seq-handler
+   (map
+    #(t % "@urde2021")
+    (vals (deref dataset)))))
 
 ;; 20210730
 #_(n 8963008929 "#tepui2021") "!Filipov breg"

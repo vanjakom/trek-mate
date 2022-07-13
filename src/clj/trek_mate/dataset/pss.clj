@@ -1050,10 +1050,10 @@
                 (map/tile-layer-bing-satellite false)
                 (map/tile-overlay-waymarked-cycling false)
                 (binding [geojson/*style-stroke-color* "#FF0000"
-                          geojson/*style-stroke-widht* 4]
+                          geojson/*style-stroke-width* 4]
                   (map/geojson-hiking-relation-layer "OSM" osm-id true false))
                 (binding [geojson/*style-stroke-color* "#00FF00"
-                          geojson/*style-stroke-widht* 2]
+                          geojson/*style-stroke-width* 2]
                   (with-open [is (fs/input-stream (path/child
                                                    dataset-path
                                                    "routes"
@@ -1110,10 +1110,10 @@
   (map/tile-layer-bing-satellite false)
   (map/tile-overlay-waymarked-cycling false)
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "OSM" 12525333))
   (binding [geojson/*style-stroke-color* "#00FF00"
-            geojson/*style-stroke-widht* 2]
+            geojson/*style-stroke-width* 2]
     (with-open [is (fs/input-stream (path/child
                                      dataset-path
                                      "routes"
