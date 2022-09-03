@@ -27,6 +27,7 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
+   [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.map :as map]
    [trek-mate.osmeditor :as osmeditor]
@@ -37,6 +38,8 @@
    [trek-mate.web :as web]))
 
 (def dataset-path (path/child env/*dataset-git-path* "pss.rs"))
+(def integration-git-path ["Users" "vanja" "projects" "osm-pss-integration" "dataset"])
+
 
 ;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi
 ;; download routes list and supporting files
@@ -128,6 +131,7 @@
    (with-open [is (fs/input-stream (path/child dataset-path "posts-e-paths.json"))]
      (json/read-keyworded is))))
 #_(count posts)
+;; 322 on 20220731
 ;; 321 on 20220620
 ;; 311 on 20220517, e paths added
 ;; 280 on 20220410
@@ -688,6 +692,22 @@
    "4-31-9" "gpx problematičan, dosta odstupanja"
    "2-16-1" "dosta odstupanje, staza nije markirana 20200722"})
 
+(def valjevo-staze-seq
+  [
+   "E7-8" "E7-9"
+   "3-13-1" "3-13-2"
+   "3-14-1" "3-14-2" "3-14-3" "3-14-4" "3-14-5" "3-14-6" "3-14-7" "3-14-8"
+   "3-18-1"
+   "3-20-1"
+   "3-22-1" "3-22-2" "3-22-3" "3-22-4" "3-22-5"
+   "3-34-1"
+   ])
+
+;; check all routes for valjevo project are on pss site
+(doseq [route valjevo-staze-seq]
+  (when (nil? (get routes route))
+    (println "[ERROR] missing" route)))
+
 (defn id->region
   [id]
   (let [[region club number] (.split id "-")]
@@ -913,6 +933,8 @@
              [:a {:href "/projects/pss/state"} "list of unmapped / mapped"]
              [:br]
              [:a {:href "/projects/pss/list/club"} "list by club"]
+             [:br]
+             [:a {:href "/projects/pss/projekti/valjevo"} "projekat valjevske planine"]
              [:br]]])})
   (compojure.core/GET
    "/projects/pss/map"
@@ -938,6 +960,64 @@
                          [mapped gpx (conj rest-of route)])))
                    [[] [] []]
                    (vals routes))]
+              (hiccup/html
+               [:html
+                [:body {:style "font-family:arial;"}
+                 [:br]
+                 [:div (str "rute koje poseduju gpx a nisu mapirane (" (count routes-with-gpx) ")")]
+                 [:br]
+                 [:table {:style "border-collapse:collapse;"}
+                  (map
+                   (comp
+                    render-route
+                    :id)
+                   (sort
+                    #(id-compare %1 %2)
+                    routes-with-gpx))]
+                 [:br]
+                 [:div (str "mapirane rute (" (count mapped-routes)  ")")]
+                 [:br]
+                 [:table {:style "border-collapse:collapse;"}
+                  (map
+                   (comp
+                    render-route
+                    :id)
+                   (sort
+                    #(id-compare %1 %2)
+                    mapped-routes))]
+                 [:br]
+                 [:div (str "ostale rute (" (count rest-of-routes) ")")]
+                 [:br]
+                 [:table {:style "border-collapse:collapse;"}
+                  (map
+                   (comp
+                    render-route
+                    :id)
+                   (sort
+                    #(id-compare %1 %2)
+                    rest-of-routes))]]]))}
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))
+  (compojure.core/GET
+   "/projects/pss/projekti/valjevo"
+   _
+   (try
+     {
+      :status 200
+      :headers {
+                "Content-Type" "text/html; charset=utf-8"}
+      :body (let [valjevo-set (into #{} valjevo-staze-seq)
+                  [mapped-routes routes-with-gpx rest-of-routes]
+                  (reduce
+                   (fn [[mapped gpx rest-of] route]
+                     (if (some? (get relation-map (:id route)))
+                       [(conj mapped route) gpx rest-of]
+                       (if (some? (get route :gpx-path))
+                         [mapped (conj gpx route) rest-of]
+                         [mapped gpx (conj rest-of route)])))
+                   [[] [] []]
+                   (filter #(contains? valjevo-set (:id %))(vals routes)))]
               (hiccup/html
                [:html
                 [:body {:style "font-family:arial;"}
@@ -1045,6 +1125,8 @@
         :headers {
                   "Content-Type" "text/html; charset=UTF-8"}
         :body (map/render-raw
+               {
+                :name (str "gpx check " ref)}
                [
                 (map/tile-layer-osm)
                 (map/tile-layer-bing-satellite false)
@@ -1459,4 +1541,305 @@
    "osm-pss-map"
    true))
 
+
+
+;; 20220714
+;; mapa valjevskih staza
+(def valjevske-dataset
+  (apply
+   osmapi/merge-datasets
+   (filter
+    some?
+    (map
+     (fn [route]
+       (if-let [relation-id (get-in relation-map [route :id])]
+         (osmapi/relation-full relation-id)
+         (println "[ERROR] not mapped" route)))
+     valjevo-staze-seq))))
+
+(run!
+ println
+ (map #(str (get-in % [1 :id]) "\t" (get-in % [1 :tags "ref"]))
+      (:relations valjevske-dataset)))
+
+(def smestaj-seq
+  [
+   "w459899440" ;; Планинарски дом „Дебело брдо“
+   "w690355575" ;; Планинарска кућа „Повленски кућерак“
+   "w701356208" ;; Планинарска кућа „Добра Вода“
+   "w701356200" ;; Планинарски дом „Чика Душко Јовановић"
+   "w690352197" ;; Планинарски дом „На пољани“
+   "w641859168" ;; Планинарски дом „ПТТ“
+])
+
+(def voda-seq
+  [
+   "n4556223004" ;; česma ispred planinarskog doma na Debelom Brdu
+   "n8528001771" ;; Весина вода
+   "n3233649377" ;; Маџарија
+   "n9909056459" ;; česma ispred planinarskog doma Na poljani
+   
+   ;; todo
+   ;; 3-13-1, Izvor ispod vrha Jablanika
+   ;; 3-14-1, 3 izvora pitke vode
+   ;; 3-14-8, Na trasi ima 3 izvora pitke vode
+   ;; 3-34-1, Na trasi ima 2 izvora pitke vode
+   ])
+
+(def zanimljivosti-seq
+  [
+   "n7417544190" ;; Сокоград
+   "n431159050" ;; Љубовија
+   "r11865449" ;; Трешњица
+   "r12754474" ;; ПИО Клисура реке Градац
+   "n307649772" ;; Ваљево
+   "w303115945" ;; Манастир Пустиња
+   "w672956638" ;; Манастир Ћелије
+   "w514476421" ;; Манастир Лелић
+   "n414655356" ;; Дивчибаре
+
+   "n8168691895" ;; Споменик палим у Великом рату
+   "w849811553" ;; Спомен-комплекс „Равна гора“
+   "n2647875793" ;; Рајац
+   "n7928479606" ;; Споменик борцима Сувоборско-Колубарске битке
+   "n355059927" ;; Рудник
+   "w528898515" ;; Спомен-комплекс „Други српски устанак”
+   "n3222026078" ;; Градина Јелица
+   "r11835344" ;; ПИО Овчарско-кабларска клисура
+   "n1748952154" ;; Овчар Бања
+   ])
+
+
+(do
+  (alter-var-root
+   (var valjevske-dataset)
+   (fn [dataset]
+     (apply
+      (partial osmapi/merge-datasets dataset)
+      (filter
+       some?
+       (map
+        (fn [element]
+          (let [type (.substring element 0 1)
+                id (as/as-long (.substring element 1))]
+            (cond
+              (= type "n") (osmapi/node-full id)
+              (= type "w") (osmapi/way-full id)
+              (= type "r") (osmapi/relation-full id)
+              :else nil)))
+        (concat
+         smestaj-seq
+         voda-seq
+         zanimljivosti-seq)))
+      )))
+  nil)
+
+
+(defn way-center [dataset id]
+  (let [way (get-in dataset [:ways id])
+        min-longitude (apply
+                       min
+                       (map
+                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
+                        (:nodes way)))
+        max-longitude (apply
+                       max
+                       (map
+                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
+                        (:nodes way)))
+        min-latitude (apply
+                       min
+                       (map
+                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
+                        (:nodes way)))
+        max-latitude (apply
+                       max
+                       (map
+                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
+                        (:nodes way)))]
+    {
+     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
+     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
+
+#_(way-center valjevske-dataset 641859168)
+
+(defn relation-center [dataset id]
+  (let [relation (get-in dataset [:relations id])
+        nodes (mapcat
+               (fn [member]
+                 (let [way (get-in dataset [:ways (:id member)])]
+                   (map
+                    #(get-in dataset [:nodes %])
+                    (:nodes way))))
+               (filter #(= (:type %) :way) (:members relation)))
+        min-longitude (apply min (map #(as/as-double (:longitude %)) nodes))
+        max-longitude (apply max (map  #(as/as-double (:longitude %)) nodes))
+        min-latitude (apply min (map  #(as/as-double (:latitude %)) nodes))
+        max-latitude (apply max (map  #(as/as-double (:latitude %)) nodes))]
+    {
+     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
+     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
+
+#_(relation-center valjevske-dataset 11835344)
+
+
+(defn element->location [dataset element]
+  (let [type (.substring element 0 1)
+        id (as/as-long (.substring element 1))]
+    (cond
+      (= type "n") (let [location (get-in dataset [:nodes id])]
+                     {
+                      :longitude (:longitude location)
+                      :latitude (:latitude location)
+                      :tags (:tags location)})
+      (= type "w") (let [way (get-in dataset [:ways id])
+                         center (way-center dataset id)]
+                     {
+                      :longitude (:longitude center)
+                      :latitude (:latitude center)
+                      :tags (:tags way)})
+      ;; todo
+      (= type "r") (let [relation (get-in dataset [:relations id])
+                         center (relation-center dataset id)]
+                     {
+                      :longitude (:longitude center)
+                      :latitude (:latitude center)
+                      :tags (:tags relation)})
+      :else nil)))
+
+(apply
+ (partial map/define-map "valjevske-planine")
+ (concat
+  [
+   (map/tile-layer-osm)
+   (map/geojson-style-extended-layer
+    "смештај"
+    (geojson/geojson
+     (filter
+      some?
+      (map
+       (fn [element]
+         (let [location (element->location valjevske-dataset element)]
+           (geojson/point
+            (:longitude location)
+            (:latitude location)
+            {
+             :marker-body (or (get-in location [:tags "name"]) "смештај")
+             :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/sleep.grey.png"})))
+       smestaj-seq))))
+      (map/geojson-style-extended-layer
+       "вода"
+       (geojson/geojson
+        (filter
+         some?
+         (map
+          (fn [element]
+            (let [location (element->location valjevske-dataset element)]
+              (geojson/point
+               (:longitude location)
+               (:latitude location)
+               {
+                :marker-body (or (get-in location [:tags "name"]) "вода")
+                :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/water.grey.png"})))
+         voda-seq))))   
+      (map/geojson-style-extended-layer
+       "занимљивости"
+       (geojson/geojson
+        (filter
+         some?
+         (map
+          (fn [element]
+            (let [location (element->location valjevske-dataset element)]
+              (geojson/point
+               (:longitude location)
+               (:latitude location)
+               {
+                :marker-body (or (get-in location [:tags "name"]) "занимљивост")
+                :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/visit.grey.png"})))
+          zanimljivosti-seq))))]
+  (filter
+   some?
+   (map
+    (fn [route]
+      (let [relation-id (get-in relation-map [route :id])
+            relation (get-in valjevske-dataset [:relations relation-id])]
+        (binding [geojson/*style-stroke-color* "#FF0000"
+                  geojson/*style-stroke-width* (if (.startsWith route "E") 4 2)]
+          (map/geojson-style-layer
+           (str (get-in relation [:tags "ref"]) " " (get-in relation [:tags "name"]))
+           (geojson/geojson
+            [
+             (geojson/multi-line-string
+             {
+              :title (get-in relation [:tags "ref"])}
+             (filter
+              some?
+              (map
+               (fn [member]
+                 (cond
+                   (= (:type member) :way)
+                   (map
+                    (fn [id]
+                      (let [node (get-in valjevske-dataset [:nodes id])]
+                        {
+                         :longitude (as/as-double (:longitude node))
+                         :latitude (as/as-double (:latitude node))}))
+                    (:nodes (get-in valjevske-dataset [:ways (:id member)])))
+                   :else
+                   nil))
+               (:members relation))))])))))
+    valjevo-staze-seq))))
+
+
+;; 20220817
+;; table for data verification for PSS working group
+(with-open [os (fs/output-stream (path/child integration-git-path "osm-status.tsv"))]
+  (io/write-line os
+                 (str
+                  "\""
+                  (clojure.string/join
+                   "\"\t\""
+                   ["ref" "id" "name" "website" "waymarkedtrails" "source" "note"])
+                  "\""))
+  (let [pss-set (into #{} (keys routes))]
+    (run!
+     (fn [relation]
+       (io/write-line os
+                      (str
+                       "\""
+                       (clojure.string/join
+                        "\"\t\""
+                        [
+                         (get-in relation [:tags "ref"])
+                         (get relation :id)
+                         (get-in relation [:tags "name"])
+                         (get-in relation [:tags "website"])
+                         (str "https://hiking.waymarkedtrails.org/#route?id="
+                              (get relation :id))
+                         (get-in relation [:tags "source"])
+                         (get-in relation [:tags "note"])])
+                       "\"")))
+     (sort-by
+      #(get-in % [:tags "ref"])
+      (filter
+       #(contains? pss-set (get-in % [:tags "ref"]))
+       relation-seq)))))
+
+
+;; find routes using US quotes
+#_(let [pss-set (into #{} (keys routes))]
+  (run!
+   #(println (str
+              (get-in % [:id])
+              "\t"
+              (get-in % [:tags "name"])))
+   (filter
+    #(and
+      (contains? pss-set (get-in % [:tags "ref"]))
+      (.contains (get-in % [:tags "name"]) "\""))
+    relation-seq)))
+
+
+
 (println "pss dataset loaded")
+

@@ -818,6 +818,7 @@
   (l 18.83574, 42.28090 tag/tag-eat "~" "!Branka" "poslasticarnica iz 1968")
   (w 441379884 tag/tag-todo "пресуши у мају" "Петар био")
   (n 8836596017 tag/tag-todo "Петар био")
+  (n 420859061 tag/tag-todo "Пестинград")
   
 (l 19.13327, 42.09363 tag/tag-eat tag/tag-sleep "!Stara Carsija" (tag/url-tag "website" "https://staracarsija.me"))
 (q 27559501 tag/tag-hike) ;; "!Радоштак"

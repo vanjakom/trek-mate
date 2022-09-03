@@ -759,6 +759,8 @@
              (io/write-string
               os
               (map/render-raw
+               {
+                :name "posta"}
                [
                 (map/tile-layer-osm)
                 (map/tile-layer-bing-satellite false)
@@ -802,6 +804,8 @@
   (io/write-string
    os
    (map/render-raw
+    {
+     :name "posta"}
     [
      (map/tile-layer-osm)
      (map/tile-layer-bing-satellite false)

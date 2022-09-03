@@ -225,9 +225,12 @@
   ([name data]
    (geojson-style-layer name data true false)))
 
-(defn geojson-style-marker-layer
+(defn geojson-style-extended-layer
   "Addition to mapbox simple style, support marker-body, html that will be added
-  to marker popup"
+  to marker popup
+  note: setting icon was not working, probably simple style overrides later,
+  implementing same specs from scratch"
+  ;; todo finish implementation from scratch
   ([name data zoom-to activate]
    (let [var-name (unique-var-name "layer")]
      (str
@@ -235,9 +238,16 @@
       "\t\t\tvar " var-name " = L.geoJSON(\n"
       "\t\t\t\t" (json/write-to-string data) ",\n"
       "\t\t\t\t{\n"
-      "\t\t\t\t\tuseSimpleStyle: true,\n"
+      "\t\t\t\t\tuseSimpleStyle: false,\n"
       "\t\t\t\t\tpointToLayer: function(geojson, latlng) {\n"
       "\t\t\t\t\t\tvar marker = L.marker(latlng)\n"
+      "\t\t\t\t\t\tvar markerIcon = geojson.properties['marker-icon']\n"
+      "\t\t\t\t\t\tif (markerIcon != null) {\n"
+      "\t\t\t\t\t\t\tvar icon = L.icon({\n"
+      "\t\t\t\t\t\t\t\ticonUrl: markerIcon,\n"
+      "\t\t\t\t\t\t\t\ticonSize: [25,25]})\n"
+      "\t\t\t\t\t\t\tmarker.setIcon(icon)\n"
+      "\t\t\t\t\t\t}\n"
       "\t\t\t\t\t\tvar markerBody = geojson.properties['marker-body']\n"
       "\t\t\t\t\t\tif (markerBody == null) {\n"
       "\t\t\t\t\t\t\tmarkerBody = ''\n"
@@ -256,7 +266,10 @@
         (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
       "\n")))
   ([name data]
-   (geojson-style-marker-layer name data false true)))
+   (geojson-style-extended-layer name data false true)))
+
+;; old version supporting only marker-body, migrated to new version
+(def geojson-style-marker-layer geojson-style-extended-layer)
 
 (defn geojson-photomap-marker-layer
   "Addition to mapbox simple style, support marker-body, html that will be added
@@ -417,39 +430,46 @@
 
 (def maps (atom {}))
 
-(defn render-raw [layers]
+(defn render-raw [configuration layers]
   (str
     "<html>\n"
     "\t<head>\n"
     (indent (indent (tag "meta" {"charset" "UTF-8"})))
-    (indent (indent (tag "title" {} "a map")))
+    (indent (indent (tag "title" {} (or (:name configuration )"a map"))))
     (indent (indent (tag
                      "link"
                      {
                       "rel" "stylesheet"
-                      "href" "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
-                      "integrity" "sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+                      "href" "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/leaflet.css"
+                      ;; "href" "https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+                      ;;"integrity" "sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
                       "crossorigin" ""})))
     (indent (indent (tag
                      "script"
                      {
-                      "src" "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
-                      "integrity" "sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+                      "src" "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/leaflet.js"
+                      ;; "src" "https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+                      ;; "integrity" "sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
                       "crossorigin" ""})))
     (indent (indent (tag
                      "script"
                      {
-                      "src" "https://unpkg.com/leaflet-simplestyle"})))
+                      "src" "https://rowanwins.github.io/leaflet-simplestyle/dist/leaflet-simplestyle.js"
+                      ;; "src" "https://unpkg.com/leaflet-simplestyle"
+                      })))
     (indent (indent (tag
                      "script"
                      {
-                      "src" "https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.js"
+                      "src" "https://cdnjs.cloudflare.com/ajax/libs/perliedman-leaflet-control-geocoder/2.4.0/Control.Geocoder.min.js"
+                      ;; "src" "https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.js"
                       "crossorigin" ""})))
     (indent (indent (tag
                      "link"
                      {
                       "rel" "stylesheet"
-                      "href" "https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.css"})))
+                      "href" "https://cdnjs.cloudflare.com/ajax/libs/perliedman-leaflet-control-geocoder/2.4.0/Control.Geocoder.min.css"
+                      ;; "href" "https://unpkg.com/leaflet-control-geocoder@latest/dist/Control.Geocoder.css"
+                      })))
     "\t\t<style>\n"
     "\t\t\t::-webkit-scrollbar {display: none;}\n"
     "\t\t\t.content {white-space: nowrap;overflow: hidden;}\n"
@@ -481,7 +501,10 @@
 
 (defn render [name]
   (let [layers (get (deref maps) name)]
-    (render-raw layers)))
+    (render-raw
+     ;; todo hotfix to pass name of map to render, support other customizations
+     {:name name}
+     layers)))
 
 (defn define-map [name & layers]
   (swap!

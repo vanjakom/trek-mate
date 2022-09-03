@@ -46,6 +46,122 @@
 
 (def beograd (wikidata/id->location :Q3711))
 
+
+;; #mapping #track #location #trek-mate #garmin #garmin-connect
+;; combined track and pending locations to be used with iD, produces GeoJSON
+;; used for all track types
+#_(let [track-seq
+      (or
+       ;; trek-mate
+       #_(let [track-id 1634453631]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "trek-mate" "cloudkit" "track"
+                          env/*trek-mate-user*
+                          (str track-id ".json")))]
+           [(:locations (json/read-keyworded is))]))
+       ;; garmin
+       (let [track-id "Track_2022-07-06 185317"]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "garmin"
+                          "gpx"
+                          (str track-id ".gpx")))]
+           (:track-seq (gpx/read-track-gpx is))))
+       ;; garmin connect (watch)
+       #_(let [track-id "Track_2021-08-28 112043"]
+         (with-open [is (fs/input-stream
+                         (path/child
+                          env/*global-my-dataset-path*
+                          "garmin-connect"
+                          (str track-id ".gpx")))]
+           (:track-seq (gpx/read-track-gpx is)))))
+      location-seq
+      (or
+       ;; trek-mate
+       #_(storage/location-request-file->location-seq
+        (storage/location-request-last-file env/*trek-mate-user*))
+       ;; garmin
+       (let [waypoint-file-name "Waypoints_06-JUL-22.gpx"]
+         (mine/garmin-waypoint-file->location-seq
+          (path/child
+           env/*global-my-dataset-path*
+           "garmin"
+           "waypoints"
+           waypoint-file-name)))
+       ;; nothing
+       [])]
+  (with-open [os (fs/output-stream ["tmp" (str "iD-dot-only.geojson")])]
+    (json/write-to-stream
+     (geojson/geojson
+      (map
+       (comp
+        geojson/location->point
+        (fn [location]
+          (let [tags (:tags location)]
+            (into
+             (dissoc
+              location
+              :tags)
+             (map
+              (fn [tag]
+                [tag "yes"])
+              tags)))))
+       location-seq))
+     os))
+  (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
+    (json/write-to-stream
+     (geojson/geojson
+      (concat
+       (map
+        geojson/location->point
+        (filter
+         ;; filter out hiking trail marks
+         #_(not (= (:symbol %) "Civil"))
+         (constantly true)
+         location-seq))
+       (map
+        geojson/location-seq->line-string
+        track-seq)))
+     os))
+
+  (with-open [os (fs/output-stream ["tmp" "track.gpx"])]
+    (gpx/write-gpx
+     os
+     [
+      (gpx/track
+       (map
+        gpx/track-segment
+        track-seq))]))
+  
+  (web/register-dotstore
+   "track"
+   (fn [zoom x y]
+     (let [image-context (draw/create-image-context 256 256)]
+       (draw/write-background image-context draw/color-transparent)
+       (render/render-location-seq-as-dots
+        image-context 2 draw/color-blue [zoom x y] (apply concat track-seq))
+       {
+        :status 200
+        :body (draw/image-context->input-stream image-context)})))
+
+  (web/register-dotstore
+   "track-note"
+   (fn [zoom x y]
+     (let [[min-longitude max-longitude min-latitude max-latitude]
+           (tile-math/tile->location-bounds [zoom x y])]
+       (filter
+        #(and
+          (>= (:longitude %) min-longitude)
+          (<= (:longitude %) max-longitude)
+          (>= (:latitude %) min-latitude)
+          (<= (:latitude %) max-latitude))
+        location-seq)))))
+
+
+
 ;; set track as overlay and extract gpx for osm upload
 ;; use GeoJSON creation bellow for iD mapping
 ;; DEPRECATED
@@ -219,122 +335,6 @@
                      (web/create-transparent-raster-tile-fn)
                      :slot-a
                      [(constantly [draw/color-red 2])])})))
-
-
-
-;; #mapping #track #location #trek-mate #garmin #garmin-connect
-;; combined track and pending locations to be used with iD, produces GeoJSON
-;; used for all track types
-#_(let [track-seq
-      (or
-       ;; trek-mate
-       #_(let [track-id 1634453631]
-         (with-open [is (fs/input-stream
-                         (path/child
-                          env/*global-my-dataset-path*
-                          "trek-mate" "cloudkit" "track"
-                          env/*trek-mate-user*
-                          (str track-id ".json")))]
-           [(:locations (json/read-keyworded is))]))
-       ;; garmin
-       (let [track-id "Track_2022-07-06 185317"]
-         (with-open [is (fs/input-stream
-                         (path/child
-                          env/*global-my-dataset-path*
-                          "garmin"
-                          "gpx"
-                          (str track-id ".gpx")))]
-           (:track-seq (gpx/read-track-gpx is))))
-       ;; garmin connect (watch)
-       #_(let [track-id "Track_2021-08-28 112043"]
-         (with-open [is (fs/input-stream
-                         (path/child
-                          env/*global-my-dataset-path*
-                          "garmin-connect"
-                          (str track-id ".gpx")))]
-           (:track-seq (gpx/read-track-gpx is)))))
-      location-seq
-      (or
-       ;; trek-mate
-       #_(storage/location-request-file->location-seq
-        (storage/location-request-last-file env/*trek-mate-user*))
-       ;; garmin
-       (let [waypoint-file-name "Waypoints_06-JUL-22.gpx"]
-         (mine/garmin-waypoint-file->location-seq
-          (path/child
-           env/*global-my-dataset-path*
-           "garmin"
-           "waypoints"
-           waypoint-file-name)))
-       ;; nothing
-       [])]
-  (with-open [os (fs/output-stream ["tmp" (str "iD-dot-only.geojson")])]
-    (json/write-to-stream
-     (geojson/geojson
-      (map
-       (comp
-        geojson/location->point
-        (fn [location]
-          (let [tags (:tags location)]
-            (into
-             (dissoc
-              location
-              :tags)
-             (map
-              (fn [tag]
-                [tag "yes"])
-              tags)))))
-       location-seq))
-     os))
-  (with-open [os (fs/output-stream ["tmp" (str "iD.geojson")])]
-    (json/write-to-stream
-     (geojson/geojson
-      (concat
-       (map
-        geojson/location->point
-        (filter
-         ;; filter out hiking trail marks
-         #_(not (= (:symbol %) "Civil"))
-         (constantly true)
-         location-seq))
-       (map
-        geojson/location-seq->line-string
-        track-seq)))
-     os))
-
-  (with-open [os (fs/output-stream ["tmp" "track.gpx"])]
-    (gpx/write-gpx
-     os
-     [
-      (gpx/track
-       (map
-        gpx/track-segment
-        track-seq))]))
-  
-  (web/register-dotstore
-   "track"
-   (fn [zoom x y]
-     (let [image-context (draw/create-image-context 256 256)]
-       (draw/write-background image-context draw/color-transparent)
-       (render/render-location-seq-as-dots
-        image-context 2 draw/color-blue [zoom x y] (apply concat track-seq))
-       {
-        :status 200
-        :body (draw/image-context->input-stream image-context)})))
-
-  (web/register-dotstore
-   "track-note"
-   (fn [zoom x y]
-     (let [[min-longitude max-longitude min-latitude max-latitude]
-           (tile-math/tile->location-bounds [zoom x y])]
-       (filter
-        #(and
-          (>= (:longitude %) min-longitude)
-          (<= (:longitude %) max-longitude)
-          (>= (:latitude %) min-latitude)
-          (<= (:latitude %) max-latitude))
-        location-seq)))))
-
 
 ;; support for marking trails
 #_(let [location-seq (filter

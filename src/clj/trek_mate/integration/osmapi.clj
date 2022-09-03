@@ -506,6 +506,15 @@
                (str *server* "/api/0.6/node/" id)))]
     (node-xml->node (first (:content node)))))
 
+(defn node-full
+  "Wraps result of node in dataset"
+  [id]
+  (println "[osmapi] node" id)
+  {
+   :nodes
+   {
+    id (node id)}})
+
 (defn nodes
   "Performs /api/0.6/[nodes|ways|relations]?#parameters
   Returns dataset object"
@@ -667,7 +676,7 @@
     (full-xml->dataset (:content ways))))
 
 (defn way-full
-  "Performs /api/0.6/[node|way|relation]/#id/full"
+  "Performs /api/0.6/[way|relation]/#id/full"
   [id]
   (println "[osmapi] way-full" id)
   (let [way (xml/parse

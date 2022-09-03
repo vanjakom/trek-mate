@@ -39,6 +39,27 @@
                                [(:longitude location) (:latitude location)])
                              location-seq)}}))
 
+(defn multi-line-string
+  "Input should be sequence of coordinate sequences"
+  ([location-seq-seq]
+   (multi-line-string {} location-seq-seq))
+  ([properties location-seq-seq]
+   {
+    :type "Feature"
+    :properties (assoc
+                 properties
+                 "stroke" *style-stroke-color*
+                 "stroke-width" *style-stroke-width*)
+    :geometry {
+               :type "MultiLineString"
+               :coordinates (map
+                             (fn [location-seq]
+                               (map
+                                (fn [location]
+                                  [(:longitude location) (:latitude location)])
+                                location-seq))
+                             location-seq-seq)}}))
+
 (defn location->feature [location]
   {
    :type "Feature"

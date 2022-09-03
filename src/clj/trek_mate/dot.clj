@@ -20,6 +20,9 @@
    [trek-mate.integration.osm :as osm-integration]
    [trek-mate.render :as render]))
 
+;;; DEPRECATED
+;;; whole ns is deprecated in favor of dotstore
+
 ;;; dot represent final set of tags on given x, y ( web mercator projection on
 ;;; default zoom level, currently 16 ). locations should be chunked into chunks
 ;;; of up to N locations, if more locations exist locations are stored in lower
