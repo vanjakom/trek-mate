@@ -1707,7 +1707,7 @@
                       :tags (:tags relation)})
       :else nil)))
 
-(apply
+#_(apply
  (partial map/define-map "valjevske-planine")
  (concat
   [

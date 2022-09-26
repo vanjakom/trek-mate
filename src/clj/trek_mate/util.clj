@@ -38,7 +38,7 @@
 ;; 20220719
 ;; #trek-mate-pins #pins #prepare
 ;; script to extract pins from trek-mate iOS app to trek-mate-pins repo
-(let [destination (path/string->path
+#_(let [destination (path/string->path
                    "/Users/vanja/projects/trek-mate-pins/blue_and_grey")
       root-source (path/string->path
                    "/Users/vanja/projects/MaplyProject/TrekMate/TrekMate/pins.xcassets")]

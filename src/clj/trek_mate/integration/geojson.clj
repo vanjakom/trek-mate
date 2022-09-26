@@ -22,6 +22,13 @@
                :type "Point"
                :coordinates [longitude latitude]}})
 
+(defn marker [longitude latitude body]
+  (point
+   longitude
+   latitude
+   {
+    :marker-body body}))
+
 (defn line-string
   ([location-seq]
    (line-string {} location-seq))

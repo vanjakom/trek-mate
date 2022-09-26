@@ -255,7 +255,7 @@
       "\t\t\t\t\t\t\t\tmarkerBody += element[0] + ' = ' + element[1] + '</br>'\n"
       "\t\t\t\t\t\t\t})\n"
       "\t\t\t\t\t\t}\n"
-      "\t\t\t\t\t\tmarker.bindPopup(markerBody)\n"
+      "\t\t\t\t\t\tmarker.bindPopup(markerBody, {maxWidth: 'auto'})\n"
       "\t\t\t\t\t\treturn marker\n"
       "\t\t\t\t\t}\n"
       "\t\t\t\t})\n"
