@@ -29,7 +29,6 @@
    [trek-mate.integration.overpass :as overpass]
 ;;   circular dependency ...
 ;;   [trek-mate.osmeditor :as osmeditor]
-   [trek-mate.storage :as storage]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))

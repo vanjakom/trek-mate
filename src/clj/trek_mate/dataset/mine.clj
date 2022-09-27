@@ -237,6 +237,8 @@
 
   (n 8918938694) ;; "!Dubrašnica"
 
+  (w 507661527) ;; "!Црква у Пети"
+
   (q 727831 tag/tag-todo "ljubicasta polja, marijana nasla na instagramu") ;; "!Vardenik"
   (q 65200154 tag/tag-todo "zvonacka reka, uzak kanjon, perpetumobil blog, marijana nasla") ;; "!Звоначка река"
   (q 61123857 tag/tag-todo "pecina, marijana nasla")
