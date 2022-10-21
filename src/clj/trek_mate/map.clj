@@ -1,4 +1,6 @@
 (ns trek-mate.map
+  (:use
+   clj-common.clojure)
   (:require
    compojure.core
    [clj-common.2d :as draw]
@@ -101,6 +103,30 @@
    "\t\t\t\t\t\t}\n"
    "\t\t\t\t\t\treturn quadKey.join('')\n"
    "\t\t\t\t\t}\n"
+   "\t\t\t})\n\n"
+
+   "\t\t\tvar TileBoundsLayer = L.GridLayer.extend({\n"
+   "\t\t\t\tinitialize: function(options) {\n"
+   "\t\t\t\t\tL.GridLayer.prototype.initialize.call(this, options)\n"
+   "\t\t\t\t\tthis._color = options.color\n"
+   "\t\t\t\t},\n\n"
+   "\t\t\t\tcreateTile: function(coords) {\n"
+   "\t\t\t\t\tvar key = coords.z + '/' + coords.x + '/' + coords.y\n\n"
+   "\t\t\t\t\tvar tile = L.DomUtil.create('canvas', 'leaflet-tile')\n"
+   "\t\t\t\t\tvar size = this.getTileSize()\n"
+   "\t\t\t\t\ttile.width = size.x\n"
+   "\t\t\t\t\ttile.height = size.y\n"
+   "\t\t\t\t\tvar ctx = tile.getContext('2d')\n\n"
+   "\t\t\t\t\tctx.strokeStyle = this._color\n"
+   "\t\t\t\t\tctx.fillStyle = this._color\n"
+   "\t\t\t\t\tctx.font = '15px Arial'\n"
+   "\t\t\t\t\tctx.lineWidth = 1\n"
+   "\t\t\t\t\tctx.beginPath()\n"
+   "\t\t\t\t\tctx.rect(0, 0, 255, 255)\n"
+   "\t\t\t\t\tctx.fillText(key, 5, 20)\n"
+   "\t\t\t\t\tctx.stroke()\n\n"
+   "\t\t\t\t\treturn tile\n"
+   "\t\t\t\t}\n"
    "\t\t\t})\n\n"))
 
 (defn tile-layer [name url attribution activate]
@@ -117,7 +143,7 @@
      "\t\t\t\t})\n"
      (when activate
        (str "\t\t\t" var-name ".addTo(map)\n"))
-     "\t\t\tlayers.addBaseLayer(" var-name ", '" name "')\n")))
+     "\t\t\tlayers.addBaseLayer(" var-name ", '" name "')\n\n")))
 
 (defn tile-overlay [name url attribution activate]
   (let [var-name (unique-var-name "overlay")]
@@ -133,14 +159,31 @@
      "\t\t\t\t})\n"
      (when activate
        (str "\t\t\t" var-name ".addTo(map)\n"))
-     "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n")))
+     "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n\n")))
 
-(defn tile-layer-osm []
+(defn tile-layer-osm
+  ([]
+   (tile-layer-osm true))
+  ([activate]
+   (tile-layer
+    "osm tile"
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+    activate)))
+
+(defn tile-layer-osm-rs [activate]
   (tile-layer
-   "osm tile"
-   "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+   "osm rs tile"
+   "http://ue.cache.osmsrbija.iz.rs/cir/{z}/{x}/{y}.png"
    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
-   true))
+   activate))
+
+(defn tile-layer-opentopomap [activate]
+  (tile-layer
+   "opentopomap"
+   "https://a.tile.opentopomap.org/{z}/{x}/{y}.png"
+   "Map data: © OpenStreetMap contributors, SRTM | Map display: © OpenTopoMap (CC-BY-SA)"
+   activate))
 
 (defn tile-overlay-waymarked-hiking [activate]
   (tile-overlay
@@ -159,7 +202,7 @@
 (defn tile-overlay-dotstore [name color radius activate]
   (tile-overlay
    (str "dotstore: " name)
-   (str "/tile/raster/dotstore/" name "/" color "/" radius)
+   (str "/tile/raster/dotstore/" name "/" (url-encode color) "/" radius "/{z}/{x}/{y}")
    nil
    activate))
 
@@ -172,11 +215,23 @@
    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
    activate))
 
+(defn tile-overlay-bounds [activate]
+  (let [var-name (unique-var-name "layer")]
+    (str
+     "\t\t\tvar " var-name " = new TileBoundsLayer("
+     "\t\t\t\t{\n"
+     "\t\t\t\t\tmaxZoom: 21,\n"
+     "\t\t\t\t\tbounds: [[-90,-180], [90, 180]],\n"
+     "\t\t\t\t\tnoWrap: true,\n"
+     "\t\t\t\t\tcolor: 'rgba(0, 0, 0, 0.5)'})\n"
+     (when activate
+       (str "\t\t\t" var-name ".addTo(map)\n"))
+     "\t\t\tlayers.addOverlay(" var-name ", 'tile bounds')\n\n" )))
+
 
 (defn tile-layer-bing-satellite [activate]
   (let [var-name (unique-var-name "layer")]
     (str
-     "\n"
      "\t\t\tvar " var-name " = new BingLayer(\n"
      "\t\t\t\t'http://ecn.t3.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1',\n"
      "\t\t\t\t{\n"
@@ -187,7 +242,7 @@
      "\t\t\t\t})\n"
      (when activate
        (str "\t\t\t" var-name ".addTo(map)\n"))
-     "\t\t\tlayers.addBaseLayer(" var-name ", 'bing satellite')\n")))
+     "\t\t\tlayers.addBaseLayer(" var-name ", 'bing satellite')\n\n")))
 
 
 (defn tile-layer-google-satellite [add]
@@ -211,7 +266,6 @@
   ([name data activate zoom-to]
    (let [var-name (unique-var-name "layer")]
     (str
-     "\n"
      "\t\t\tvar " var-name " = L.geoJSON(\n"
      "\t\t\t\t" (json/write-to-string data) ",\n"
      "\t\t\t\t{\n"
@@ -221,7 +275,8 @@
        (str "\t\t\t" var-name ".addTo(map)\n"))
      "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
      (when zoom-to
-       (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n")))))
+       (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
+     "\n\n")))
   ([name data]
    (geojson-style-layer name data true false)))
 
@@ -234,7 +289,6 @@
   ([name data zoom-to activate]
    (let [var-name (unique-var-name "layer")]
      (str
-      "\n"
       "\t\t\tvar " var-name " = L.geoJSON(\n"
       "\t\t\t\t" (json/write-to-string data) ",\n"
       "\t\t\t\t{\n"
@@ -264,7 +318,7 @@
       "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
       (when zoom-to
         (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
-      "\n")))
+      "\n\n")))
   ([name data]
    (geojson-style-extended-layer name data false true)))
 
@@ -277,7 +331,6 @@
   ([name data zoom-to activate]
    (let [var-name (unique-var-name "layer")]
      (str
-      "\n"
       "\t\t\tvar " var-name " = L.geoJSON(\n"
       "\t\t\t\t" (json/write-to-string data) ",\n"
       "\t\t\t\t{\n"
@@ -293,12 +346,12 @@
       "\t\t\tlayers.addOverlay(" var-name ", '" name "')\n"
       (when zoom-to
         (str "\t\t\tdefaultBounds = " var-name ".getBounds()\n"))
-      "\n")))
+      "\n\n")))
   ([name data]
    (geojson-photomap-marker-layer name data false true)))
 
-(defn geojson-hiking-relation-layer
-  ([name relation-id activate zoom-to]
+(defn tile-overlay-osm-hiking-relation
+  ([name relation-id activate show-nodes zoom-to]
    (let [dataset (osmapi/relation-full relation-id)
          relation (get-in dataset [:relations relation-id])
          data (geojson/geojson
@@ -316,7 +369,7 @@
                                        :latitude (as/as-double (:latitude node))}))
                                   (:nodes (get-in dataset [:ways (:id member)])))]
                        (geojson/line-string nodes))
-                     (= (:type member) :node)
+                     (and show-nodes (= (:type member) :node))
                      (let [node (get-in dataset [:nodes (:id member)])]
                        (geojson/point
                         (as/as-double (:longitude node))
@@ -326,10 +379,13 @@
                      nil))
                  (:members relation))))]
      (geojson-style-layer name data activate zoom-to)))
+  ([name relation-id activate zoom-to]
+   (tile-overlay-osm-hiking-relation name relation-id activate true zoom-to))
   ([name relation-id]
-   (geojson-hiking-relation-layer name relation-id true false)))
+   (tile-overlay-osm-hiking-relation name relation-id true true false)))
+(def geojson-hiking-relation-layer tile-overlay-osm-hiking-relation)
 
-(defn geojson-gpx-layer
+(defn tile-overlay-gpx
   ([name gpx-is activate zoom-to]
    (let [data (geojson/geojson
                (map
@@ -338,11 +394,17 @@
      (geojson-style-layer name data activate zoom-to)))
   ([name gpx-is]
    (geojson-gpx-layer name gpx-is true false)))
+(def geojson-gpx-layer tile-overlay-gpx)
 
-(defn geojson-gpx-garmin-layer [name track-id]
-  (with-open [gpx-is (fs/input-stream
+(defn tile-overlay-gpx-garmin
+  ([name track-id]
+   (with-open [gpx-is (fs/input-stream
                       (path/child env/garmin-track-path (str track-id ".gpx")))]
-    (geojson-gpx-layer name gpx-is)))
+     (tile-overlay-gpx name gpx-is)))
+  ([track-id]
+   (tile-overlay-gpx-garmin track-id track-id)))
+
+(def geojson-gpx-garmin-layer tile-overlay-gpx-garmin)
 
 (defn map-setup-block []
   (str
@@ -372,24 +434,33 @@
 
 (defn map-events-block []
   (str
+   ;; first set location from marker to allow view change
+   "\t\t\tvar params = new URLSearchParams(window.location.search)\n"
+   "\t\t\tif (params.get('marker')) {\n"
+   "\t\t\t\tvar splits = params.get('marker').split(',')\n"
+   "\t\t\t\tmap.setView([parseFloat(splits[1]), parseFloat(splits[0])], 18)\n"
+   "\t\t\t\tL.marker([parseFloat(splits[1]), parseFloat(splits[0])]).addTo(map)\n"
+   "\t\t\t}\n\n"
+   
    "\t\t\tif (window.location.hash) {\n"
    "\t\t\t\tvar splits = window.location.hash.substring(5).split('/')\n"
-   "\t\t\t\tmap.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))\n"
+   "\t\t\t\tmap.setView([parseFloat(splits[2]), parseFloat(splits[1])], parseInt(splits[0]))\n"
    "\t\t\t} else {\n"
    "\t\t\t\tif (defaultBounds != null) { \n"
    "\t\t\t\t\tmap.fitBounds(defaultBounds, null)\n"
    "\t\t\t\t} else {\n"
    "\t\t\t\t\tmap.setView([44.82763029742812, 20.50529479980469], 10)\n"
    "\t\t\t\t}\n"
-   "\t\t\t}\n"
+   "\t\t\t}\n\n"
+   
    "\t\t\twindow.onhashchange = function() {\n"
    "\t\t\t\tvar splits = window.location.hash.substring(5).split('/')\n"
-   "\t\t\t\tmap.setView([parseFloat(splits[1]), parseFloat(splits[2])], parseInt(splits[0]))\n"
+   "\t\t\t\tmap.setView([parseFloat(splits[2]), parseFloat(splits[1])], parseInt(splits[0]))\n"
    "\t\t\t}\n"
    "\t\t\tmap.on(\n"
    "\t\t\t\t'moveend',\n"
    "\t\t\t\tfunction() {\n"
-   "\t\t\t\t\twindow.location.hash = '#map=' + map.getZoom() + '/' + map.getCenter().lat + '/' + map.getCenter().lng\n"
+   "\t\t\t\t\twindow.location.hash = '#map=' + map.getZoom() + '/' + map.getCenter().lng + '/' + map.getCenter().lat\n"
    "\t\t\t\t})\n\n"))
 
 (defn map-onpress-block []
@@ -423,7 +494,7 @@
    "\t\t\t\tfunction(e) { clearInterval(mousedownInterval) })\n"
    "\t\t\tmap.on(\n"
    "\t\t\t\t'mouseup',\n"
-   "\t\t\t\tfunction(e) { clearInterval(mousedownInterval) })\n"))
+   "\t\t\t\tfunction(e) { clearInterval(mousedownInterval) })\n\n"))
 
 (defn map-center-on-belgrade []
   "\t\t\tmap.setView([44.82763029742812, 20.50529479980469], 10)\n")
@@ -524,6 +595,13 @@
   "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"))
 
 
+(def color-red "#FF0000")
+(def color-green "#00FF00")
+(def color-blue "#0000FF")
+(def color-yellow "#FFFF00")
+(def color-white "#FFFFFF")
+(def color-black "#000000")
+
 (def dotstore-root-path (path/child env/*dataset-local-path* "dotstore"))
 
 (server/create-server
@@ -538,18 +616,23 @@
    "/tile/raster/dotstore/:name/:color/:radius/:zoom/:x/:y"
    [name color radius zoom x y]
    (try
-     (let [path (dotstore/tile->path (path/child dotstore-root-path name) [zoom x y])]
-      (if (fs/exists? path)
-        (let [tile (dotstore/bitset-read-tile path)]
-          {
-           :status 200
-           :body (draw/image-context->input-stream
-                  (dotstore/bitset-render-tile
-                   tile
-                   draw/color-transparent
-                   (draw/hex->color (str "#" color))
-                   (as/as-integer radius)))})
-        {:status 404}))
+     (let [color (url-decode color)
+           path (dotstore/tile->path
+                 (path/child dotstore-root-path name)
+                 [(as/as-integer zoom)
+                  (as/as-integer x)
+                  (as/as-integer y)])]
+       (if (fs/exists? path)
+         (let [tile (dotstore/bitset-read-tile path)]
+           {
+            :status 200
+            :body (draw/image-context->input-stream
+                   (dotstore/bitset-render-tile
+                    tile
+                    draw/color-transparent
+                    (draw/hex->color color)
+                    (as/as-integer radius)))})
+         {:status 404}))
      (catch Exception e
        (.printStackTrace e)
        {:status 500})))))

@@ -17,8 +17,7 @@
    [clj-common.io :as io]
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
-   [clj-common.path :as path]
-   [trek-mate.web :as web]))
+   [clj-common.path :as path]))
 
 #_(set! *warn-on-reflection* true)
 

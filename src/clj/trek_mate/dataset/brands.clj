@@ -30,8 +30,7 @@
 ;;   circular dependency ...
 ;;   [trek-mate.osmeditor :as osmeditor]
    [trek-mate.util :as util]
-   [trek-mate.tag :as tag]
-   [trek-mate.web :as web]))
+   [trek-mate.tag :as tag]))
 
 (def osm-pbf-path (path/child
                    env/*global-dataset-path*

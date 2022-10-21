@@ -25,7 +25,6 @@
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]
-
    [trek-mate.dataset.brands :as brands]))
 
 ;; note

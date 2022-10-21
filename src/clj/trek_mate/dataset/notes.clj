@@ -10,6 +10,7 @@
    [hiccup.core :as hiccup]
    [clj-common.as :as as]
    [clj-common.context :as context]
+   [clj-common.edn :as edn]
    [clj-common.io :as io]
    [clj-common.http :as http]
    [clj-common.json :as json]
@@ -122,20 +123,6 @@
       (into #{} (map #(.substring % 1)
                      (filter #(.startsWith % "#") clean-words))))))
 
-(defn attach-tags [note]
-  (let [tags (->
-              (reduce
-               (fn [state line]
-                 (let [tags (parse-tags line)]
-                   (clojure.set/union state tags)))
-               #{}
-               (filter some? (map :comment (:log note))))
-              
-              (disj "Mapycz")
-              (disj "organicmaps")
-              (disj "mapsme"))]
-    (assoc note :tags tags)))
-
 (defn open? [note]
   (reduce
    (fn [open action]
@@ -153,6 +140,38 @@
 
 #_(open? (first (filter #(= (:id %) 180481) (deref note-seq))))
 
+(defn attach-tags [note]
+  ;; todo add tag without tags ...
+  ;; extract all tags but label untagged if no "serbia community tags"
+  (let [tags (->
+              (reduce
+               (fn [state line]
+                 (let [tags (parse-tags line)]
+                   (clojure.set/union state tags)))
+               #{}
+               (filter some? (map :comment (:log note)))))
+        note (assoc note :tags tags)]
+    (if (and
+         (empty? (->
+                  tags
+                  (disj "Mapycz")
+                  (disj "organicmaps")
+                  (disj "mapsme")))
+         (open? note)) 
+      (update-in note [:tags] conj "new")
+      note)))
+
+#_(attach-tags
+ {
+  :log
+  [
+   {:comment "komentar 1 #tag1"}]})
+
+#_(attach-tags
+ {
+  :log
+  [{:action :opened}]})
+
 #_(run!
  println
  (:log (first (filter #(= (:id %) 180481) (deref note-seq)))))
@@ -164,7 +183,8 @@
 (def planet-notes-latest-url "https://planet.osm.org/notes/planet-notes-latest.osn.bz2")
 (def planet-notes-root-path (path/child env/*dataset-local-path* "osm-planet-notes"))
 (def planet-notes-latest-path (path/child planet-notes-root-path "planet-notes-latest.osn.bz2"))
-(def serbia-poly-path (path/child env/*dataset-local-path* "geofabrik.de" "serbia.poly"))
+(def serbia-notes-latest-path (path/child env/*dataset-local-path* "osm-planet-notes" "serbia-notes-latest.edn"))
+(def serbia-poly-path (path/child env/*dataset-cloud-path* "geofabrik.de" "serbia.poly"))
 
 (def min-longitude (apply min (map :longitude (parse-poly serbia-poly-path))))
 (def max-longitude (apply max (map :longitude (parse-poly serbia-poly-path))))
@@ -178,6 +198,15 @@
  serbia-poly {:longitude 19.20959 :latitude 44.82081});; bijeljina
 
 #_(println "serbia bbox:"  min-longitude "," min-latitude " " max-longitude "," max-latitude)
+
+(def log (atom []))
+
+(defn append-to-log [line]
+  (let [final-line (str (time/timestamp->date-in-timezone (time/timestamp)) " " line)]
+    (println final-line)
+    (swap! log #(into [] (take-last 30 (conj % final-line))))))
+
+#_(append-to-log "test")
 
 (def active-pipeline nil)
 #_(clj-common.jvm/interrupt-thread "context-reporting-thread")
@@ -247,12 +276,30 @@
              [:br]
              [:a {:href "/projects/notes/open-tags"} "explore open notes by tag"]
              [:br]
+             [:a {:href "/projects/notes/tag/new"} "explore open notes without tags"]
+             [:br]
              [:a {:href "/projects/notes/activity"} "recent activity"]
              [:br]
              [:a {:href "/projects/notes/recently-opened"} "recently opened"]
              [:br]
              [:a {:href "/projects/notes/recently-closed"} "recently closed"]
-             [:br]]])})
+             [:br]
+             [:br]
+             "stats:"
+             [:br]
+             "number of notes in Serbia (excluding AP Kosovo and Metohija): " (count (deref note-seq))
+             [:br]
+             "number of open notes in Serbia (excluding AP Kosovo and Metohija): " (count (filter open? (deref note-seq)))
+             [:br]
+             [:br]
+             "log:"
+             [:div
+              (map
+               (fn [line]
+                 [:div
+                  line
+                  [:br]])
+               (deref log))]]])})
   (compojure.core/GET
    "/projects/notes/tags"
    _
@@ -267,11 +314,14 @@
              [:br]
              [:table {:style "border-collapse:collapse;"}
               (map
-               (fn [tag]
+               (fn [[tag note-seq]]
                  [:tr
                   [:td {:style "border: 1px solid black; padding: 5px;"}
-                   [:a {:href (str "/projects/notes/tag/" tag) :target "_blank"} tag]]])
-               (sort (into #{} (mapcat :tags (deref note-seq)))))]]])})
+                   [:a {:href (str "/projects/notes/tag/" tag) :target "_blank"}
+                    (str "#" tag " (" (count note-seq) ")")]]])
+               (group-by first (mapcat (fn [note]
+                                         (map (fn [tag] [tag note]) (:tags note)))
+                                       (deref note-seq))))]]])})
   (compojure.core/GET
    "/projects/notes/open-tags"
    _
@@ -286,11 +336,14 @@
              [:br]
              [:table {:style "border-collapse:collapse;"}
               (map
-               (fn [tag]
+               (fn [[tag note-seq]]
                  [:tr
                   [:td {:style "border: 1px solid black; padding: 5px;"}
-                   [:a {:href (str "/projects/notes/tag/" tag) :target "_blank"} tag]]])
-               (sort (into #{} (mapcat :tags (filter open? (deref note-seq))))))]]])})  
+                   [:a {:href (str "/projects/notes/tag/" tag) :target "_blank"}
+                    (str "#" tag " (" (count note-seq) ")")]]])
+               (group-by first (mapcat (fn [note]
+                                         (map (fn [tag] [tag note]) (:tags note)))
+                                       (filter open? (deref note-seq)))))]]])})  
   (compojure.core/GET
    "/projects/notes/tag/:tag"
    [tag]
@@ -313,12 +366,15 @@
                   [:td {:style "border: 1px solid black; padding: 5px;"}
                    (:id note)]
                   [:td {:style "border: 1px solid black; padding: 5px;"}
-                   (clojure.string/join "</br>" (:tags note))]
-                  [:td {:style "border: 1px solid black; padding: 5px;"}
+                   (clojure.string/join "</br>" (map #(str "#" %) (:tags note)))]
+                  [:td {:style "border: 1px solid black; padding: 5px; width: 500px;"}
                    (:comment (first (:log note)))]
                   [:td {:style "border: 1px solid black; padding: 5px;"}
                    [:a {:href (str "https://openstreetmap.org/note/" (:id note))} "osm"]]])
-               (sort-by :id (filter #(contains? (:tags %) tag) (deref note-seq))))]]])})
+               (reverse
+                (sort-by
+                 #(last (map :timestamp (:log %)))
+                 (filter #(contains? (:tags %) tag) (deref note-seq)))))]]])})
   (compojure.core/GET
    "/projects/notes/tag/:tag/map"
    [tag]
@@ -347,7 +403,10 @@
                                                     (or (:comment log) "")
                                                     "\n" "</br>")))
               (:log note))))))
-        (filter #(contains? (:tags %) tag) (deref note-seq))))
+        (reverse
+         (sort-by
+          #(last (map :timestamp (:log %)))
+          (filter #(contains? (:tags %) tag) (deref note-seq))))))
       true
       true)]))
   (compojure.core/GET
@@ -455,7 +514,7 @@
                   (filter (complement open?) (deref note-seq))))))]]])})))
 
 (defn process-latest-notes []
-  (println "processing latest notes")
+  (append-to-log "processing latest notes")
 
   (let [context (context/create-state-context)
         context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
@@ -485,18 +544,24 @@
                 (< (:latitude note) max-latitude)
                 (polygon/location-inside serbia-poly note))))
      (channel-provider :filter))
-    (pipeline/capture-atom-seq-go
+    (pipeline/capture-atom-seq-atomic-go
      (context/wrap-scope context "capture")
      (channel-provider :filter)
      note-seq)
 
     (alter-var-root #'active-pipeline (constantly (channel-provider)))
-    (pipeline/wait-pipeline channel-provider))  
+    (pipeline/wait-pipeline channel-provider)
+
+    ;; keep result of processing for faster start of service
+    (with-open [os (fs/output-stream serbia-notes-latest-path)]
+      (doseq [note (deref note-seq)]
+        (edn/write-object os note)
+        (io/write-new-line os))))
   
-  (println "latest notes processed"))
+  (append-to-log "latest notes processed"))
 
 ;; on restart just load latest notes
-(process-latest-notes)
+#_(process-latest-notes)
 
 ;; download latest dataset and reload
 (defn download-latest-notes []
@@ -506,14 +571,16 @@
         download-path (path/child planet-notes-root-path 
                                   (str "planet-notes-" date ".osn.bz2"))
         upstream-url planet-notes-latest-url]
-    (println "[download] downloading latest notes")
+    (append-to-log "[download] downloading latest notes")
     (with-open [is (http/get-as-stream upstream-url)
                 os (fs/output-stream download-path)]
       (io/copy-input-to-output-stream is os))
     (when (fs/exists? planet-notes-latest-path)
       (fs/delete planet-notes-latest-path))
     (fs/link download-path planet-notes-latest-path)
-    (println "[download] latest planet notes downloaded " (path/name download-path))))
+    (append-to-log
+     (str
+      "[download] latest planet notes downloaded " (path/name download-path)))))
 
 #_(download-latest-notes)
 
@@ -523,12 +590,12 @@
   (new
    Thread
    #(while true
-      (println "[refresh]" (time/timestamp->date-in-timezone (time/timestamp)))
+      (append-to-log "[refresh] started")
       (download-latest-notes)
       (process-latest-notes)
-      (println "[refresh] finished")
+      (append-to-log "[refresh] finished")
       (Thread/sleep (* 6 60 60 1000)))))
-(.start cron)
+#_(.start cron)
 
 
 #_(run!
@@ -555,4 +622,23 @@
               :log)
              (take 5 (deref note-seq))))))
 
-(println "[startup] finished")
+(defn -main [& args]
+  (println "starting app in server mode")
+  (if (fs/exists? serbia-notes-latest-path)
+    (do
+      (append-to-log "loading notes from serbia-notes-latest.edn")
+      (with-open [is (fs/input-stream serbia-notes-latest-path)]
+        (let [notes (map
+                     attach-tags
+                     (map edn/read (io/input-stream->line-seq is)))]
+          (append-to-log (str "[preload] loaded " (count notes)))
+          (swap! note-seq (constantly notes)))))
+    (append-to-log "no serbia-notes-latest.edn, waiting process"))
+  (append-to-log "starting cron")
+  (.start cron)
+  (append-to-log "cron started")
+  nil)
+
+#_(-main)
+
+(append-to-log "[startup] finished")

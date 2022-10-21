@@ -775,7 +775,9 @@
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px; text-align: center;"}
       (:uredjenost route)]
      [:td {:style "border: 1px solid black; padding: 5px; width: 600px;"}
-      (:title route )]
+      (:title route )
+      [:br]
+      (get-in relation [:tags "name"])]
      [:td {:style "border: 1px solid black; padding: 5px; width: 40px; text-align: center;"}
       [:a {:href (:link route) :target "_blank"} "pss"]]
      [:td {:style "border: 1px solid black; padding: 5px; width: 80px; text-align: center;"}
@@ -1341,9 +1343,7 @@
 ;; #dataset osm-pss-trails-geometry
 ;; prepare dataset
 ;; extract relations, then nodes, then ways
-
-
-
+;; #osm-pss-map-v1 #mapbox
 (def serbia-extract-path (path/child env/*dataset-local-path* "serbia-extract"))
 (def osm-pss-extract-path (path/child env/*dataset-local-path* "osm-pss-extract"))
 (def osm-pss-map-path (path/child env/*dataset-local-path* "osm-pss-map"))
@@ -1533,13 +1533,17 @@
 
 (map/define-map
   "osm-pss-map"
-  (map/tile-layer-osm)
+  (map/tile-layer-osm-rs true)
+  (map/tile-layer-osm false)
+  (map/tile-layer-opentopomap false)
   (map/tile-overlay-mapbox
    "vanjakom"
    "cl4vushrv002k14og8qmnpme5"
    "pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw"
    "osm-pss-map"
-   true))
+   true)
+  (map/tile-overlay-waymarked-hiking false)
+  (map/tile-overlay-bounds false))
 
 
 
@@ -1707,7 +1711,9 @@
                       :tags (:tags relation)})
       :else nil)))
 
-#_(apply
+;; used to generate valjevske_planine.html
+;; http://staze.rs/projects/valjevske_planine.html
+(apply
  (partial map/define-map "valjevske-planine")
  (concat
   [
@@ -1825,6 +1831,70 @@
        #(contains? pss-set (get-in % [:tags "ref"]))
        relation-seq)))))
 
+;; 20221012
+;; vrsacka kula psd
+;; missing trails
+
+;; transverzala
+;; KT 1 - SC Milenijum
+;; KT 2 - Vršačka kula
+;; KT 3 - Đakov vrh
+;; KT 4 - Planinarski dom na Širokom Bilu
+;; KT 5 - Lisičja Glava
+;; KT 6 - Manastir Malo Središte
+;; KT 7 - Gudurički vrh
+;; KT 8 - Manastir Mesić
+(let [poi-seq [
+               "n995944969" ;; Гудурички врх
+               "w298995099" ;; Планинарски дом „Широко било“
+               "w167736184" ;; Манастир Средиште
+               "w167729936" ;; Манастир Месић
+               "n10094978312" ;; Каменарица, Хајдучке стене
+               "n1455237628" ;; Лисичија глава
+
+               "w134768104" ;; Центар Миленијум
+               "n986920487" ;; Вршачка кула
+               "n1764106560" ;; Ђаков врх
+               ]
+      poi-dataset (apply
+                   osmapi/merge-datasets
+                   (filter
+                    some?
+                    (map
+                     (fn [element]
+                       (let [type (.substring element 0 1)
+                             id (as/as-long (.substring element 1))]
+                         (cond
+                           (= type "n") (osmapi/node-full id)
+                           (= type "w") (osmapi/way-full id)
+                           (= type "r") (osmapi/relation-full id)
+                           :else nil)))
+                     poi-seq)))]
+  (count poi-dataset)
+  (map/define-map
+    "psdvrsackakula"
+    (map/tile-layer-osm-rs true)
+    (map/tile-layer-bing-satellite false)
+    (map/tile-layer-osm false)
+    (map/tile-layer-opentopomap false)
+    (map/tile-overlay-waymarked-hiking false)
+    (map/tile-overlay-bounds false)
+
+    (map/geojson-style-extended-layer
+     "poi"
+     (geojson/geojson
+      (filter
+       some?
+       (map
+        (fn [element]
+          (let [location (element->location poi-dataset element)]
+            (geojson/point
+             (:longitude location)
+             (:latitude location)
+             {
+              :marker-body (or (get-in location [:tags "name"]) "unknown")
+              :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/location.green.png"})))
+        poi-seq))))))
 
 ;; find routes using US quotes
 #_(let [pss-set (into #{} (keys routes))]

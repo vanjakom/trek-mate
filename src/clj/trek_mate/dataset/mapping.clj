@@ -415,6 +415,8 @@
   (println "name:sr =" name-cyrillic)
   (println "name:sr-Latn =" (cyrillic->latin name-cyrillic)))
 
+#_(prepare-name-tags "Скакавци - Субјел")
+
 #_(prepare-name-tags "Чесма Свете Тројице") 
 #_(prepare-name-tags "ЈП \"Војводинашуме\"")
 #_(prepare-name-tags "Споменик природе Два стабла белог јасена")
