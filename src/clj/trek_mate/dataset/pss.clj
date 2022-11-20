@@ -131,6 +131,7 @@
    (with-open [is (fs/input-stream (path/child dataset-path "posts-e-paths.json"))]
      (json/read-keyworded is))))
 #_(count posts)
+;; 323 on 20221026
 ;; 322 on 20220731
 ;; 321 on 20220620
 ;; 311 on 20220517, e paths added
@@ -192,8 +193,8 @@
     ;; in case of gpx most htmls will change because of news
     (if (not (empty? oznaka))
       (if (not
-           ;; (fs/exists? gpx-path)
-           (fs/exists? info-path)
+           (fs/exists? gpx-path)
+           ;; (fs/exists? info-path)
            )
         (do
           (println "\tdownloading post ...")
@@ -681,8 +682,16 @@
 
 
 
-;; mapping notes to be displayed in wiki
+;; additional notes, not related to osm integration
+;; to be discussed with pss working group
 (def note-map
+  "4-48-3" "20221026 gpx link postoji ali ne moze da se skine"
+  "4-49-3" "20221026 gpx link postoji ali ne moze da se skine"
+  "4-48-2" "20221026 gpx link postoji ali ne moze da se skine"
+  "4-4-2" "20221026 gpx link postoji ali ne moze da se skine"
+
+  ;; earlier notes, go over, see what is not in osm, push to osm or up
+  
   {"3-3-2" "malo poklapanja sa unešenim putevima, snimci i tragovi ne pomazu"
    ;; staza nema gpx
    ;; "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
@@ -1869,7 +1878,15 @@
                            (= type "w") (osmapi/way-full id)
                            (= type "r") (osmapi/relation-full id)
                            :else nil)))
-                     poi-seq)))]
+                     poi-seq)))
+
+      note->geojson-point (fn [longitude latitude note]
+                            (geojson/point
+                             longitude
+                             latitude
+                             {
+                              :marker-body note
+                              :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/visit.grey.png"}))]
   (count poi-dataset)
   (map/define-map
     "psdvrsackakula"
@@ -1894,7 +1911,60 @@
              {
               :marker-body (or (get-in location [:tags "name"]) "unknown")
               :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/location.green.png"})))
-        poi-seq))))))
+        poi-seq))))
+    (map/geojson-style-extended-layer
+     "questions"
+     (geojson/geojson
+      [
+       (note->geojson-point 21.35987 45.12440
+                            "Т-1-3 На Угљешиној мапи трансверзала иде левом стазом")
+       (note->geojson-point 21.37826 45.10194
+                            "Т-1-3 Угљеша иде локалним путем преко Моје воде, Синпе долази путем од бране")
+       (note->geojson-point 21.41117, 45.12020
+                            "Т-1-3 Угљеша се пење директно на Чуку док Синпе иде према Пољанама")
+       (note->geojson-point 21.39946, 45.13636
+                            "T-1-3 OSM релација иде десном страном, Угљеша и Синпе левом")
+       #_(note->geojson-point )
+
+       #_(note->geojson-point )
+       #_(note->geojson-point )
+       #_(note->geojson-point )
+
+       ]))
+
+    ;; dodatna pitanja
+    ;; 1-4-1 se poklapa sa stazom 8
+
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-cloud-path*
+                                     "mile_markovic" "TREKING Vrsacke Mala.gpx"))]
+      (map/tile-overlay-gpx "TREKING Vrsacke Mala" is true true))
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-cloud-path*
+                                     "mile_markovic" "TREKING Vrsacke Srednja.gpx"))]
+      (map/tile-overlay-gpx "TREKING Vrsacke Srednja" is true true))
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-cloud-path*
+                                     "mile_markovic" "TREKING Vrsacke Velika.gpx"))]
+      (map/tile-overlay-gpx "TREKING Vrsacke Velika" is true true))
+
+    ;; Т-1-3 Вршачка трансверзала - https://pss.rs/terenipp/vrsacka-transverzala/
+    (binding [geojson/*style-stroke-color* map/color-red]
+      (map/tile-overlay-osm-hiking-relation
+       "T-1-3 Вршачка трансверзала" 13145926 true false false))
+
+    ;; 1-4-1 Успон на Гудурички врх - https://pss.rs/terenipp/uspon-na-guduricki-vrh/
+    (binding [geojson/*style-stroke-color* map/color-red]
+      (map/tile-overlay-osm-hiking-relation
+       " 1-4-1 Успон на Гудурички врх" 14906749 true false false))
+
+
+    ;; 1-4-2 Манастир Средиште - Гудурички врх - https://pss.rs/terenipp/manastir-srediste-guduricki-vrh/
+    ;; 1-4-3 Манастир Месић - https://pss.rs/terenipp/manastir-mesic/
+    ;; 1-4-4 Каменарице преко Лисич. главе - https://pss.rs/terenipp/kamenarice-preko-lisic-glave/
+    ;; 1-4-5 Гудурички врх преко Лисичије главе - https://pss.rs/terenipp/guduricki-vrh-preko-lisicije-glave/
+
+    ))
 
 ;; find routes using US quotes
 #_(let [pss-set (into #{} (keys routes))]

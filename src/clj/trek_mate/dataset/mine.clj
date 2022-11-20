@@ -251,6 +251,8 @@
   
   ;; divcibare
   ;; todo
+  (l 20.02277, 44.11348 tag/tag-todo "obici do kraja stazu divcibare ski resport")
+
   (l 19.99937, 44.12823 tag/tag-bike "marijana ideja" "dodjem bajsom u Krcmar ona me pokupi, E7, istrazivanje")
   (l 19.99080 44.13025 tag/tag-todo tag/tag-hike "obelezena staza vodi negde, prosao bajsom pred")
   (l 19.99713 44.09571 tag/tag-todo tag/tag-hike "obelezena staza vodopad")

@@ -24,6 +24,7 @@
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
+   [trek-mate.map :as map]
    [trek-mate.storage :as storage]
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
@@ -298,7 +299,7 @@
 
 ;; divca trail run 30 km
 
-(let [location-seq (concat
+#_(let [location-seq (concat
                     (with-open [is (fs/input-stream
                                     (path/child
                                      env/*global-my-dataset-path*
@@ -326,7 +327,26 @@
                      :track
                      [(constantly [draw/color-blue 2])])}))
 
+(map/define-map
+  "lekabekadivcibarac"
+  (map/tile-layer-osm true)
+  (map/tile-overlay-waymarked-hiking false)  
 
+  (map/tile-overlay-gpx-garmin "Track_2022-10-07 170847")
+  (map/tile-overlay-gpx-garmin "Track_2022-10-08 161700")
+  (map/tile-overlay-gpx-garmin "Track_2022-10-09 160256")
+  
+  (map/tile-overlay-gpx-garmin "Track_2022-10-15 162127")
+  (map/tile-overlay-gpx-garmin "Track_2022-10-16 165722")
+  
+  (map/tile-overlay-gpx-garmin "Track_2022-11-12 163323")
+  (map/tile-overlay-gpx-garmin "Track_2022-11-13 131434")
+  (map/tile-overlay-gpx-garmin "Track_2022-11-14 133205")
+  (map/tile-overlay-gpx-garmin "Track_2022-11-15 130731")
+  (map/tile-overlay-gpx-garmin "Track_2022-11-16 130900")
+  (map/tile-overlay-gpx-garmin "Track_2022-11-17 130555")
+  (map/tile-overlay-gpx-garmin "Track_2022-11-17 160757"))
+;; http://localhost:7071/view/lekabekadivcibarac#map=14/19.984431266784668/44.11048364928732
 
 
 

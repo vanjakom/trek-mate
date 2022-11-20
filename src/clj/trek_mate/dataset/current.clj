@@ -1041,4 +1041,25 @@
         :body (draw/image-context->input-stream image-context)}))))
 
 
+;; #tracksplit
+(map/define-map
+  "track"
+  (map/tile-layer-osm true)
+  (map/tile-overlay-waymarked-hiking false)  
 
+  (map/tile-overlay-gpx-garmin
+   "Track_2022-11-17 184715"
+   "Track_2022-11-17 184715"
+   true
+   true)
+  (map/tile-overlay-gpx-garmin-marker
+   "Track_2022-11-17 184715 marker"
+   "Track_2022-11-17 184715"
+   true
+   true))
+;; http://localhost:7071/view/track#map=20/19.989929124712948/44.10355268648192
+;; select point to split on, copy coordinate
+;; duplicate track, text edit both
+;; in first remove after point, fix date in filename ( hour after one in timestamp )
+;; and xml header
+;; in second remove up to point

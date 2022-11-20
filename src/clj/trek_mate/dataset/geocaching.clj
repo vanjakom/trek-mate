@@ -75,6 +75,7 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 #_(count my-finds-seq)
+;; 952 20221116
 ;; 928 20220831
 ;; 914 20220611
 ;; 859 20220107
@@ -1227,6 +1228,7 @@
      trek-mate-finds-seq)))
 
 #_(count should-be-logged-seq)
+;; 20221116 30
 ;; 20220831 56 
 ;; 20220611 75 ( after date cleanup )
 ;; 20220611 83 (added trek-mate )

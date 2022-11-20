@@ -397,12 +397,29 @@
 (def geojson-gpx-layer tile-overlay-gpx)
 
 (defn tile-overlay-gpx-garmin
-  ([name track-id]
+  ([name track-id activate zoom-to]
    (with-open [gpx-is (fs/input-stream
                       (path/child env/garmin-track-path (str track-id ".gpx")))]
-     (tile-overlay-gpx name gpx-is)))
+     (tile-overlay-gpx name gpx-is activate zoom-to)))
   ([track-id]
-   (tile-overlay-gpx-garmin track-id track-id)))
+   (tile-overlay-gpx-garmin track-id track-id true false)))
+
+(defn tile-overlay-gpx-garmin-marker
+  "Each track point is represented with marker"
+  ([name track-id activate zoom-to]
+   (with-open [gpx-is (fs/input-stream
+                       (path/child env/garmin-track-path (str track-id ".gpx")))]
+     (let [data (geojson/geojson
+                 (map
+                  #(geojson/marker
+                    (:longitude %)
+                    (:latitude %)
+                    (str (:longitude %) ", " (:latitude %)))
+                  (apply concat
+                         (:track-seq (gpx/read-gpx gpx-is)))))]
+       (geojson-style-extended-layer name data activate zoom-to))))
+  ([track-id]
+   (tile-overlay-gpx-garmin-marker track-id track-id true false)))
 
 (def geojson-gpx-garmin-layer tile-overlay-gpx-garmin)
 

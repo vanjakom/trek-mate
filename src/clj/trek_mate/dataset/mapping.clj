@@ -62,7 +62,7 @@
                           (str track-id ".json")))]
            [(:locations (json/read-keyworded is))]))
        ;; garmin
-       (let [track-id "Track_2022-07-06 185317"]
+       (let [track-id "Track_2022-11-13 131434"]
          (with-open [is (fs/input-stream
                          (path/child
                           env/*global-my-dataset-path*
@@ -84,7 +84,7 @@
        #_(storage/location-request-file->location-seq
         (storage/location-request-last-file env/*trek-mate-user*))
        ;; garmin
-       (let [waypoint-file-name "Waypoints_06-JUL-22.gpx"]
+       (let [waypoint-file-name "Waypoints_13-NOV-22.gpx"]
          (mine/garmin-waypoint-file->location-seq
           (path/child
            env/*global-my-dataset-path*
