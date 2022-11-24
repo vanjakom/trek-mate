@@ -393,7 +393,7 @@
                 (:track-seq (gpx/read-gpx gpx-is))))]
      (geojson-style-layer name data activate zoom-to)))
   ([name gpx-is]
-   (geojson-gpx-layer name gpx-is true false)))
+   (tile-overlay-gpx name gpx-is true false)))
 (def geojson-gpx-layer tile-overlay-gpx)
 
 (defn tile-overlay-gpx-garmin

@@ -685,14 +685,15 @@
 ;; additional notes, not related to osm integration
 ;; to be discussed with pss working group
 (def note-map
-  "4-48-3" "20221026 gpx link postoji ali ne moze da se skine"
-  "4-49-3" "20221026 gpx link postoji ali ne moze da se skine"
-  "4-48-2" "20221026 gpx link postoji ali ne moze da se skine"
-  "4-4-2" "20221026 gpx link postoji ali ne moze da se skine"
+  {
+   "4-48-3" "20221026 gpx link postoji ali ne moze da se skine"
+   "4-49-3" "20221026 gpx link postoji ali ne moze da se skine"
+   "4-48-2" "20221026 gpx link postoji ali ne moze da se skine"
+   "4-4-2" "20221026 gpx link postoji ali ne moze da se skine"
 
-  ;; earlier notes, go over, see what is not in osm, push to osm or up
-  
-  {"3-3-2" "malo poklapanja sa unešenim putevima, snimci i tragovi ne pomazu"
+   ;; earlier notes, go over, see what is not in osm, push to osm or up
+   
+   "3-3-2" "malo poklapanja sa unešenim putevima, snimci i tragovi ne pomazu"
    ;; staza nema gpx
    ;; "2-8-2" "rudnik, prosli deo ture do Velikog Sturca, postoje dva puta direktno na Veliki i preko Malog i Srednjeg, malo problematicno u pocetku"
    "4-45-3" "gpx je problematičan, deluje da je kružna staza"
@@ -1934,6 +1935,8 @@
 
     ;; dodatna pitanja
     ;; 1-4-1 se poklapa sa stazom 8
+    ;; 1-4-2 se poklapa sa stazom 11
+    ;; 1-4-3 unesen od doma do manastira (staza 9), ugljesa isao od manastira do Gudurickog vrha
 
     (with-open [is (fs/input-stream (path/child
                                      env/*dataset-cloud-path*
@@ -1956,13 +1959,30 @@
     ;; 1-4-1 Успон на Гудурички врх - https://pss.rs/terenipp/uspon-na-guduricki-vrh/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       " 1-4-1 Успон на Гудурички врх" 14906749 true false false))
-
+       "1-4-1 Успон на Гудурички врх" 14906749 true false false))
 
     ;; 1-4-2 Манастир Средиште - Гудурички врх - https://pss.rs/terenipp/manastir-srediste-guduricki-vrh/
+    (binding [geojson/*style-stroke-color* map/color-red]
+      (map/tile-overlay-osm-hiking-relation
+       "1-4-2 Манастир Средиште - Гудурички врх" 14911970 true false false))
+
     ;; 1-4-3 Манастир Месић - https://pss.rs/terenipp/manastir-mesic/
+    (binding [geojson/*style-stroke-color* map/color-red]
+      (map/tile-overlay-osm-hiking-relation
+       "1-4-3 Манастир Месић" 14912124 true false false))
+
+
+    
     ;; 1-4-4 Каменарице преко Лисич. главе - https://pss.rs/terenipp/kamenarice-preko-lisic-glave/
+    (binding [geojson/*style-stroke-color* map/color-red]
+      (map/tile-overlay-osm-hiking-relation
+       "1-4-4 Каменарице преко Лисич. главе" 14916943 true false false))
+
+
     ;; 1-4-5 Гудурички врх преко Лисичије главе - https://pss.rs/terenipp/guduricki-vrh-preko-lisicije-glave/
+    (binding [geojson/*style-stroke-color* map/color-red]
+      (map/tile-overlay-osm-hiking-relation
+       "1-4-5 Гудурички врх преко Лисичије главе" 14921298 true false false))
 
     ))
 

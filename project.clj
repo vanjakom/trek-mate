@@ -20,6 +20,7 @@
                  [com.mungolab/clj-geo "0.1.0-SNAPSHOT"]
                  [com.mungolab/clj-cloudkit "0.1.0-SNAPSHOT"]
                  [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]]
+  :plugins [[lein-cljsbuild "1.1.8"]]
   :cljsbuild {
               :builds [{
                         :source-paths ["src/cljc" "src/cljs"]
