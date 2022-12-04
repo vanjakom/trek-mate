@@ -1891,9 +1891,9 @@
   (count poi-dataset)
   (map/define-map
     "psdvrsackakula"
-    (map/tile-layer-osm-rs true)
+    (map/tile-layer-osm true)
     (map/tile-layer-bing-satellite false)
-    (map/tile-layer-osm false)
+    (map/tile-layer-osm-rs false)
     (map/tile-layer-opentopomap false)
     (map/tile-overlay-waymarked-hiking false)
     (map/tile-overlay-bounds false)
