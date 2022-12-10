@@ -416,40 +416,40 @@
   (map/tile-layer-bing-satellite false)
   (map/tile-overlay-waymarked-hiking false)
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Fruska gora" 12499130))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Крупањ - Љубовија - Ваљево - Дивчибаре" 14177412))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 -  Дивчибаре - Рајац - Рудник - Овчар бања" 14180878))
 
   
   #_(binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Ljubovija" 12220270))
   #_(binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Valjevske planine" 12141357))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - NP Tara" 11750282))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Zlatar" 11753312))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Nis" 12220381))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Селова - Блаце - Велики Јастребац - Мали Јастребац - Тешица - Г. Трнава" 14185390))
   (binding [geojson/*style-stroke-color* "#FF0000"
-            geojson/*style-stroke-widht* 4]
+            geojson/*style-stroke-width* 4]
     (map/geojson-hiking-relation-layer "E7 - Suva planina" 12208585))
   
   (binding [geojson/*style-stroke-color* "#0000FF"
-            geojson/*style-stroke-widht* 2]
+            geojson/*style-stroke-width* 2]
     (with-open [is (fs/input-stream (path/child
                                      env/*dataset-git-path*
                                      "pss.rs"
@@ -457,14 +457,14 @@
                                      "E7-8.gpx"))]
       (map/geojson-gpx-layer "E7-8" is)))
   (binding [geojson/*style-stroke-color* "#0000FF"
-            geojson/*style-stroke-widht* 2]
+            geojson/*style-stroke-width* 2]
     (with-open [is (fs/input-stream (path/child
                                      env/*dataset-cloud-path*
                                      "dragan_dimitrijevic"
                                      "E7-9 Divčibare-Rajac-Rudnik-Ovčar banja.gpx"))]
       (map/geojson-gpx-layer "E7-9" is)))
   #_(binding [geojson/*style-stroke-color* "#0000FF"
-            geojson/*style-stroke-widht* 2]
+            geojson/*style-stroke-width* 2]
     (with-open [is (fs/input-stream (path/child
                                      env/*dataset-git-path*
                                      "pss.rs"
@@ -472,7 +472,7 @@
                                      "E7-9.gpx"))]
       (map/geojson-gpx-layer "E7-9" is)))
   (binding [geojson/*style-stroke-color* "#0000FF"
-            geojson/*style-stroke-widht* 2]
+            geojson/*style-stroke-width* 2]
     (with-open [is (fs/input-stream (path/child
                                      env/*dataset-git-path*
                                      "pss.rs"
@@ -480,7 +480,7 @@
                                      "E7-12.gpx"))]
       (map/geojson-gpx-layer "E7-12" is)))
   (binding [geojson/*style-stroke-color* "#0000FF"
-            geojson/*style-stroke-widht* 2]
+            geojson/*style-stroke-width* 2]
     (with-open [is (fs/input-stream (path/child
                                      env/*dataset-git-path*
                                      "pss.rs"
@@ -488,7 +488,7 @@
                                      "E7-16.gpx"))]
       (map/geojson-gpx-layer "E7-16" is)))
   #_(binding [geojson/*style-stroke-color* "#0000FF"
-              geojson/*style-stroke-widht* 2]
+              geojson/*style-stroke-width* 2]
       (with-open [is (fs/input-stream (path/child
                                        env/*dataset-cloud-path*
                                        "andrej_ivosev"
@@ -496,7 +496,7 @@
                                        "E7-8 Jablanik (podnožje)-Povlen-Gradac-Valjevo (hram).gpx"))]
         (map/geojson-gpx-layer "Jablanik - Valjevo" is)))
   #_(binding [geojson/*style-stroke-color* "#0000FF"
-              geojson/*style-stroke-widht* 2]
+              geojson/*style-stroke-width* 2]
       (with-open [is (fs/input-stream (path/child
                                        env/*dataset-cloud-path*
                                        "andrej_ivosev"
@@ -504,7 +504,7 @@
                                        "E7-8 Valjevo (hram)-Maljen-Pl-dom Na Poljani.gpx"))]
         (map/geojson-gpx-layer "Valjevo - Divcibare" is)))
   #_(binding [geojson/*style-stroke-color* "#0000FF"
-              geojson/*style-stroke-widht* 2]
+              geojson/*style-stroke-width* 2]
       (with-open [is (fs/input-stream (path/child
                                        env/*dataset-cloud-path*
                                        "andrej_ivosev"
