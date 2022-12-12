@@ -686,10 +686,11 @@
 ;; to be discussed with pss working group
 (def note-map
   {
-   "4-48-3" "20221026 gpx link postoji ali ne moze da se skine"
-   "4-49-3" "20221026 gpx link postoji ali ne moze da se skine"
-   "4-48-2" "20221026 gpx link postoji ali ne moze da se skine"
-   "4-4-2" "20221026 gpx link postoji ali ne moze da se skine"
+   ;; trekovi ponovo postavljeni <20221210
+   ;; "4-48-3" "20221026 gpx link postoji ali ne moze da se skine"
+   ;; "4-49-3" "20221026 gpx link postoji ali ne moze da se skine"
+   ;; "4-48-2" "20221026 gpx link postoji ali ne moze da se skine"
+   ;; "4-4-2" "20221026 gpx link postoji ali ne moze da se skine"
 
    ;; earlier notes, go over, see what is not in osm, push to osm or up
    
