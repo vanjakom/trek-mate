@@ -701,7 +701,9 @@
    "4-47-3" "malo poklapanja sa putevima i tragovima, dugo nije markirana"
    "4-40-1" "kretanje železničkom prugom kroz tunele?"
    "4-31-9" "gpx problematičan, dosta odstupanja"
-   "2-16-1" "dosta odstupanje, staza nije markirana 20200722"})
+   
+   ;; "2-16-1" "dosta odstupanje, staza nije markirana 20200722, srednjeno 20221213"
+   })
 
 (def valjevo-staze-seq
   [
@@ -1199,7 +1201,7 @@
 (web/create-server)
 
 
-(map/define-map
+#_(map/define-map
   "pss-check"
   (map/tile-layer-osm)
   (map/tile-layer-bing-satellite false)
@@ -1556,6 +1558,94 @@
   (map/tile-overlay-waymarked-hiking false)
   (map/tile-overlay-bounds false))
 
+
+;; 20221218
+;; geojson state per each trail registered with pss to be used for data consistency
+;; checks and as export to dataset.rs
+;; two modes of operation, daily load latest serbia extract and to processing
+;; hotfix mode, download fresh data for single trail, reprocess
+(def pss-dataset nil)
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-node")
+   resource-controller
+   (path/child osm-pss-extract-path "node.edn")
+   (channel-provider :node))
+
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-way")
+   resource-controller
+   (path/child osm-pss-extract-path "way.edn")
+   (channel-provider :way))
+
+  (pipeline/read-edn-go
+   (context/wrap-scope context "read-relation")
+   resource-controller
+   (path/child osm-pss-extract-path "relation.edn")
+   (channel-provider :relation))
+
+  (pipeline/reducing-go
+   (context/wrap-scope context "node-dataset")
+   (channel-provider :node)
+   (fn
+     ([] {})
+     ([state node]
+      (osmapi/dataset-append-node state node))
+     ([state] state))
+   (channel-provider :node-dataset))
+
+  (pipeline/reducing-go
+   (context/wrap-scope context "way-dataset")
+   (channel-provider :way)
+   (fn
+     ([] {})
+     ([state way]
+      (osmapi/dataset-append-way state way))
+     ([state] state))
+   (channel-provider :way-dataset))
+
+  (pipeline/reducing-go
+   (context/wrap-scope context "relation-dataset")
+   (channel-provider :relation)
+   (fn
+     ([] {})
+     ([state relation]
+      (osmapi/dataset-append-relation state relation))
+     ([state] state))
+   (channel-provider :relation-dataset))
+
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel-dataset")
+   [
+    (channel-provider :node-dataset)
+    (channel-provider :way-dataset)
+    (channel-provider :relation-dataset)]
+   (channel-provider :dataset))
+
+  (pipeline/reducing-go
+   (context/wrap-scope context "dataset")
+   (channel-provider :dataset)
+   (fn
+     ([] {})
+     ([state dataset]
+      (osmapi/merge-datasets state dataset))
+     ([state] state))
+   (channel-provider :wait-last))
+
+  (pipeline/pass-last-go
+   (context/wrap-scope context "wait-last")
+   (channel-provider :wait-last)
+   (channel-provider :capture))
+
+  (pipeline/capture-var-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var pss-dataset))
+
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 
 ;; 20220714

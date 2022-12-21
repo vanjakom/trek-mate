@@ -1389,6 +1389,15 @@
    (first dataset-seq)
    (rest dataset-seq)))
 
+(defn dataset-append-node [dataset node]
+  (update-in dataset [:nodes (:id node)] (constantly node) ))
+
+(defn dataset-append-way [dataset way]
+  (update-in dataset [:ways (:id way)] (constantly way) ))
+
+(defn dataset-append-relation [dataset relation]
+  (update-in dataset [:relations (:id relation)] (constantly relation) ))
+
 (defn extract-way
   [dataset way-id]
   (update-in
