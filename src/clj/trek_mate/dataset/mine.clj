@@ -197,6 +197,7 @@
      "@todo" "ruta sava zavrsiti" "biciklisticka staza" "vikend"
      (tag/url-tag "biciklisticka staza" "https://bajsologija.rs/asfaltirana-biciklisticka-staza-od-macvanske-mitrovice-do-zasavice/#.XvJzZC-w1QJ"))
 
+  (n 7260327814 "planinarski dom tornik, obici")
 
   ;; durmitor
   (l 19.10068, 43.20042
@@ -305,6 +306,9 @@
   (l 19.69512, 43.37116
      tag/tag-hike "pesacka staza, imam slikano 20210731")
 
+  (l 19.98863, 44.10245
+     "#borici" "ima dosta malih borova koje mozemo da izvadimo i rasadimo")
+  
   (l 19.55908, 43.28861
      tag/tag-todo
      "#tepui2021"
@@ -823,6 +827,12 @@
   (w 441379884 tag/tag-todo "пресуши у мају" "Петар био")
   (n 8836596017 tag/tag-todo "Петар био")
   (n 420859061 tag/tag-todo "Пестинград")
+  (n 4111906489 "mj preporuka za restoran")
+
+  (n 10308612545 "preporuka za komplet lepinju, mj?")
+  (n 10610514510 "keltsko selo, zanimljivo")
+  (n 10629441039) ;; "!Virtus"
+  (r 10731760 tag/tag-bike) ;; "!Ђетиња"
   
 (l 19.13327, 42.09363 tag/tag-eat tag/tag-sleep "!Stara Carsija" (tag/url-tag "website" "https://staracarsija.me"))
 (q 27559501 tag/tag-hike) ;; "!Радоштак"
@@ -836,7 +846,11 @@
 ;; loznica
 (n 8839704579) ;; "!Stobex"
 
-  ;; todo world
+;; todo world
+
+(w 441882565) ;; "!Забојско језеро"
+(n 6581351518) ;; "!Vox Blues Club"
+(n 10653931162) ;; "!Zrno Ra"
 
   ;; svajcarska
   (l 8.31311 46.61400 "!Gelmerbahn")
@@ -871,6 +885,9 @@
   ;; serbia
   (q 3066255) ;; cegar
 
+  (q 25461547) ;; "!Даг Бањица"
+  (n 10617699736) ;; "!Голос"
+  
   ;; hike staza petruskih monaha
   (q 2733347) ;; popovac
   (q 3574465) ;; zabrega

@@ -37,90 +37,12 @@
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
 
+
+;; DEPRECATED, data download and processing moved to clj-scheduler.jobs.pss
+;; used for http interface until migrated
+
 (def dataset-path (path/child env/*dataset-git-path* "pss.rs"))
 (def integration-git-path ["Users" "vanja" "projects" "osm-pss-integration" "dataset"])
-
-
-;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi
-;; download routes list and supporting files
-#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarski-putevi")]
-  (let [terrains-obj (json/read-keyworded
-                      (.replace
-                       (.trim
-                        (first
-                         (filter
-                          #(.contains % "var terrainsObj =")
-                          (io/input-stream->line-seq is))))
-                       "var terrainsObj = " ""))
-        georegions-geojson-url (:geojsonPath terrains-obj)
-        georegions (:geoRegions terrains-obj)
-        map-european-path-url (:pss_evropski_pesacki_putevi_mapa terrains-obj)
-        map-european-path-serbia-url (:pss_evropski_pesacki_putevi_srbija_mapa terrains-obj)
-        types (:types terrains-obj)
-        terrains (:terrains terrains-obj)
-        posts (:posts terrains-obj)]
-    
-    ;; write regions geojson
-    (with-open [is (http/get-as-stream georegions-geojson-url)
-                os (fs/output-stream (path/child dataset-path "regions.geojson"))]
-      (io/copy-input-to-output-stream is os))
-
-    ;; write region description json
-    (with-open [os (fs/output-stream (path/child dataset-path "regions.json"))]
-      (json/write-to-stream georegions os))
-
-    ;; write european paths map
-    (with-open [is (http/get-as-stream map-european-path-url)
-                os (fs/output-stream (path/child dataset-path "mapa-evropski-pesacki-putevi.jpg"))]
-      (io/copy-input-to-output-stream is os))
-
-    ;; write european paths serbia map
-    (with-open [is (http/get-as-stream map-european-path-serbia-url)
-                os (fs/output-stream (path/child dataset-path "mapa-evropski-pesacki-putevi-u-srbiji.jpg"))]
-      (io/copy-input-to-output-stream is os))
-
-    ;; write objects
-    (with-open [os (fs/output-stream (path/child dataset-path "types.json"))]
-      (json/write-pretty-print types (io/output-stream->writer os)))
-    (with-open [os (fs/output-stream (path/child dataset-path "terrains.json"))]
-      (json/write-pretty-print terrains (io/output-stream->writer os)))
-    (with-open [os (fs/output-stream (path/child dataset-path "posts.json"))]
-      (json/write-pretty-print posts (io/output-stream->writer os)))))
-
-
-;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarske-transverzale
-;; download routes list only
-#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=planinarske-transverzale")]
-  (let [terrains-obj (json/read-keyworded
-                      (.replace
-                       (.trim
-                        (first
-                         (filter
-                          #(.contains % "var terrainsObj =")
-                          (io/input-stream->line-seq is))))
-                       "var terrainsObj = " ""))
-        posts (:posts terrains-obj)]
-
-    (with-open [os (fs/output-stream (path/child dataset-path "posts-transversal.json"))]
-      (json/write-pretty-print posts (io/output-stream->writer os)))))
-
-;; process https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=evropski-pesacki-putevi-u-srbiji
-;; download routes list only
-#_(with-open [is (http/get-as-stream "https://pss.rs/planinarski-objekti-i-tereni/tereni/?tip=evropski-pesacki-putevi-u-srbiji")]
-  (let [terrains-obj (json/read-keyworded
-                      (.replace
-                       (.trim
-                        (first
-                         (filter
-                          #(.contains % "var terrainsObj =")
-                          (io/input-stream->line-seq is))))
-                       "var terrainsObj = " ""))
-        posts (:posts terrains-obj)]
-
-    (with-open [os (fs/output-stream (path/child dataset-path "posts-e-paths.json"))]
-      (json/write-pretty-print posts (io/output-stream->writer os)))))
-
-
 
 (def posts
   (concat
@@ -832,10 +754,11 @@
      [:td {:style "border: 1px solid black; padding: 5px; width: 100px;"}
       note]]))
 
+;; migrated to clj-scheduler
 ;; prepare wiki table
 ;; data should be from OSM, different tool should be develop to prepare diff
 ;; between data provided by pss.rs vs data in OSM
-(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
+#_(with-open [os (fs/output-stream (path/child dataset-path "wiki-status.md"))]
   (binding [*out* (new java.io.OutputStreamWriter os)]
     (println "== Trenutno stanje ==")
     (println "Tabela se mašinski generiše na osnovu OSM baze\n\n")
@@ -1545,6 +1468,21 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 (map/define-map
+  "osm-pss-map-raw"
+  (map/tile-layer-osm true)
+  (map/tile-layer-osm-rs false)
+  (map/tile-layer-opentopomap false)
+  (map/tile-overlay-waymarked-hiking false)
+  (map/tile-overlay-bounds false)
+  (map/geojson-style-layer
+   "map.geojson"
+   (with-open [is (fs/input-stream (path/child osm-pss-map-path "map.geojson"))]
+     (json/read-keyworded is))
+   true
+   false))
+
+;; produced map.geojson is uploaded to mapbox and from that tiles created
+(map/define-map
   "osm-pss-map"
   (map/tile-layer-osm-rs true)
   (map/tile-layer-osm false)
@@ -1596,7 +1534,12 @@
       (osmapi/dataset-append-node state node))
      ([state] state))
    (channel-provider :node-dataset))
-
+  
+  (pipeline/pass-last-go
+   (context/wrap-scope context "wait-last-node")
+   (channel-provider :node-dataset)
+   (channel-provider :node-dataset-final))
+  
   (pipeline/reducing-go
    (context/wrap-scope context "way-dataset")
    (channel-provider :way)
@@ -1607,6 +1550,11 @@
      ([state] state))
    (channel-provider :way-dataset))
 
+  (pipeline/pass-last-go
+   (context/wrap-scope context "wait-last-way")
+   (channel-provider :way-dataset)
+   (channel-provider :way-dataset-final))
+  
   (pipeline/reducing-go
    (context/wrap-scope context "relation-dataset")
    (channel-provider :relation)
@@ -1617,12 +1565,17 @@
      ([state] state))
    (channel-provider :relation-dataset))
 
+  (pipeline/pass-last-go
+   (context/wrap-scope context "wait-last-relation")
+   (channel-provider :relation-dataset)
+   (channel-provider :relation-dataset-final))
+
   (pipeline/funnel-go
    (context/wrap-scope context "funnel-dataset")
    [
-    (channel-provider :node-dataset)
-    (channel-provider :way-dataset)
-    (channel-provider :relation-dataset)]
+    (channel-provider :node-dataset-final)
+    (channel-provider :way-dataset-final)
+    (channel-provider :relation-dataset-final)]
    (channel-provider :dataset))
 
   (pipeline/reducing-go
@@ -1646,6 +1599,21 @@
    (var pss-dataset))
 
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+(count (:relations pss-dataset)) ;; 214
+(count (:ways pss-dataset)) ;; 5076
+(count (:nodes pss-dataset)) ;; 117532
+
+
+
+(doseq [[ref route] routes]
+  (println "processing:" ref)
+  (if-let [relation (first (filter #(= (get-in % [:tags "ref"]))
+                                   (vals (:relations pss-dataset))))]
+    (let [connected (second (osmeditor/check-connected? (:ways pss-dataset) relation))]
+      (println "using" (:id relation) "for" ref)
+      (println "connected:" connected))
+    (println "[WARN] no relation for" ref)))
 
 
 ;; 20220714
@@ -2008,14 +1976,49 @@
      "questions"
      (geojson/geojson
       [
-       (note->geojson-point 21.35987 45.12440
-                            "Т-1-3 На Угљешиној мапи трансверзала иде левом стазом")
-       (note->geojson-point 21.37826 45.10194
+       ;; notes from meeting with mile
+       #_(note->geojson-point 21.32800, 45.12407
+                            "pesacki put do parkinga, zaobilazi serpenditen")
+       #_(note->geojson-point 21.35563, 45.12348
+                            "uz potok do glavnog puta")
+       #_(note->geojson-point 21.34780, 45.12986
+                            (str
+                             "glavnim putem desno ka sumarevoj kuci</br>"
+                             "od sumareve kuce se ide na lisiciju glavu</br>"
+                             "posle djakovog vrha, ide lisicja glava"))
+       #_(note->geojson-point 21.41188, 45.12917
+                            "nastavljamo nazad ka poljanama, to da bude aleternativa")
+       #_(note->geojson-point 21.39903, 45.12275
+                            "ici ovim putem, za alternativu")
+       #_(note->geojson-point 21.35680, 45.12942
+                            "skinuti deo od doma do sumareve kucice, transverzala zavrsava u domu")
+       #_(note->geojson-point 21.38437, 45.13209
+                            "zemunica, toponim")
+       #_(note->geojson-point 21.37225, 45.12246
+                            (str
+                             "1-4-4 da bude kruzna</br>"
+                             "od hajduckih stena na branu pa na dom</br>"
+                             "koristiti"))
+       #_(note->geojson-point 21.36927, 45.11946
+                            (str
+                             "1-4-4 da bude kruzna</br>"
+                             "od hajduckih stena na branu pa na dom</br>"
+                             "koristiti"))       
+       
+       
+       #_(note->geojson-point 21.35987 45.12440
+                              "Т-1-3 На Угљешиној мапи трансверзала иде левом стазом")
+       ;; mile: transverzala ne treba da ide do doma vec do sumareve kuce pa zavrsava u domu
+       #_(note->geojson-point 21.37826 45.10194
                             "Т-1-3 Угљеша иде локалним путем преко Моје воде, Синпе долази путем од бране")
-       (note->geojson-point 21.41117, 45.12020
-                            "Т-1-3 Угљеша се пење директно на Чуку док Синпе иде према Пољанама")
-       (note->geojson-point 21.39946, 45.13636
-                            "T-1-3 OSM релација иде десном страном, Угљеша и Синпе левом")
+       #_(note->geojson-point 21.41117, 45.12020
+                              "Т-1-3 Угљеша се пење директно на Чуку док Синпе иде према Пољанама")
+       ;; mile: ostaje kako je uneseno
+       #_(note->geojson-point 21.39946, 45.13636
+                              "T-1-3 OSM релација иде десном страном, Угљеша и Синпе левом")
+       ;; mile: ok je da se ide levom stranom
+
+       
        #_(note->geojson-point )
 
        #_(note->geojson-point )
@@ -2041,39 +2044,40 @@
                                      env/*dataset-cloud-path*
                                      "mile_markovic" "TREKING Vrsacke Velika.gpx"))]
       (map/tile-overlay-gpx "TREKING Vrsacke Velika" is true true))
+    (with-open [is (fs/input-stream (path/child
+                                     env/*dataset-cloud-path*
+                                     "mile_markovic" "00 Vrsacke planine - STAZE+WP.gpx"))]
+      (map/tile-overlay-gpx "00 Vrsacke planine - STAZE+WP" is true true))
 
     ;; Т-1-3 Вршачка трансверзала - https://pss.rs/terenipp/vrsacka-transverzala/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       "T-1-3 Вршачка трансверзала" 13145926 true false false))
+       "T-1-3 Вршачка трансверзала" 13145926 false false false))
 
     ;; 1-4-1 Успон на Гудурички врх - https://pss.rs/terenipp/uspon-na-guduricki-vrh/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       "1-4-1 Успон на Гудурички врх" 14906749 true false false))
+       "1-4-1 Успон на Гудурички врх" 14906749 false false false))
 
     ;; 1-4-2 Манастир Средиште - Гудурички врх - https://pss.rs/terenipp/manastir-srediste-guduricki-vrh/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       "1-4-2 Манастир Средиште - Гудурички врх" 14911970 true false false))
+       "1-4-2 Манастир Средиште - Гудурички врх" 14911970 false false false))
 
     ;; 1-4-3 Манастир Месић - https://pss.rs/terenipp/manastir-mesic/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       "1-4-3 Манастир Месић" 14912124 true false false))
+       "1-4-3 Манастир Месић" 14912124 false false false))
 
-
-    
     ;; 1-4-4 Каменарице преко Лисич. главе - https://pss.rs/terenipp/kamenarice-preko-lisic-glave/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       "1-4-4 Каменарице преко Лисич. главе" 14916943 true false false))
-
+       "1-4-4 Каменарице преко Лисич. главе" 14916943 false false false))
 
     ;; 1-4-5 Гудурички врх преко Лисичије главе - https://pss.rs/terenipp/guduricki-vrh-preko-lisicije-glave/
     (binding [geojson/*style-stroke-color* map/color-red]
       (map/tile-overlay-osm-hiking-relation
-       "1-4-5 Гудурички врх преко Лисичије главе" 14921298 true false false))
+       "1-4-5 Гудурички врх преко Лисичије главе" 14921298 false false false))
 
     ))
 

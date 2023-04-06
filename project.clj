@@ -13,11 +13,10 @@
                  [org.clojure/tools.reader "1.3.0"]
 
                  [org.openstreetmap.osmosis/osmosis-pbf "0.47"]
-                 [de.topobyte/osm4j-pbf "1.2.0"]
                  [org.apache.commons/commons-compress "1.21"]
                  
                  [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
-                 [com.mungolab/clj-geo "0.1.0-SNAPSHOT"]
+                 [com.mungolab/clj-geo "0.2.0-SNAPSHOT"]
                  [com.mungolab/clj-cloudkit "0.1.0-SNAPSHOT"]
                  [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]]
   :plugins [[lein-cljsbuild "1.1.8"]]

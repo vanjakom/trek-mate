@@ -75,6 +75,7 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 #_(count my-finds-seq)
+;; 961 20221231
 ;; 952 20221116
 ;; 928 20220831
 ;; 914 20220611
@@ -1091,6 +1092,7 @@
       (:content (xml/parse is))))))
 
 #_(count garmin-finds-seq)
+;; 235 20221231
 ;; 208 20220611
 ;; 162
 
@@ -1228,6 +1230,7 @@
      trek-mate-finds-seq)))
 
 #_(count should-be-logged-seq)
+;; 20221231 30
 ;; 20221116 30
 ;; 20220831 56 
 ;; 20220611 75 ( after date cleanup )

@@ -18,6 +18,9 @@
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
    [clj-common.time :as time]
+
+   [clj-geo.import.osm :as osm]
+   
    [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.osmapi :as osmapi]
@@ -446,52 +449,8 @@
 #_(swap! cache {})
 #_(get-in (deref cache) [:relations 11258223])
 
-(defn check-connected?
-  "For given relation checks that all way members are connected, useful for hiking
-  relation checks. Returns vector of connected ways and boolean"
-  [way-map relation]
-  (println "relation: " (:id relation))
-  (loop [end-set nil
-         ;; todo quick fix for json serialized / deserialized data
-         ways (map :id (filter #(= (name (:type %)) "way") (:members relation)))
-         connected-way-seq []]
-    (let [way-id (first ways)
-          ways (rest ways)]
-      (if way-id
-        (if-let [way (get way-map way-id)]
-          (let [first-node (first (:nodes way))
-                last-node (last (:nodes way))]
-            (cond
-              (nil? end-set)
-              (recur
-               (conj #{first-node} last-node)
-               ways
-               (conj connected-way-seq way-id))
-
-              (contains? end-set first-node)
-              (recur
-               #{last-node}
-               ways
-               (conj connected-way-seq way-id))
-
-              (contains? end-set last-node)
-              (recur
-               #{first-node}
-               ways
-               (conj connected-way-seq way-id))
-
-              :else
-              (do
-                (println
-                 "\tunknown state"
-                 (map #(str "n" %) end-set)
-                 (str "n" first-node)
-                 (str "n" last-node))
-                [connected-way-seq false])))
-          (do
-            (println "\tway lookup failed:" way-id)
-            [connected-way-seq false]))
-        [connected-way-seq true]))))
+;; todo migrate all links to clj-geo
+(def check-connected? osm/check-connected?)
 
 (defn try-order-route [relation anchor]
   (println "ways before:" (clojure.string/join " " (map :id (:members relation))))

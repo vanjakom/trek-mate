@@ -55,13 +55,14 @@
 ;; 20221114 v2, fast and simple for start
 (map/define-map
   "dpm"
-  (map/tile-layer-osm-rs true)
+  (map/tile-layer-osm true)
   (map/tile-layer-bing-satellite false)
-  (map/tile-layer-osm false)
+  (map/tile-layer-osm-rs false)
   (map/tile-layer-opentopomap false)
   (map/tile-overlay-waymarked-hiking false)
   (map/tile-overlay-bounds false)
 
+  ;; E putevi
   (binding [geojson/*style-stroke-color* map/color-red]
     (map/tile-overlay-osm-hiking-relation
      "E7: Krupanj - Ljubovija - Valjevo - Divčibare" 14177412  true false false))
@@ -69,6 +70,7 @@
     (map/tile-overlay-osm-hiking-relation
      "E7: Divčibare – Rajac – Rudnik – Ovčar banja" 14180878  true false false))
 
+  ;; staze u registru PSS
   (binding [geojson/*style-stroke-color* map/color-red]
     (map/tile-overlay-osm-hiking-relation
      "3-22-1 Меморијал „Миле Обрадовић”" 11046762 true false false))
@@ -84,12 +86,27 @@
   (binding [geojson/*style-stroke-color* map/color-red]
     (map/tile-overlay-osm-hiking-relation
      "3-22-5 Дивчибаре центар - Планинарски дом „На Пољанама”" 14281022 true false false))
-
   (binding [geojson/*style-stroke-color* map/color-red]
     (map/tile-overlay-osm-hiking-relation
      "3-32-1 Субјел - Дивчибаре" 12918979 true false false))
-
   (binding [geojson/*style-stroke-color* map/color-red]
     (map/tile-overlay-osm-hiking-relation
      "3-20-7 Сувобор (врх) - Маљен, Дивчибаре (Пл. дом „Маглеш”)" 12525333 true false false))
+
+  ;; staze koje odrzava Divcibare Ski Resort
+  (binding [geojson/*style-stroke-color* map/color-red]
+    (map/tile-overlay-osm-hiking-relation
+     "Divcibare Ski Resort - Жута стаза" 12010768 true false false))
+  (binding [geojson/*style-stroke-color* map/color-red]
+    (map/tile-overlay-osm-hiking-relation
+     "Divcibare Ski Resort - Црвена стаза" 12894646 true false false))
+  (binding [geojson/*style-stroke-color* map/color-red]
+    (map/tile-overlay-osm-hiking-relation
+     "Divcibare Ski Resort - Плава стаза" 12894647 true false false))
+  (binding [geojson/*style-stroke-color* map/color-red]
+    (map/tile-overlay-osm-hiking-relation
+     "Divcibare Ski Resort - Бела стаза" 13918042 true false false))
+  (binding [geojson/*style-stroke-color* map/color-red]
+    (map/tile-overlay-osm-hiking-relation
+     "Divcibare Ski Resort - Стаза до центра" 13918050 true false false))   
   )

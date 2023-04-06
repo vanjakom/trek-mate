@@ -14,6 +14,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
+   [clj-geo.import.osm :as osm]
    [clj-geo.math.core :as math]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
@@ -59,7 +60,7 @@
       node-out (async/chan)
       way-out (async/chan)
       relation-out (async/chan)]
-  (osm-integration/read-osm-go
+  (osm/read-osm-go
    (context/wrap-scope context "export")
    osm-export-path
    export-in)

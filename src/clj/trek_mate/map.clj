@@ -561,7 +561,7 @@
     "\t\t<style>\n"
     "\t\t\t::-webkit-scrollbar {display: none;}\n"
     "\t\t\t.content {white-space: nowrap;overflow: hidden;}\n"
-    "\t\t\t.map {position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px; cursor: crosshair;}\n"
+    "\t\t\t.map {position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px; cursor: default;}\n"
 
     ;;; removed because of photo layer being broken when showing image
     ;;; not sure why it was added, probably becasue of tags popopu but it
