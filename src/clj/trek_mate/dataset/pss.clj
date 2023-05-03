@@ -18,7 +18,6 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-common.view :as view]
-   [trek-mate.integration.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
@@ -26,8 +25,9 @@
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
-   [trek-mate.integration.osm :as osm]
-   [trek-mate.integration.osmapi :as osmapi]
+   [clj-geo.import.geojson :as geojson]
+   [clj-geo.import.osm :as osm]
+   [clj-geo.import.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.map :as map]
    [trek-mate.osmeditor :as osmeditor]
@@ -42,154 +42,7 @@
 ;; used for http interface until migrated
 
 (def dataset-path (path/child env/*dataset-git-path* "pss.rs"))
-(def integration-git-path ["Users" "vanja" "projects" "osm-pss-integration" "dataset"])
-
-(def posts
-  (concat
-   (with-open [is (fs/input-stream (path/child dataset-path "posts.json"))]
-     (json/read-keyworded is))
-   (with-open [is (fs/input-stream (path/child dataset-path "posts-transversal.json"))]
-     (json/read-keyworded is))
-   (with-open [is (fs/input-stream (path/child dataset-path "posts-e-paths.json"))]
-     (json/read-keyworded is))))
-#_(count posts)
-;; 323 on 20221026
-;; 322 on 20220731
-;; 321 on 20220620
-;; 311 on 20220517, e paths added
-;; 280 on 20220410
-;; 278 on 20220321, transversals added
-;; 260 on 20220308
-;; 252 on 20210908
-;; 251 on 20210629
-;; 242 on 20210311
-;; 233 on 20201223
-
-
-;; 20220509 - club was not extracted into info path initially
-;; create lookup from posts
-(def clubs
-  (reduce
-  (fn [clubs post]
-    (let [post (update-in post [:postmeta] #(view/seq->map :label %))]
-      (assoc
-       clubs
-       (get-in post [:postmeta "Oznaka" :value])
-       (or
-        (get-in post [:postmeta "Društvo/klub" :value 0 :post_title])
-        ;; support transverzals
-        (get-in post [:postmeta "Društvo" :value 0 :post_title])))))
-  {}
-  posts))
-
-#_(run!
- println
- (into #{} (vals clubs)))
-#_(count (into #{} (vals clubs)))
-;; 52 20220620
-;; 52 20220517
-
-
-#_(first posts)
-#_(get clubs "T-3-2")
-#_(filter
- (fn [post]
-   (let [post (update-in post [:postmeta] #(view/seq->map :label %))]
-     (= (get-in post [:postmeta "Oznaka" :value])  "T-3-2")))
- posts)
-
-;; download route info and gpx if exists, supports restart
-#_(doseq [post posts]
-  (let [post (update-in post [:postmeta] #(view/seq->map :label %))
-        postid (:ID post)
-        title (:title post)
-        link (:permalink post)
-        oznaka (get-in post [:postmeta "Oznaka" :value])
-        info-path (path/child dataset-path "routes" (str oznaka ".json"))
-        content-path (path/child dataset-path "routes" (str oznaka ".html"))
-        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
-    (println oznaka "-" title)
-    (println "\t" postid)
-    (println "\t" link)
-    ;; depending on use case either try all without gpx or info file
-    ;; in case of gpx most htmls will change because of news
-    (if (not (empty? oznaka))
-      (if (not
-           (fs/exists? gpx-path)
-           ;; (fs/exists? info-path)
-           )
-        (do
-          (println "\tdownloading post ...")
-          (let [content (io/input-stream->string (http/get-as-stream link))
-                gpx (if-let [gpx (second
-                                  (re-find
-                                   #"<tr><th>GPX</th><td><a href=\"(.+?)\""
-                                   content))]
-                      (.trim gpx))
-                region (when-let [region (second
-                                          (re-find
-                                           #"<tr><th>Region</th><td>(.+?)</td>"
-                                           content))]
-                         (.trim region))
-                uredjenost (when-let [uredjenost (second
-                                                  (re-find
-                                                   #"<tr><th>Uređenost</th><td>(.+?)</td>"
-                                                   content))]
-                             (.trim uredjenost))
-                planina (or
-                         (when-let [planina (second
-                                             (re-find
-                                              #"<tr><th>Planina/predeo</th><td>(.+?)</td>"
-                                              content))]
-                           (.trim planina))
-                         (when-let [planine (second
-                                             (re-find
-                                              #"<tr><th>Planine/predeli</th><td>(.+?)</td>"
-                                              content))]
-                           (.trim planine)))
-                info {
-                      :id oznaka
-                      :gpx gpx
-                      :region region
-                      :title title
-                      :uredjenost uredjenost
-                      :planina planina
-                      :link link}]
-            (with-open [os (fs/output-stream info-path)]
-              (json/write-pretty-print info (io/output-stream->writer os)))
-            (with-open [os (fs/output-stream content-path)]
-              (io/write-string os content))
-            (when (not (empty? gpx))
-              (println "\tdownloading gpx ...")
-              (if (not (fs/exists? gpx-path))
-                (if-let [is (http/get-as-stream gpx)]
-                  (with-open [os (fs/output-stream gpx-path)]
-                    (io/copy-input-to-output-stream is os))
-                  (println "\tdownload failed ..."))
-                (println "\tallready downloaded ..."))))
-          
-          ;; old version, before 20201222
-          #_(let [pattern (java.util.regex.Pattern/compile "var terrainsObj = (\\{.+?(?=\\};)\\})")
-                  matcher (.matcher
-                           pattern
-                           (io/input-stream->string (http/get-as-stream link)))]
-              (.find matcher)
-              (let [entry (update-in
-                           (json/read-keyworded (.group matcher 1))
-                           [:post :postmeta]
-                           #(view/seq->map :label %))]
-                (with-open [os (fs/output-stream info-path)]
-                  (json/write-to-stream entry os))
-                (let [gpx-link (get-in entry [:post :postmeta "GPX" :value])]
-                  (when (not (empty? gpx-link))
-                    (println "\tdownloading gpx ...")
-                    (with-open [os (fs/output-stream gpx-path)]
-                      (io/copy-input-to-output-stream
-                       (http/get-as-stream gpx-link)
-                       os))))))
-          (Thread/sleep 3000))
-        (println "\tpost already downloaded ..."))
-      (println "[ERROR] ref not extracted for:" link))))
+(def integration-git-path ["Users" "vanja" "projects" "osm-pss-integration"])
 
 ;; find references to E7 and E4
 #_(doseq [post posts]
@@ -386,49 +239,10 @@
   (require 'clj-common.debug)
   (clj-common.debug/run-debug-server))
 
-
-;; create custom map for pss trails, html page
-;; two views each route as point and tiles, tile code should be reusable
-(do
-  (println "preparing routes")
-  (def routes
-    (reduce
-     (fn [routes info-path]
-       (println "processing" (path/path->string info-path))
-       (let [gpx-path (let [gpx-path (path/child
-                                      (path/parent info-path)
-                                      (.replace (last info-path) ".json" ".gpx"))]
-                        (when (fs/exists? gpx-path)
-                          gpx-path))
-             track (when gpx-path
-                     (with-open [is (fs/input-stream gpx-path)] (gpx/read-track-gpx is)))
-             location-seq (when track
-                            (apply concat (:track-seq track)))
-             first-location (when track
-                              (first location-seq))
-             info (with-open [is (fs/input-stream info-path)] (json/read-keyworded is))]
-         (assoc
-          routes
-          (:id info)
-          {
-           :id (:id info)
-           :gpx-path gpx-path
-           :info-path info-path
-           :title (:title info)
-           :link (:link info)
-           :location first-location
-           :uredjenost (:uredjenost info)
-           :region (:region info)
-           :planina (:planina info)
-           ;; 20220509 - club was not extracted into info path initially
-           :drustvo (get clubs (:id info))}))
-       )
-     {}
-     (filter
-      #(.endsWith (last %) ".json")
-      (fs/list (path/child dataset-path "routes")))))
-  (println "routes prepared"))
-
+;; generated with clj-scheduler, bridge to http interface for editing
+(def routes
+  (with-open [is (fs/input-stream (path/child integration-git-path "dataset" "pss-dataset.edn"))]
+                     (edn/read-object is)))
 
 #_(first routes)
 
@@ -447,14 +261,6 @@
 ;; compare tags, geom and guideposts ...
 
 ;; extract mapped routes
-
-(def osm-pbf-path (path/child
-                   env/*global-dataset-path*
-                   "geofabrik.de"
-                   "serbia-latest.osm.pbf"))
-
-(def active-pipeline nil)
-#_(clj-common.jvm/interrupt-thread "context-reporting-thread")
 
 (def relation-seq nil)
 #_(let [context (context/create-state-context)
@@ -506,7 +312,7 @@
 ;; using overpass for latest results
 #_(def relation-seq (overpass/query-string "relation[source=pss_staze];"))
 ;; support for matching other relations
-(def relation-seq (overpass/query-string "relation[type=route][route=hiking](area:3601741311);"))
+#_(def relation-seq (overpass/query-string "relation[type=route][route=hiking](area:3601741311);"))
 
 ;; to diff between file and overpass
 #_(let [file-set (into #{} (map :id relation-seq))
@@ -690,7 +496,7 @@
         (println "[EXCEPTION] Unable to compare: " id1 " with " id2)
         (throw (ex-info "Id compare problem" {:route1 route1 :route2 route2} e))))))
 
-(defn render-route
+#_(defn render-route
   "prepares hiccup html for route"
   [id]
   (let [route (get routes id)
@@ -880,64 +686,7 @@
    {
     :status 200
     :body (jvm/resource-as-stream ["web" "pss.html"])})
-  (compojure.core/GET
-   "/projects/pss/state"
-   _
-   (try
-     {
-      :status 200
-      :headers {
-                "Content-Type" "text/html; charset=utf-8"}
-      :body (let [[mapped-routes routes-with-gpx rest-of-routes]
-                  (reduce
-                   (fn [[mapped gpx rest-of] route]
-                     (if (some? (get relation-map (:id route)))
-                       [(conj mapped route) gpx rest-of]
-                       (if (some? (get route :gpx-path))
-                         [mapped (conj gpx route) rest-of]
-                         [mapped gpx (conj rest-of route)])))
-                   [[] [] []]
-                   (vals routes))]
-              (hiccup/html
-               [:html
-                [:body {:style "font-family:arial;"}
-                 [:br]
-                 [:div (str "rute koje poseduju gpx a nisu mapirane (" (count routes-with-gpx) ")")]
-                 [:br]
-                 [:table {:style "border-collapse:collapse;"}
-                  (map
-                   (comp
-                    render-route
-                    :id)
-                   (sort
-                    #(id-compare %1 %2)
-                    routes-with-gpx))]
-                 [:br]
-                 [:div (str "mapirane rute (" (count mapped-routes)  ")")]
-                 [:br]
-                 [:table {:style "border-collapse:collapse;"}
-                  (map
-                   (comp
-                    render-route
-                    :id)
-                   (sort
-                    #(id-compare %1 %2)
-                    mapped-routes))]
-                 [:br]
-                 [:div (str "ostale rute (" (count rest-of-routes) ")")]
-                 [:br]
-                 [:table {:style "border-collapse:collapse;"}
-                  (map
-                   (comp
-                    render-route
-                    :id)
-                   (sort
-                    #(id-compare %1 %2)
-                    rest-of-routes))]]]))}
-     (catch Exception e
-       (.printStackTrace e)
-       {:status 500})))
-  (compojure.core/GET
+  #_(compojure.core/GET
    "/projects/pss/projekti/valjevo"
    _
    (try
@@ -995,62 +744,10 @@
      (catch Exception e
        (.printStackTrace e)
        {:status 500})))
-  (compojure.core/GET
-   "/projects/pss/list/club"
-   _
-   {
-    :status 200
-    :headers {
-              "Content-Type" "text/html; charset=utf-8"}
-    :body (let [by-club (group-by
-                         :drustvo
-                         (vals routes))]
-            (hiccup/html
-             [:html
-              [:body {:style "font-family:arial;"}
-               [:br]
-               (map
-                (fn [[club routes]]
-                  (list
-                   [:div (str (or club "Nepoznat") " (" (count routes) ")")]
-                   [:br]
-                   [:table {:style "border-collapse:collapse;"}
-                    (map
-                     (comp
-                      render-route
-                      :id)
-                     routes)]
-                   [:br]))
-                by-club)]]))})
-  (compojure.core/GET
-   "/projects/pss/data/list"
-   _
-   {
-    :status 200
-    :headers {
-              "Content-Type" "application/json; charset=utf-8"}
-    :body (json/write-to-string
-           {
-            :type "FeatureCollection"
-            :features (map
-                       (fn [route]
-                         {
-                          :type "Feature"
-                          :properties (assoc
-                                       route
-                                       :status
-                                       (cond
-                                         (contains? relation-map (:id route)) "mapped"
-                                         (contains? note-map (:id route)) "noted"
-                                         :else "ready")
-                                       :osm-id
-                                       (get-in relation-map [(:id route) :id]))
-                          :geometry {
-                                     :type "Point"
-                                     :coordinates [(:longitude (:location route))
-                                                   (:latitude (:location route))]}})
-                       (vals routes))})})
-  (compojure.core/GET
+
+  ;; todo
+  
+  #_(compojure.core/GET
    "/projects/pss/check/:id"
    [id]
    (try
@@ -1218,11 +915,23 @@
       (map/geojson-gpx-layer "E4-11" is)))
   )
 
+
+;; snippet for loading of only ids
+#_(with-open [is (fs/input-stream (path/child integration-git-path "dataset" "relation-mapping.tsv"))]
+                   (map
+                    #(let [fields (.split % "\t")]
+                       (as/as-long (second fields)))
+                    (drop 1 (io/input-stream->line-seq is))))
+
 ;; report all routes sources
-(doseq [relation relation-seq]
+(doseq [relation (with-open [is (fs/input-stream (path/child env/*dataset-local-path* "osm-pss-extract" "relation.edn"))]
+                   (doall
+                    (map
+                     edn/read
+                     (io/input-stream->line-seq is))))]
   (let [id (:id relation)]
-    (println "assigning source for" id (get-in relation [:osm "ref"]) (get-in relation [:osm "name"]))
-    (if-let [ref (get-in relation [:osm "ref"])]
+    (println "assigning source for" id (get-in relation [:tags "ref"]) (get-in relation [:tags "name"]))
+    (if-let [ref (get-in relation [:tags "ref"])]
       (let [path (path/child env/*dataset-git-path* "pss.rs" "routes" (str ref ".gpx"))]
         (if (fs/exists? path)
           (swap!
@@ -1252,9 +961,9 @@
                           "</div>")}))
                      (take-nth 100 (apply concat track-seq))))))))))
           (println "[WARN] no path for" id "," ref)))
-      (println "[WARN] not pss trail" id (get-in relation [:osm "name"])))))
+      (println "[WARN] not pss trail" id (get-in relation [:tags "name"])))))
 
-#_(get (deref osmeditor/route-source-map) 14194463)
+#_(Get (deref osmeditor/route-source-map) 14194463)
 
 ;; report transversal relations in OSM
 #_(run!
@@ -1275,78 +984,6 @@
    (filter
     #(.startsWith (or (get-in % [:osm "ref"]) "") "T-")
     relation-seq))))
-
-;; #dataset osm-pss-trails-geometry
-;; prepare dataset
-;; extract relations, then nodes, then ways
-;; #osm-pss-map-v1 #mapbox
-(def serbia-extract-path (path/child env/*dataset-local-path* "serbia-extract"))
-(def osm-pss-extract-path (path/child env/*dataset-local-path* "osm-pss-extract"))
-(def osm-pss-map-path (path/child env/*dataset-local-path* "osm-pss-map"))
-#_(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)
-      resource-controller (pipeline/create-trace-resource-controller context)]
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read-node")
-   resource-controller
-   (path/child serbia-extract-path "node.edn")
-   (channel-provider :node-in))
-
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read-way")
-   resource-controller
-   (path/child serbia-extract-path "way.edn")
-   (channel-provider :way-in))
-
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read-relation")
-   resource-controller
-   (path/child serbia-extract-path "relation.edn")
-   (channel-provider :relation-in))
-
-  (osm/extract-recursive-from-split
-   (context/wrap-scope context "extract")
-   #{}
-   #{}
-   (into #{} (filter
-              some?
-              (map
-               (fn [route]
-                 (when-let [relation (get relation-map (:id route))]
-                   (:id relation)))
-               (vals routes))))
-   (channel-provider :node-in)
-   (channel-provider :way-in)
-   (channel-provider :relation-in)
-
-   (channel-provider :node-out)
-   (channel-provider :way-out)
-   (channel-provider :relation-out))
-  
-  (pipeline/write-edn-go
-   (context/wrap-scope context "write-node")
-   resource-controller
-   (path/child osm-pss-extract-path "node.edn")
-   (channel-provider :node-out))
-
-  (pipeline/write-edn-go
-   (context/wrap-scope context "write-way")
-   resource-controller
-   (path/child osm-pss-extract-path "way.edn")
-   (channel-provider :way-out))
-
-  (pipeline/write-edn-go
-   (context/wrap-scope context "write-relation")
-   resource-controller
-   (path/child osm-pss-extract-path "relation.edn")
-   (channel-provider :relation-out))
-  
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
-
-;; write-node write = 107337
-;; write-way write = 4634
-;; write-relation write = 200
 
 #_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
@@ -1467,7 +1104,8 @@
 
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(map/define-map
+;; todo migrate
+#_(map/define-map
   "osm-pss-map-raw"
   (map/tile-layer-osm true)
   (map/tile-layer-osm-rs false)
@@ -1481,8 +1119,9 @@
    true
    false))
 
+;; todo migrate
 ;; produced map.geojson is uploaded to mapbox and from that tiles created
-(map/define-map
+#_(map/define-map
   "osm-pss-map"
   (map/tile-layer-osm-rs true)
   (map/tile-layer-osm false)
@@ -1503,102 +1142,7 @@
 ;; two modes of operation, daily load latest serbia extract and to processing
 ;; hotfix mode, download fresh data for single trail, reprocess
 (def pss-dataset nil)
-(let [context (context/create-state-context)
-      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)        
-      channel-provider (pipeline/create-channels-provider)
-      resource-controller (pipeline/create-trace-resource-controller context)]
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read-node")
-   resource-controller
-   (path/child osm-pss-extract-path "node.edn")
-   (channel-provider :node))
 
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read-way")
-   resource-controller
-   (path/child osm-pss-extract-path "way.edn")
-   (channel-provider :way))
-
-  (pipeline/read-edn-go
-   (context/wrap-scope context "read-relation")
-   resource-controller
-   (path/child osm-pss-extract-path "relation.edn")
-   (channel-provider :relation))
-
-  (pipeline/reducing-go
-   (context/wrap-scope context "node-dataset")
-   (channel-provider :node)
-   (fn
-     ([] {})
-     ([state node]
-      (osmapi/dataset-append-node state node))
-     ([state] state))
-   (channel-provider :node-dataset))
-  
-  (pipeline/pass-last-go
-   (context/wrap-scope context "wait-last-node")
-   (channel-provider :node-dataset)
-   (channel-provider :node-dataset-final))
-  
-  (pipeline/reducing-go
-   (context/wrap-scope context "way-dataset")
-   (channel-provider :way)
-   (fn
-     ([] {})
-     ([state way]
-      (osmapi/dataset-append-way state way))
-     ([state] state))
-   (channel-provider :way-dataset))
-
-  (pipeline/pass-last-go
-   (context/wrap-scope context "wait-last-way")
-   (channel-provider :way-dataset)
-   (channel-provider :way-dataset-final))
-  
-  (pipeline/reducing-go
-   (context/wrap-scope context "relation-dataset")
-   (channel-provider :relation)
-   (fn
-     ([] {})
-     ([state relation]
-      (osmapi/dataset-append-relation state relation))
-     ([state] state))
-   (channel-provider :relation-dataset))
-
-  (pipeline/pass-last-go
-   (context/wrap-scope context "wait-last-relation")
-   (channel-provider :relation-dataset)
-   (channel-provider :relation-dataset-final))
-
-  (pipeline/funnel-go
-   (context/wrap-scope context "funnel-dataset")
-   [
-    (channel-provider :node-dataset-final)
-    (channel-provider :way-dataset-final)
-    (channel-provider :relation-dataset-final)]
-   (channel-provider :dataset))
-
-  (pipeline/reducing-go
-   (context/wrap-scope context "dataset")
-   (channel-provider :dataset)
-   (fn
-     ([] {})
-     ([state dataset]
-      (osmapi/merge-datasets state dataset))
-     ([state] state))
-   (channel-provider :wait-last))
-
-  (pipeline/pass-last-go
-   (context/wrap-scope context "wait-last")
-   (channel-provider :wait-last)
-   (channel-provider :capture))
-
-  (pipeline/capture-var-go
-   (context/wrap-scope context "capture")
-   (channel-provider :capture)
-   (var pss-dataset))
-
-  (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 (count (:relations pss-dataset)) ;; 214
 (count (:ways pss-dataset)) ;; 5076
@@ -1606,14 +1150,6 @@
 
 
 
-(doseq [[ref route] routes]
-  (println "processing:" ref)
-  (if-let [relation (first (filter #(= (get-in % [:tags "ref"]))
-                                   (vals (:relations pss-dataset))))]
-    (let [connected (second (osmeditor/check-connected? (:ways pss-dataset) relation))]
-      (println "using" (:id relation) "for" ref)
-      (println "connected:" connected))
-    (println "[WARN] no relation for" ref)))
 
 
 ;; 20220714

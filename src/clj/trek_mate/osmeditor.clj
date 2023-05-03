@@ -19,11 +19,12 @@
    [clj-common.pipeline :as pipeline]
    [clj-common.time :as time]
 
+   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.osm :as osm]
+   [clj-geo.import.osmapi :as osmapi]
    
-   [trek-mate.integration.geojson :as geojson]
+
    [trek-mate.integration.mapillary :as mapillary]
-   [trek-mate.integration.osmapi :as osmapi]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.tag :as tag]

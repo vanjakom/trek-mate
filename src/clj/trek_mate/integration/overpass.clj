@@ -8,8 +8,10 @@
    [clj-common.http :as http]
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
-   [trek-mate.integration.osm :as osm]
-   [trek-mate.integration.osmapi :as osmapi]))
+   [clj-geo.import.osm :as osm]
+   [clj-geo.import.osmapi :as osmapi]
+
+   trek-mate.integration.osm))
 
 (def ^:dynamic *endpoint* "http://overpass-api.de/")
 
@@ -68,8 +70,9 @@
 (defn way->location-seq
   [element]
   (let [tags (conj
-            (osm/osm-tags->tags (:tags element))
-            (str osm/osm-gen-way-prefix (:id element)))]
+              ;; todo
+              (trek-mate.integration.osm/osm-tags->tags (:tags element))
+              (str trek-mate.integration.osm/osm-gen-way-prefix (:id element)))]
     (map
      (fn [{longitude :lon latitude :lat}]
        {

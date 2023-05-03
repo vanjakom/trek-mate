@@ -16,7 +16,10 @@
    [trek-mate.tag :as tag]
    [clj-geo.import.osm :as import]
    [clj-geo.math.tile :as tile-math]
-   [trek-mate.integration.osmapi :as osmapi]))
+   [clj-geo.import.osmapi :as osmapi]))
+
+;; DEPRECATED, most of useful stuff migrated to clj-geo.import.osm
+;; if something more needed migrate
 
 ;;; old version with extraction
 #_(defn osm-tags->tags [osm-tags]
@@ -1530,38 +1533,4 @@
 
 (def extract-recursive-from-split import/extract-recursive-from-split)
 
-(defn resolve-way-geometry-in-memory-go
-  "First creates index from nodes on node-in. Afterwards performs node lookup
-  of ways on way-in. Adds :coords to ways containing longitude latitude pairs.
-  Writes ways to way-out"
-  [context node-in way-in way-out]
-  (async/go
-    (context/set-state context "init")
-    (loop [node-map {}
-           node (async/<! node-in)]
-      (context/set-state context "create-lookup")
-      (if node
-        (do
-          (context/increment-counter context "node-in")
-          (recur
-           (assoc node-map (:id node) (select-keys node [:longitude :latitude]))
-           (async/<! node-in)))
-        (loop [way (async/<! way-in)]
-          (if way
-            (do
-              (context/set-state context "resolve-way")
-              (context/increment-counter context "way-in")
-              (let [coords (map
-                            (fn [id]
-                              (if-let [node (get node-map id)]
-                                node
-                                (do
-                                  ;; should not happen
-                                  (context/increment-counter context "invalid-id")
-                                  {:longitude nil :latitude nil})))
-                            (:nodes way))]
-                (async/>! way-out (assoc way :coords coords))
-                (recur (async/<! way-in))))
-            (do
-              (async/close! way-out)
-              (context/set-state context "completion"))))))))
+(def resolve-way-geometry-in-memory-go import/resolve-way-geometry-in-memory-go)

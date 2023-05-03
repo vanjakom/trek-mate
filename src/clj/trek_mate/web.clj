@@ -16,6 +16,7 @@
    [clj-common.localfs :as fs]
    [clj-common.json :as json]
    [clj-common.as :as as]
+   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.tile :as tile]
    [clj-geo.math.tile :as tile-math]
    [trek-mate.dot :as dot]
@@ -23,7 +24,6 @@
    [trek-mate.pin :as pin]
    [trek-mate.storage :as storage]
    [trek-mate.tag :as tag]
-   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.osm :as osm]))
 
 ;;; todo

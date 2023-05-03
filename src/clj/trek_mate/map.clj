@@ -9,11 +9,11 @@
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
+   [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [trek-mate.dotstore :as dotstore]
    [trek-mate.env :as env]
-   [trek-mate.integration.geojson :as geojson]
-   [trek-mate.integration.osmapi :as osmapi]))
+   [clj-geo.import.osmapi :as osmapi]))
 
 (defn indent [value]
   (str "\t" value))
