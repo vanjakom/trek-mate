@@ -18,13 +18,13 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.location :as location]
+   [clj-geo.import.geojson :as geojson]
    [clj-geo.math.tile :as tile-math]
    ;; removed when switched to new dotstore implementation
    ;;[trek-mate.dot :as dot]
    [trek-mate.dotstore :as dotstore]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
-   [trek-mate.integration.geojson :as geojson]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
    [trek-mate.integration.overpass :as overpass]
@@ -76,6 +76,7 @@
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
 #_(count my-finds-seq)
+;; 1047 20230511
 ;; 1001 20230416
 ;; 961 20221231
 ;; 952 20221116
@@ -157,6 +158,228 @@
        (.printStackTrace e)
        []))))
 
+
+(defn simplify-adventure-wpt [wpt]
+    (let [result (assoc
+                  (reduce
+                   (fn [state tag]
+                     (assoc
+                      state
+                      (:tag tag)
+                      (first (:content tag))))
+                   {}
+                   (:content wpt))
+                  :longitude (as/as-double (get-in wpt [:attrs :lon]))
+                  :latitude (as/as-double (get-in wpt [:attrs :lat])))]
+      (assoc
+       result
+       :parent
+       (get-in result [:gsak:wptExtension :content 0]))))
+
+(defn adventure->location [adventure]
+  {
+   :longitude (:longitude adventure)
+   :latitude (:latitude adventure)
+   :tags
+   (into
+    #{
+      (str "!" (:desc adventure))}
+    (cond
+      (= (:type adventure) "Geocache|Lab Cache")
+      ["#adventure-cache" "#geocache" (str "#" (:name adventure))]
+      
+      (= (:type adventure) "Waypoint|Virtual Stage")
+      ["#todo" "#adventure-stage" (str "#" (:parent adventure))]
+      
+      :else
+      ["#adventure-unknown"]))})
+
+;; 20230511
+;; #vienna2023 traditional caches
+(let [context (context/create-state-context)
+      context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
+      channel-provider (pipeline/create-channels-provider)
+      resource-controller (pipeline/create-trace-resource-controller context)]
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-1")
+   (path/child
+    pocket-query-path
+    "22258980_vienna-1.gpx")
+   (channel-provider :funnel-in-1))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-2")
+   (path/child
+    pocket-query-path
+    "22258992_vienna-2.gpx")
+   (channel-provider :funnel-in-2))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-3")
+   (path/child
+    pocket-query-path
+    "22259005_vienna-3.gpx")
+   (channel-provider :funnel-in-3))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-4")
+   (path/child
+    pocket-query-path
+    "24531017_vienna-4.gpx")
+   (channel-provider :funnel-in-4))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-5")
+   (path/child
+    pocket-query-path
+    "24946267_vienna-5.gpx")
+   (channel-provider :funnel-in-5))
+  (geocaching/pocket-query-go
+   (context/wrap-scope context "0_read-6")
+   (path/child
+    pocket-query-path
+    "24531022_Belgrade - Vienna.gpx")
+   (channel-provider :funnel-in-6))
+  
+  (pipeline/funnel-go
+   (context/wrap-scope context "funnel")
+   [(channel-provider :funnel-in-1)
+    (channel-provider :funnel-in-2)
+    (channel-provider :funnel-in-3)
+    (channel-provider :funnel-in-4)
+    (channel-provider :funnel-in-5)
+    (channel-provider :funnel-in-6)]
+   (channel-provider :geocache-seq-filter))
+    
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "filter-my-finds")
+   (channel-provider :geocache-seq-filter)
+   (filter #(not (contains? my-finds-set (get-in % [:geocaching :code]))))
+   (channel-provider :geocache-seq-map))
+
+  (pipeline/transducer-stream-go
+   (context/wrap-scope context "geocache-seq-map")
+   (channel-provider :geocache-seq-map)
+   (map
+    (fn [geocache]
+      (if (and
+           (contains? (:tags geocache) "#last-found")
+           (contains? (:tags geocache) "#traditional-cache"))
+        (update-in geocache [:tags] conj "#geocache-sigurica")
+        geocache)))
+   (channel-provider :capture))
+  
+  (pipeline/capture-var-seq-atomic-go
+   (context/wrap-scope context "capture")
+   (channel-provider :capture)
+   (var geocache-seq))
+  
+  (alter-var-root #'active-pipeline (constantly (channel-provider))))
+
+(storage/import-location-v2-seq-handler
+   (map
+    #(add-tag
+      %
+      "#iteration-20230511")
+    (vals
+     (reduce
+      (fn [location-map location]
+        (let [location-id (util/location->location-id location)]
+          (if-let [stored-location (get location-map location-id)]
+            (do
+              #_(report "duplicate")
+              #_(report "\t" stored-location)
+              #_(report "\t" location)
+              (assoc
+               location-map
+               location-id
+               {
+                :longitude (:longitude location)
+                :latitude (:latitude location)
+                :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+            (assoc location-map location-id location))))
+      {}
+      geocache-seq))))
+
+;; 20230505
+;; #vienna2023 adventure lab
+;; adventure lab, downloaded from https://gcutils.de/lab2gpx/
+#_(do
+  ;; takes gpx downloaded from https://gcutils.de/lab2gpx/
+  ;; output format: GPX with Waypoints ?
+  ;; creates seq of both adventure cache and stages, filter by type
+  (def adventure-seq
+    (with-open [is (fs/input-stream (path/child env/*dataset-cloud-path*
+                                                "geocaching.com"
+                                                "adventurelab"
+                                                "vienna.gpx"))]
+      (doall
+       (map
+        simplify-adventure-wpt
+        (filter #(= (:tag %) :wpt) (:content (xml/parse is)))))))
+  (count adventure-seq) ;; 2541
+  ;; print mappings used later to filter adventures interested in
+
+  (run!
+   #(println (:name %) (:desc %))
+   (filter
+    #(= (:type %) "Geocache|Lab Cache")
+    adventure-seq))
+
+  (def location-seq (map adventure->location adventure-seq))
+  (count location-seq) ;; 2541
+  (first location-seq) ;; {:longitude 16.393666666667, :latitude 48.207416666667, :tags #{"#adventure-cache" "!Hundertwasser in Vienna" "#geocache" "#LCSNNY"}}
+
+  (map/define-map
+    "geocaching"
+    (map/tile-layer-osm true)
+    (map/geojson-style-extended-layer
+     "adventure labs"
+     (geojson/geojson
+      (map
+       geojson/location->point
+       location-seq))))
+
+  (storage/import-location-v2-seq-handler
+   (map
+    #(add-tag
+      %
+      "#iteration-20230511")
+    (vals
+     (reduce
+      (fn [location-map location]
+        (let [location-id (util/location->location-id location)]
+          (if-let [stored-location (get location-map location-id)]
+            (do
+              (report "duplicate")
+              (report "\t" stored-location)
+              (report "\t" location)
+              (assoc
+               location-map
+               location-id
+               {
+                :longitude (:longitude location)
+                :latitude (:latitude location)
+                :tags (clojure.set/union (:tags stored-location) (:tags location))}))
+            (assoc location-map location-id location))))
+      {}
+      location-seq)))))
+
+#_(map/define-map
+  "geocaching"
+  (map/tile-layer-osm true)
+  (map/geojson-style-extended-layer
+   "not found geocaches"
+   (geojson/geojson
+    (map
+     geojson/location->point
+     geocache-seq))
+   false
+   false)
+  (map/geojson-style-extended-layer
+   "adventure lab"
+   (geojson/geojson
+    (map
+     geojson/location->point
+     location-seq))
+   false
+   false))
 
 ;; 20230416
 ;; #dotstore #budapest2023
@@ -244,7 +467,7 @@
   
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
  (map
   #(add-tag
     %
@@ -624,7 +847,7 @@
    12)
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(web/register-dotstore
+#_(web/register-dotstore
  "geocache-bitset"
  (fn [zoom x y]
    (try
@@ -644,7 +867,7 @@
        {
         :status 500}))))
 
-(web/register-dotstore
+#_(web/register-dotstore
  "geocache-locset"
  (fn [zoom x y]
    (try
@@ -1018,7 +1241,7 @@
 #_(count geocache-not-found-seq) ;; 257 ;; 262 ;; 267
 
 
-(web/register-dotstore
+#_(web/register-dotstore
  "geocache-not-found"
  (fn [zoom x y]
    (let [[min-longitude max-longitude min-latitude max-latitude]
@@ -1239,31 +1462,53 @@
 
 ;; geocaches found on garmin
 (def garmin-finds-seq nil)
-#_(def garmin-finds-seq
-  (with-open [is (fs/input-stream env/garmin-geocache-path)]
-    (doall
-     (map
-      (fn [geocache]
-        {
-         :code (first (:content (first (filter #(= :code (:tag %)) (:content geocache)))))
-         :timestamp (let [date (first
-                                (:content
-                                 (first
-                                  (filter #(= :time (:tag %)) (:content geocache)))))
-                          splits (.split date "T")
-                          splits (.split (first splits) "-")
-                          formatted (str (nth splits 0) (nth splits 1) (nth splits 2))]
-                      formatted)
-         :status (first (:content (first (filter #(= :result (:tag %)) (:content geocache)))))
-         :comment (first (:content (first (filter #(= :comment (:tag %)) (:content geocache)))))})
-      (:content (xml/parse is))))))
+(def garmin-finds-seq
+  (vals
+   (reduce
+    (fn [state path]
+      (with-open [is (fs/input-stream path)]
+        (reduce
+         (fn [state geocache]
+           (update-in
+            state
+            [(:code geocache)]
+            (fn [previous]
+              (if (and
+                   (some? previous)
+                   (> (as/as-long (:timestamp previous)) (as/as-long (:timestamp geocache))))
+                previous
+                geocache))))
+         state
+         (map
+           (fn [geocache]
+             {
+              :code (first (:content (first (filter #(= :code (:tag %)) (:content geocache)))))
+              :timestamp (let [date (first
+                                     (:content
+                                      (first
+                                       (filter #(= :time (:tag %)) (:content geocache)))))
+                               splits (.split date "T")
+                               splits (.split (first splits) "-")
+                               formatted (str (nth splits 0) (nth splits 1) (nth splits 2))]
+                           formatted)
+              :status (first (:content (first (filter #(= :result (:tag %)) (:content geocache)))))
+              :comment (first (:content (first (filter #(= :comment (:tag %)) (:content geocache)))))})
+           (:content (xml/parse is))))))
+    {}
+    (filter
+     #(.startsWith (last %) "geocache_logs_")
+     (fs/list (path/child env/*dataset-cloud-path* "garmin" "geocache"))))))
 
 #_(count garmin-finds-seq)
-
+;; 259 20230511 - processing all files
 ;; 25 20230416 - reset of file in january
 ;; 235 20221231
 ;; 208 20220611
 ;; 162
+
+(run!
+ println
+ (sort-by #(as/as-long (:timestamp %)) garmin-finds-seq))
 
 (def trek-mate-finds-seq
   (let [tag-starting-with-fn (fn [prefix location]
@@ -1325,6 +1570,7 @@
 
 
 #_(count trek-mate-finds-seq)
+;; 872 20230511
 ;; 824 20230416 
 ;; 20220611 851, afer removing ones without date in format YYYYMMDD
 ;; 20220611 861
@@ -1381,15 +1627,18 @@
     "GC5W63P" ;; dva puta dolazi u logu, jednom je dnf, drugi put sam koristion #datum za tagove
 
     "GC1ZHZ" ;; typo in code, original GC1Z9HZ logged as found
+
+    "GCA587R" ;; added by mistake
     })
 
-#_(filter #(.contains (:code %) "GC1ZHZ") trek-mate-finds-seq)
+#_(filter #(.contains (:code %) "GC9E3YT") trek-mate-finds-seq)
 
 (def note-map
   {
    "GC67Y1Y" "logovan na opencaching, treba da se loguje"
    "GC4HQGC" "nismo ga nasli al nije upisan dnf"
-   "GCA1085" "dnf, kasnije disabled"})
+   "GCA1085" "dnf, kasnije disabled"
+   "GC9E3YT" "znamo final lokaciju al ga nismo nasli"})
 
 ;; report geocaches which should be logged but are not
 (def should-be-logged-seq
@@ -1405,6 +1654,7 @@
      trek-mate-finds-seq)))
 
 #_(count should-be-logged-seq)
+;; 14 20230511
 ;; 20230416 11 (garmin log reset)
 ;; 20221231 30
 ;; 20221116 30
