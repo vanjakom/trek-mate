@@ -189,14 +189,25 @@
       ["#adventure-cache" "#geocache" (str "#" (:name adventure))]
       
       (= (:type adventure) "Waypoint|Virtual Stage")
-      ["#todo" "#adventure-stage" (str "#" (:parent adventure))]
+      [
+       "#todo"
+       "#adventure-stage"
+       (str "#" (:parent adventure))
+       ;; name of parent
+       (get code-to-name-map (:parent adventure))]
       
       :else
       ["#adventure-unknown"]))})
 
+#_(adventure->location (first adventure-seq))
+;; {:longitude 16.393666666667, :latitude 48.207416666667, :tags #{"#adventure-cache" "!Hundertwasser in Vienna" "#geocache" "#LCSNNY"}}
+#_(adventure->location (second adventure-seq))
+;; {:longitude 16.393666666667, :latitude 48.207116666667, :tags #{"Hundertwasser in Vienna" "!1 #1: Hundertwasserhaus" "#todo" "#adventure-stage" "#LCSNNY"}}
+
+
 ;; 20230511
 ;; #vienna2023 traditional caches
-(let [context (context/create-state-context)
+#_(let [context (context/create-state-context)
       context-thread (pipeline/create-state-context-reporting-finite-thread context 5000)
       channel-provider (pipeline/create-channels-provider)
       resource-controller (pipeline/create-trace-resource-controller context)]
@@ -272,7 +283,7 @@
   
   (alter-var-root #'active-pipeline (constantly (channel-provider))))
 
-(storage/import-location-v2-seq-handler
+#_(storage/import-location-v2-seq-handler
    (map
     #(add-tag
       %
@@ -300,7 +311,7 @@
 ;; 20230505
 ;; #vienna2023 adventure lab
 ;; adventure lab, downloaded from https://gcutils.de/lab2gpx/
-#_(do
+(do
   ;; takes gpx downloaded from https://gcutils.de/lab2gpx/
   ;; output format: GPX with Waypoints ?
   ;; creates seq of both adventure cache and stages, filter by type
@@ -315,6 +326,18 @@
         (filter #(= (:tag %) :wpt) (:content (xml/parse is)))))))
   (count adventure-seq) ;; 2541
   ;; print mappings used later to filter adventures interested in
+
+  (def code-to-name-map
+    (into
+     {}
+     (map
+      (fn [adventure]
+        [(:name adventure) (:desc adventure)])
+      (filter
+       #(= (:parent %) (:name %))
+       adventure-seq
+       ))))
+  (count code-to-name-map) ;; 425
 
   (run!
    #(println (:name %) (:desc %))
@@ -347,9 +370,9 @@
         (let [location-id (util/location->location-id location)]
           (if-let [stored-location (get location-map location-id)]
             (do
-              (report "duplicate")
-              (report "\t" stored-location)
-              (report "\t" location)
+              #_(report "duplicate")
+              #_(report "\t" stored-location)
+              #_(report "\t" location)
               (assoc
                location-map
                location-id
