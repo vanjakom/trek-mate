@@ -150,7 +150,7 @@
 ;; Q3533204 - Triangle building, Paris
 ;; Q189476 - Abraj Al Bait towers, Mecca
 
-(def beograd (wikidata/id->location :Q3711))
+#_(def beograd (wikidata/id->location :Q3711))
 
 
 #_(do

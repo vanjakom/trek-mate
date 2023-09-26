@@ -35,6 +35,29 @@
 (defn location->location-id [location]
   (create-location-id (:longitude location) (:latitude location)))
 
+;; 20230613
+;; #trek-mate-pins #pins #prepare
+;; extract from marijana-drawings to trek-mate app
+;; NOT USED BECAUSE OF LOW QUALITY, PROBABLY IMAGE CONTEXT SHOULD BE IMPROVED
+#_(let [source (path/string->path
+              "/Users/vanja/Dropbox/marijana_drawings/trek_mate/pins/")
+      destination (path/string->path
+                   "/Users/vanja/projects/MaplyProject/TrekMate/TrekMate/pins.xcassets/")]
+  (doseq [pin (filter
+               #(= (last %) "sleep_pin@original.png")
+               (filter
+                #(.endsWith (last %) "@original.png")
+                (fs/list source)))]
+    (let [name (.replace (last pin) "@original.png" "")]
+      (println "processing" name)
+      (let [root-output (path/child destination (str name ".imageset"))]
+        (fs/mkdirs root-output)
+        (with-open [is (fs/input-stream pin)
+                    os (fs/output-stream (path/child root-output (str name "@3.png")))]
+          (let [image (draw/input-stream->image is)
+                resize (draw/create-thumbnail 75 image)]
+            (draw/write-png-to-stream resize os)))))))
+
 ;; 20220719
 ;; #trek-mate-pins #pins #prepare
 ;; script to extract pins from trek-mate iOS app to trek-mate-pins repo
