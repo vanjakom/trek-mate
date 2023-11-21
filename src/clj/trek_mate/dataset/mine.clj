@@ -950,8 +950,8 @@
  "mine"
  {
   :configuration {
-                  :longitude (:longitude beograd) 
-                  :latitude (:latitude beograd)
+                  :longitude (:longitude 22) 
+                  :latitude (:latitude 44)
                   :zoom 10}})
 
 (def my-dot-root-path (path/child env/*dataset-local-path* "dotstore" "my-dot"))
@@ -1858,5 +1858,5 @@
 ;; photo-map project
 
 (println "mine dataset loaded")
-
+(println "view at http://localhost:8085/map/mine")
 

@@ -22,3 +22,8 @@
 (defn ^:export test-fn [tag]
   (tag/parse-date tag))
 
+(defn ^:export generate-overpass [tags]
+  (tag/generate-overpass tags))
+
+(defn ^:export osm-tags->tags [tags]
+  (clj->js (tag/osm-tags->tags (js->clj tags))))

@@ -419,3 +419,91 @@
   (> (count (:tags entity)) 0))
 
 (defn is? [tag location] (contains? (:tags location) tag))
+
+;; 20231119 clean start wtih tags
+;; #tag -> [osm-tag]
+;; [osm-tag] -> [#tag]
+;; single tag can generate multiple osm tags ( used for overpass queries )
+;; multiple osm tags can result in single or multiple tags
+
+(defn tag->osm-tags [tag]
+  ;; todo ( incorporate with overpass )
+  )
+
+(defn generate-overpass [tags]
+  (str
+   (reduce
+    (fn [statement tag]
+      (cond
+        (= tag "#starbucks")
+        (str
+         statement
+         "nwr[amenity=cafe][name=Starbucks];"
+         "nwr[amenity=cafe][\"name:en\"=Starbucks];")
+        (= tag "#vapiano")
+        (str
+         statement
+         "nwr[amenity=restaurant][name=Vapiano];")
+        (= tag "#gas")
+        (str
+         statement
+         "nwr[amenity=fuel];")
+        (= tag "#playground")
+        (str
+         statement
+         "nwr[leisure=playground];")
+        (= tag "#camp")
+        (str
+         statement
+         "nwr[tourism=camp_site];")
+        :else
+        statement))
+    "("
+    tags)
+   ");"))
+
+#_(generate-overpass ["#vapiano"])
+;; "(nwr[amenity=restaurant][name=Vapiano];);"
+#_(generate-overpass ["#starbucks"])
+;; "(nwr[amenity=cafe][name=Starbucks];nwr[amenity=cafe][\"name:en\"=Starbucks];);"
+#_(generate-overpass ["#starbucks" "#vapiano"])
+;; "(nwr[amenity=cafe][name=Starbucks];nwr[amenity=cafe][\"name:en\"=Starbucks];nwr[amenity=restaurant][name=Vapiano];);"
+
+(defn osm-tags->tags [osm-tags]
+  (cond
+    (and
+     (= (get osm-tags "amenity") "cafe")
+     (or
+      (= (get osm-tags "name:en") "Starbucks")
+      (= (get osm-tags "name") "Starbucks")))
+    ["#starbucks" "#drink" "#cafe"]
+
+    (and
+     (= (get osm-tags "amenity") "restaurant")
+     (= (get osm-tags "name") "Vapiano"))
+    ["#vapiano" "#eat" "#restaurant"]
+
+    (= (get osm-tags "amenity") "restaurant")
+    ["#eat" "#restaurant"]
+    (= (get osm-tags "amenity") "cafe")
+    ["#drink" "#cafe"]
+    (= (get osm-tags "amenity") "fuel")
+    ["#gas"]
+    (= (get osm-tags "leisure") "playground")
+    ["#playground"]
+    (= (get osm-tags "tourism") "camp_site")
+    ["#camp"]
+
+    :else
+    [])
+  )
+
+#_(osm-tags->tags {"amenity" "restaurant"})
+;; ["#restaurant"]
+#_(osm-tags->tags {"amenity" "restaurant"
+                 "name" "Starbucks"})
+;; ["#restaurant"]
+#_(osm-tags->tags {"amenity" "cafe"
+                 "name" "Starbucks"})
+;;["#starbucks" "#cafe"]
+
