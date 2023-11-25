@@ -421,6 +421,9 @@
 (defn is? [tag location] (contains? (:tags location) tag))
 
 ;; 20231119 clean start wtih tags
+;; not using fns and vars from above
+;; use trek-mate.tag-test from clj to test mapping before using in app
+;; consult README.md for app deployment
 ;; #tag -> [osm-tag]
 ;; [osm-tag] -> [#tag]
 ;; single tag can generate multiple osm tags ( used for overpass queries )
@@ -444,6 +447,20 @@
         (str
          statement
          "nwr[amenity=restaurant][name=Vapiano];")
+        ;; https://www.openstreetmap.org/node/440956457
+        (= tag "#burgerking")
+        (str
+         statement
+         "nwr[amenity=fast_food][name=\"Burger King\"];"
+         "nwr[amenity=fast_food][brand=\"Burger King\"];"
+         "nwr[amenity=fast_food][\"brand:wikidata\"=Q177054];")
+        ;; https://www.openstreetmap.org/node/2480272255
+        (= tag "#nordsee")
+        (str
+         statement
+         "nwr[amenity=fast_food][name=Nordsee];"
+         "nwr[amenity=fast_food][brand=Nordsee];"
+         "nwr[amenity=fast_food][\"brand:wikidata\"=Q74866];")        
         (= tag "#gas")
         (str
          statement
@@ -456,6 +473,17 @@
         (str
          statement
          "nwr[tourism=camp_site];")
+
+        ;; support for check-in try to collect all POI
+        (= tag "#checkin")
+        (str
+         statement
+         "nwr[amenity];"
+         "nwr[travel];"
+         "nwr[shop];"
+         "nwr[tourism];"
+         "nwr[leisure];")
+
         :else
         statement))
     "("
@@ -469,34 +497,57 @@
 #_(generate-overpass ["#starbucks" "#vapiano"])
 ;; "(nwr[amenity=cafe][name=Starbucks];nwr[amenity=cafe][\"name:en\"=Starbucks];nwr[amenity=restaurant][name=Vapiano];);"
 
-(defn osm-tags->tags [osm-tags]
+(defn osm-tags->tags
+  "note: #checkin must be added to all"
+  [osm-tags]
   (cond
     (and
      (= (get osm-tags "amenity") "cafe")
      (or
       (= (get osm-tags "name:en") "Starbucks")
       (= (get osm-tags "name") "Starbucks")))
-    ["#starbucks" "#drink" "#cafe"]
-
+    ["#starbucks" "#drink" "#cafe" "#checkin"]
+    (and
+     (= (get osm-tags "amenity") "fast_food")
+     (or
+      (= (get osm-tags "name") "Burger King")
+      (= (get osm-tags "brand") "Burger King")))
+    ["#burgerking" "#eat" "#checkin"]
+    (and
+     (= (get osm-tags "amenity") "fast_food")
+     (or
+      (= (get osm-tags "name") "Nordsee")
+      (= (get osm-tags "brand") "Nordsee")
+      (= (get osm-tags "brand:wikidata") "Q74866")))
+    ["#nordsee" "#eat" "#checkin"]
+    
     (and
      (= (get osm-tags "amenity") "restaurant")
      (= (get osm-tags "name") "Vapiano"))
-    ["#vapiano" "#eat" "#restaurant"]
+    ["#vapiano" "#eat" "#restaurant" "#checkin"]
 
     (= (get osm-tags "amenity") "restaurant")
-    ["#eat" "#restaurant"]
+    ["#eat" "#restaurant" "#checkin"]
     (= (get osm-tags "amenity") "cafe")
-    ["#drink" "#cafe"]
+    ["#drink" "#cafe" "#checkin"]
     (= (get osm-tags "amenity") "fuel")
-    ["#gas"]
+    ["#gas" "#checkin"]
     (= (get osm-tags "leisure") "playground")
-    ["#playground"]
+    ["#playground" "#checkin"]
     (= (get osm-tags "tourism") "camp_site")
-    ["#camp"]
+    ["#camp" "#checkin"]
+
+    ;; leave it on the end
+    (or
+     (contains? osm-tags "amenity")
+     (contains? osm-tags "travel")
+     (contains? osm-tags "shop")
+     (contains? osm-tags "tourism")
+     (contains? osm-tags "leisure"))
+    ["#checkin"]
 
     :else
-    [])
-  )
+    []))
 
 #_(osm-tags->tags {"amenity" "restaurant"})
 ;; ["#restaurant"]
