@@ -10,6 +10,7 @@
    [clj-common.localfs :as fs]
    [clj-geo.import.osm :as osm]
    [clj-geo.import.osmapi :as osmapi]
+   [clj-geo.dotstore.humandot :as humandot]
 
    trek-mate.integration.osm))
 
@@ -276,3 +277,117 @@
           *endpoint*
           "/api/interpreter?data="
           (java.net.URLEncoder/encode full-query)))))))))
+
+(defn node [id]
+  (get-in
+   (request (str "node(" id ");"))
+   [:elements 0]))
+
+(defn node-coordinate [id]
+  (let [object (node id)]
+    (str (get-in object [:lon]) ", " (get-in object [:lat]))))
+
+(defn way [id]
+  (get-in
+   (request (str "way(" id ");"))
+   [:elements 0]))
+
+(defn way-coordinate [id]
+  (let [object (way id)]
+    (str (get-in object [:center :lon]) ", " (get-in object [:center :lat]))))
+
+
+(defn relation [id]
+  (get-in
+   (request (str "relation(" id ");"))
+   [:elements 0]))
+
+(defn relation-coordinate [id]
+  (let [object (relation id)]
+    (str (get-in object [:center :lon]) ", " (get-in object [:center :lat]))))
+
+#_(relation-coordinate 5520503) "14.5775503, 48.2281137"
+#_(node-coordinate 10832042062) "8.7819767, 50.1382388"
+#_(way-coordinate 694020017) "17.4541695, 47.859636"
+
+(defn prepare-humandot [osm-url]
+  (let [extract-tags (fn [tags]
+                       (filter
+                        some?
+                        (map
+                         #(% tags)
+                         [
+                          (fn [tags]
+                            (or
+                             (get tags :name:sr)
+                             (get tags :name:en)
+                             (get tags :name)))
+                          (fn [tags]
+                            (when-let [website (get tags :website)]
+                              website))
+                          (fn [tags]
+                            (when-let [website (get tags :contact:website)]
+                              website))
+                          (fn [tags]
+                            (when (= (get tags :leisure) "playground")
+                              "дечије игралиште"))
+                          (fn [tags]
+                            (when (= (get tags :shop) "agrarian")
+                              "пољопривредна апотека"))
+                          (fn [tags]
+                            (when (some? (get tags :shop))
+                              "#shop"))])))]
+    (cond
+      (.contains osm-url "/way/")
+      (let [id (second (.split osm-url "/way/"))]
+        (when-let [object (get-in
+                           (request (str "way(" id ");"))
+                           [:elements 0])]
+          (let [tags (get object :tags)]
+            (humandot/write-to-string
+             {
+              :longitude (get-in object [:center :lon])
+              :latitude (get-in object [:center :lat])
+              :tags (conj
+                     (extract-tags tags)
+                     osm-url)}))))
+
+      (.contains osm-url "/relation/")
+      (let [id (second (.split osm-url "/relation/"))]
+        (when-let [object (get-in
+                           (request (str "relation(" id ");"))
+                           [:elements 0])]
+          (let [tags (get object :tags)]
+            (humandot/write-to-string
+             {
+              :longitude (get-in object [:center :lon])
+              :latitude (get-in object [:center :lat])
+              :tags (conj
+                     (extract-tags tags)
+                     osm-url)}))))
+
+      (.contains osm-url "/node/")
+      (let [id (second (.split osm-url "/node/"))]
+        (when-let [object (get-in
+                           (request (str "node(" id ");"))
+                           [:elements 0])]
+          (let [tags (get object :tags)]
+            (humandot/write-to-string
+             {
+              :longitude (get-in object [:lon])
+              :latitude (get-in object [:lat])
+              :tags (conj
+                     (extract-tags tags)
+                     osm-url)}))))
+
+      :else
+      nil)))
+
+#_(println
+   (prepare-humandot "https://www.openstreetmap.org/way/1100813581"))
+
+#_(println
+ (prepare-humandot "https://www.openstreetmap.org/node/5258000352"))
+
+#_(println
+ (prepare-humandot "https://www.openstreetmap.org/relation/6622718"))

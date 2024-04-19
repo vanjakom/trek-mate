@@ -6,6 +6,8 @@
    [clojure.xml :as xml]
    [clojure.data.xml :as xmlv2]
    [hiccup.core :as hiccup]
+   [net.cgrand.enlive-html :as html]
+   
    [clj-common.2d :as draw]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -35,6 +37,10 @@
    [trek-mate.util :as util]
    [trek-mate.tag :as tag]
    [trek-mate.web :as web]))
+
+(def geocaching-dataset-path (path/child
+                     env/*dataset-cloud-path*
+                     "geocaching.com"))
 
 (def pocket-query-path (path/child
                         env/*global-my-dataset-path*
@@ -206,6 +212,166 @@
 ;; {:longitude 16.393666666667, :latitude 48.207416666667, :tags #{"#adventure-cache" "!Hundertwasser in Vienna" "#geocache" "#LCSNNY"}}
 #_(adventure->location (second adventure-seq))
 ;; {:longitude 16.393666666667, :latitude 48.207116666667, :tags #{"Hundertwasser in Vienna" "!1 #1: Hundertwasserhaus" "#todo" "#adventure-stage" "#LCSNNY"}}
+
+;; 20240318
+;; #adventure #myfinds
+;; trying to use trek-mate adventure logs intersection with logged adventures
+;; download logs from https://labs.geocaching.com/logs
+
+;; todo
+;; use code-to-name to find adventure 
+(def
+  stage-map
+  (into
+   {}
+   (let [adventure-seq (with-open [is (fs/input-stream (path/child env/*dataset-cloud-path*
+                                                                   "geocaching.com"
+                                                                   "adventurelab"
+                                                                   "vienna.gpx"))]
+                         (doall
+                          (map
+                           simplify-adventure-wpt
+                           (filter #(= (:tag %) :wpt) (:content (xml/parse is))))))
+         code-to-name-map (into
+                           {}
+                           (map
+                            (fn [adventure]
+                              [(:name adventure) (:desc adventure)])
+                            (filter
+                             #(= (:parent %) (:name %))
+                             adventure-seq)))
+         stage-seq (filter
+                    #(= (:type %) "Waypoint|Virtual Stage")
+                    adventure-seq)]
+     (map (fn [stage]
+            (let [adventure-name (get code-to-name-map (:parent stage))
+                  stage-name (.substring (:desc stage) 2)]
+              [
+               (str  adventure-name " " stage-name)
+               {
+                :stage stage-name
+                :adventure adventure-name
+                :url (:url stage)
+                :longitude (:longitude stage)
+                :latitude (:latitude stage)}]))
+          stage-seq))))
+
+(first stage-map)
+;; ["Traiskirchen TK-Gemeinsamkeit" {:stage "TK-Gemeinsamkeit", :adventure "Traiskirchen", :url "https://labs.geocaching.com/goto/Traiskirchen", :longitude 16.293166666667, :latitude 48.014366666667}]
+(count stage-map) ;; 2110
+
+#_(into
+ #{}
+ (with-open [is (fs/input-stream (path/child env/*dataset-cloud-path*
+                                                                      "geocaching.com"
+                                                                      "adventurelab"
+                                                                      "vienna.gpx"))]
+   (map :type
+        (doall
+     (map
+      simplify-adventure-wpt
+      (filter #(= (:tag %) :wpt) (:content (xml/parse is))))))))
+;; #{"Geocache|Lab Cache" "Waypoint|Virtual Stage"}
+
+(def logged-adventures
+  (into
+   {}
+   (mapcat
+    (fn [adventure]
+      (let [name (first
+                  (:content
+                   (first
+                    (html/select adventure [:span.adventure-title-text]))))]
+        (map
+         (fn [stage]
+           (let [stage-name (first (:content (first (html/select stage [:span]))))
+                 stage-url (:href (:attrs (first (html/select stage [:a]))))]
+             [
+              (str name " " stage-name)
+              {
+               :adventure name
+               :stage stage-name
+               :url (str "https://labs.geocaching.com" stage-url)}]))
+         (html/select adventure [:li]))))
+    (html/select
+     (html/html-snippet
+      (with-open [is (fs/input-stream (path/child geocaching-dataset-path
+                                                  "adventurelab" "AdventureFinds.html"))]
+        (io/input-stream->string is)))
+     [:section.epic]))))
+#_(count logged-adventures) ;; 246
+#_(first logged-adventures) ;; ["Kafane of Belgrade Kafana \"Dva Jelena\"" {:adventure "Kafane of Belgrade", :stage "Kafana \"Dva Jelena\"", :url nil}]
+
+(def stages-to-log
+  (filter
+   (fn [adventure]
+     (not (contains?
+           logged-adventures
+           (str (:adventure adventure) " " (:stage adventure)))))
+   (map
+    (fn [location]
+      (let [adventure-name (first (filter #(not (or
+                                                 (.startsWith % "@")
+                                                 (.startsWith % "!")
+                                                 (.startsWith % "#")))
+                                          (:tags location)))
+            stage-name (.substring
+                        (first (filter #(.startsWith % "!") (:tags location)))
+                        3)
+            stage (get stage-map (str adventure-name " " stage-name))]
+        {
+         :adventure adventure-name
+         :stage stage-name
+         :url (:url stage)
+         :location location}))
+    (filter
+     (fn [location]
+       (and
+        (contains? (:tags location) "#adventure-stage")
+        (some? (first (filter #(.startsWith % "@202305") (:tags location))))))
+     
+     (map
+      (fn [location] (update-in location [:tags] #(into #{} %)))
+      (with-open [is (fs/input-stream (path/child env/*dataset-cloud-path*
+                                                  "trek-mate"
+                                                  "container-backup"
+                                                  "2024-03-21.locations.json"))]
+        (json/read-keyworded is)))))))
+
+(count stages-to-log) ;; 18
+(first stages-to-log)
+#_{:adventure "Parks im Dritten", :stage "Botanischer Garten", :url "https://labs.geocaching.com/goto/8f3f66f4-8b27-4fed-abf7-166f7118fffd", :location {:latitude 48.1919, :tags #{"@20230518" "#LCERFR" "#todo" "Parks im Dritten" "#adventure-stage" "#iteration-20230511" "!1 Botanischer Garten"}, :longitude 16.383283333333}}
+
+
+;; todo
+;; for some stages name is not correctly extracted from trek-mate
+;; make it better when generating data for trek-mate
+(map/define-map
+  "adventure-to-log"
+  (mapcore/tile-layer-osm true)
+  (mapcore/geojson-style-extended-layer
+   "adventure labs"
+   (geojson/geojson
+    (map
+     (fn [stage]
+       (geojson/point
+        (get-in stage [:location :longitude])
+        (get-in stage [:location :latitude])
+        {
+         :marker-body
+         (str
+          (:adventure stage) "<br/>"
+          (:stage stage) "<br/>"
+          (:url stage) "<br/>"
+          (clojure.string/join
+           "<br/>"
+           (:tags (:location stage))))}))
+     stages-to-log))
+   true
+   true))
+
+;; view at
+;; http://localhost:7071/view/adventure-to-log
 
 
 ;; 20230901

@@ -70,10 +70,9 @@
    *global-my-dataset-path*
    "garmin-connect"))
 
+(def projects-path ["Users" "vanja" "projects"])
 
 
 (def server-topo-map (jvm/environment-variable "SERVER_TOPO_MAP"))
 (def server-topo-user (jvm/environment-variable "SERVER_TOPO_USER"))
 (def server-topo-pass (jvm/environment-variable "SERVER_TOPO_PASS"))
-
-(jvm/set-environment-variable "SERVER_TOPO_MAP" "http://topomap.uzice.net/{z}/{x}/{y}.png")

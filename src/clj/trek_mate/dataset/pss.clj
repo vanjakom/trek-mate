@@ -28,6 +28,7 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.osm :as osm]
    [clj-geo.import.osmapi :as osmapi]
+   [clj-geo.visualization.map :as mapcore]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.map :as map]
    [trek-mate.osmeditor :as osmeditor]
@@ -745,8 +746,7 @@
        (.printStackTrace e)
        {:status 500})))
 
-  ;; todo
-  
+  ;; not needed since order edit is showing gpx
   #_(compojure.core/GET
    "/projects/pss/check/:id"
    [id]
@@ -776,6 +776,41 @@
                                                    "routes"
                                                    (str ref ".gpx")))]
                     (map/geojson-gpx-layer "gpxLayer" is true true)))])})
+     (catch Exception e
+       (.printStackTrace e)
+       {:status 500})))
+  ;; added on 20231209
+  (compojure.core/GET
+   "/projects/pss/compare/:ref"
+   [ref]
+   (try
+     (let [github-url (str
+                        "https://raw.githubusercontent.com/vanjakom/osm-pss-integration/master/dataset/trails/"
+                        ref
+                        ".geojson")
+           local-path ["Users" "vanja" "projects" "osm-pss-integration"
+                       "dataset" "trails" (str ref ".geojson")]]
+       (let [github-geojson (with-open [is (http/get-as-stream github-url)]
+                              (json/read-keyworded is))
+             local-geojson (with-open [is (fs/input-stream local-path)]
+                             (json/read-keyworded is))]
+        {
+         :status 200
+         :headers {
+                   "Content-Type" "text/html; charset=UTF-8"}
+         :body (mapcore/render-raw
+                {
+                 :name (str "compare " ref)}
+                [
+                 (mapcore/tile-layer-osm)
+                 (mapcore/tile-layer-bing-satellite false)
+                 (mapcore/tile-overlay-waymarked-cycling false)
+                 (binding [geojson/*style-stroke-color* "#00FF00"
+                           geojson/*style-stroke-width* 4]
+                   (mapcore/geojson-layer "github" github-geojson true false))
+                 (binding [geojson/*style-stroke-color* "#FF0000"
+                           geojson/*style-stroke-width* 2]
+                   (mapcore/geojson-layer "local" local-geojson true true))])}))
      (catch Exception e
        (.printStackTrace e)
        {:status 500})))
@@ -1243,94 +1278,21 @@
       )))
   nil)
 
-
-(defn way-center [dataset id]
-  (let [way (get-in dataset [:ways id])
-        min-longitude (apply
-                       min
-                       (map
-                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
-                        (:nodes way)))
-        max-longitude (apply
-                       max
-                       (map
-                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
-                        (:nodes way)))
-        min-latitude (apply
-                       min
-                       (map
-                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
-                        (:nodes way)))
-        max-latitude (apply
-                       max
-                       (map
-                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
-                        (:nodes way)))]
-    {
-     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
-     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
-
-#_(way-center valjevske-dataset 641859168)
-
-(defn relation-center [dataset id]
-  (let [relation (get-in dataset [:relations id])
-        nodes (mapcat
-               (fn [member]
-                 (let [way (get-in dataset [:ways (:id member)])]
-                   (map
-                    #(get-in dataset [:nodes %])
-                    (:nodes way))))
-               (filter #(= (:type %) :way) (:members relation)))
-        min-longitude (apply min (map #(as/as-double (:longitude %)) nodes))
-        max-longitude (apply max (map  #(as/as-double (:longitude %)) nodes))
-        min-latitude (apply min (map  #(as/as-double (:latitude %)) nodes))
-        max-latitude (apply max (map  #(as/as-double (:latitude %)) nodes))]
-    {
-     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
-     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
-
-#_(relation-center valjevske-dataset 11835344)
-
-
-(defn element->location [dataset element]
-  (let [type (.substring element 0 1)
-        id (as/as-long (.substring element 1))]
-    (cond
-      (= type "n") (let [location (get-in dataset [:nodes id])]
-                     {
-                      :longitude (:longitude location)
-                      :latitude (:latitude location)
-                      :tags (:tags location)})
-      (= type "w") (let [way (get-in dataset [:ways id])
-                         center (way-center dataset id)]
-                     {
-                      :longitude (:longitude center)
-                      :latitude (:latitude center)
-                      :tags (:tags way)})
-      ;; todo
-      (= type "r") (let [relation (get-in dataset [:relations id])
-                         center (relation-center dataset id)]
-                     {
-                      :longitude (:longitude center)
-                      :latitude (:latitude center)
-                      :tags (:tags relation)})
-      :else nil)))
-
 ;; used to generate valjevske_planine.html
 ;; http://staze.rs/projects/valjevske_planine.html
 (apply
  (partial map/define-map "valjevske-planine")
  (concat
   [
-   (map/tile-layer-osm)
-   (map/geojson-style-extended-layer
+   (mapcore/tile-layer-osm)
+   (mapcore/geojson-style-extended-layer
     "смештај"
     (geojson/geojson
      (filter
       some?
       (map
        (fn [element]
-         (let [location (element->location valjevske-dataset element)]
+         (let [location (osmapi/element->location valjevske-dataset element)]
            (geojson/point
             (:longitude location)
             (:latitude location)
@@ -1338,14 +1300,14 @@
              :marker-body (or (get-in location [:tags "name"]) "смештај")
              :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/sleep.grey.png"})))
        smestaj-seq))))
-      (map/geojson-style-extended-layer
+      (mapcore/geojson-style-extended-layer
        "вода"
        (geojson/geojson
         (filter
          some?
          (map
           (fn [element]
-            (let [location (element->location valjevske-dataset element)]
+            (let [location (osmapi/element->location valjevske-dataset element)]
               (geojson/point
                (:longitude location)
                (:latitude location)
@@ -1353,14 +1315,14 @@
                 :marker-body (or (get-in location [:tags "name"]) "вода")
                 :marker-icon "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/water.grey.png"})))
          voda-seq))))   
-      (map/geojson-style-extended-layer
+      (mapcore/geojson-style-extended-layer
        "занимљивости"
        (geojson/geojson
         (filter
          some?
          (map
           (fn [element]
-            (let [location (element->location valjevske-dataset element)]
+            (let [location (osmapi/element->location valjevske-dataset element)]
               (geojson/point
                (:longitude location)
                (:latitude location)
@@ -1376,7 +1338,7 @@
             relation (get-in valjevske-dataset [:relations relation-id])]
         (binding [geojson/*style-stroke-color* "#FF0000"
                   geojson/*style-stroke-width* (if (.startsWith route "E") 4 2)]
-          (map/geojson-style-layer
+          (mapcore/geojson-style-layer
            (str (get-in relation [:tags "ref"]) " " (get-in relation [:tags "name"]))
            (geojson/geojson
             [
@@ -1449,7 +1411,7 @@
 ;; KT 6 - Manastir Malo Središte
 ;; KT 7 - Gudurički vrh
 ;; KT 8 - Manastir Mesić
-(let [poi-seq [
+#_(let [poi-seq [
                "n995944969" ;; Гудурички врх
                "w298995099" ;; Планинарски дом „Широко било“
                "w167736184" ;; Манастир Средиште
@@ -1500,7 +1462,7 @@
        some?
        (map
         (fn [element]
-          (let [location (element->location poi-dataset element)]
+          (let [location (osmapi/element->location poi-dataset element)]
             (geojson/point
              (:longitude location)
              (:latitude location)
