@@ -107,7 +107,8 @@
    "#eat" "eat"
    "#drink" "drink"
    "#sleep" "sleep"
-   "#view" "view"})
+   "#view" "view"
+   "#beach" "beach"})
 
 (defn extract-pin-name [tags]
   (or

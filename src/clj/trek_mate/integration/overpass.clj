@@ -335,11 +335,27 @@
                             (when (= (get tags :leisure) "playground")
                               "#playground"))
                           (fn [tags]
+                            (when (= (get tags :natural) "beach")
+                              "#beach"))
+                          (fn [tags]
+                            (when (= (get tags :natural) "cave_entrance")
+                              "#visit"))
+                          (fn [tags]
                             (when (= (get tags :shop) "agrarian")
                               "пољопривредна апотека"))
                           (fn [tags]
                             (when (some? (get tags :shop))
                               "#shop"))
+                          (fn [tags]
+                            (when (= (get tags :amenity) "bar")
+                              "#drink"))
+                          ;; amenity -> pub should result in #pub and #drink
+                          (fn [tags]
+                            (when (= (get tags :amenity) "pub")
+                              "#pub"))
+                          (fn [tags]
+                            (when (= (get tags :amenity) "pub")
+                              "#drink"))                          
                           (fn [tags]
                             (when (= (get tags :amenity) "restaurant")
                               "#eat"))
@@ -402,10 +418,10 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/839466645"))
+   (prepare-humandot "https://www.openstreetmap.org/way/303737952"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/12171353963"))
+ (prepare-humandot "https://www.openstreetmap.org/node/4818881822"))
 
 #_(println
    (prepare-humandot "https://www.openstreetmap.org/relation/8063258"))
