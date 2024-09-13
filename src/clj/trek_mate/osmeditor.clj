@@ -1628,7 +1628,20 @@
                 "Content-Type" (get-in response [:headers :Content-Type])} 
       :body (:body response)}
      {
-      :status 404}))))
+      :status 404}))
+
+  ;; 20240522
+  ;; added to support creation of diff static files to address PSS routes changes
+  (compojure.core/GET
+   "/route/source/:id"
+   [id]
+   (let [id (as/as-long id)
+         data (get (deref route-source-map) id)]
+     {
+      :status 200
+      :headers {
+                "Content-Type" "application/json; charset=utf-8"}
+      :body (json/write-to-string data)}))))
 
 (project-report
  "home"

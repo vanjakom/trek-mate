@@ -332,11 +332,29 @@
                             (when (= (get tags :leisure) "playground")
                               "дечије игралиште"))
                           (fn [tags]
+                            (when (= (get tags :leisure) "playground")
+                              "#playground"))
+                          (fn [tags]
                             (when (= (get tags :shop) "agrarian")
                               "пољопривредна апотека"))
                           (fn [tags]
                             (when (some? (get tags :shop))
-                              "#shop"))])))]
+                              "#shop"))
+                          (fn [tags]
+                            (when (= (get tags :amenity) "restaurant")
+                              "#eat"))
+                          (fn [tags]
+                            (when (= (get tags :amenity) "fast_food")
+                              "#eat"))                          
+                          (fn [tags]
+                            (when (= (get tags :tourism) "hotel")
+                              "#sleep"))
+                          (fn [tags]
+                            (when (= (get tags :tourism) "attraction")
+                              "#visit"))
+                          (fn [tags]
+                            (when (= (get tags :tourism) "viewpoint")
+                              "#view"))])))]
     (cond
       (.contains osm-url "/way/")
       (let [id (second (.split osm-url "/way/"))]
@@ -384,10 +402,11 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/1100813581"))
+   (prepare-humandot "https://www.openstreetmap.org/way/839466645"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/5258000352"))
+ (prepare-humandot "https://www.openstreetmap.org/node/12171353963"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/relation/6622718"))
+   (prepare-humandot "https://www.openstreetmap.org/relation/8063258"))
+

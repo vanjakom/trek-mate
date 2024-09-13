@@ -41,6 +41,7 @@
 
 ;; DEPRECATED, data download and processing moved to clj-scheduler.jobs.pss
 ;; used for http interface until migrated
+;; providing gpx for trails
 
 (def dataset-path (path/child env/*dataset-git-path* "pss.rs"))
 (def integration-git-path ["Users" "vanja" "projects" "osm-pss-integration"])

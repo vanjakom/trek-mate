@@ -69,6 +69,60 @@
 
 (def dotstore-root-path (path/child env/*dataset-local-path* "dotstore"))
 
+;; 20240911, during #sfcg2024, one more try of mapping tags to pins
+;; and map helper stuff
+
+(defn pin-grey-url [pin]
+  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".grey.png"))
+
+
+(defn pin-green-url [pin]
+  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".green.png"))
+
+(defn pin-concept-grey-url [pin]
+  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/"
+       pin
+       ".grey.png"))
+
+(defn pin-concept-green-url [pin]
+  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/"
+       pin
+       ".green.png"))
+
+(defn build-description [location]
+  (clojure.string/join
+   "</br>"
+   (map
+    (fn [tag]
+      (if (or
+           (.startsWith tag "http://")
+           (.startsWith tag "https://"))
+        (str "<a href='" tag "' target='blank'>" tag "</a>")
+        tag))
+    (:tags location))))
+
+(def pin-mapping
+  {
+   "#visit" "art" ;; use art instead new visit pin is made
+   "#eat" "eat"
+   "#drink" "drink"
+   "#sleep" "sleep"
+   "#view" "view"})
+
+(defn extract-pin-name [tags]
+  (or
+   (first
+    (filter
+     some?
+     (map #(get pin-mapping %) tags)))
+   "location"))
+
+#_(extract-pin-name []) ;; "location"
+#_(extract-pin-name ["test" "#sleep"]) ;; "sleep"
+
+
+
+
 (server/create-server
  7071
  (compojure.core/routes
