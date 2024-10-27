@@ -53,7 +53,21 @@
   (with-open [is (fs/input-stream (path/child garmin-track-path
                                               "Track_2024-09-12 182700.gpx"))]
     (binding [geojson/*style-stroke-color* geojson/color-red]
-      (mapcore/geojson-gpx-layer "boat to Žanjice" is true false)))  
+      (mapcore/geojson-gpx-layer "boat to Žanjice" is true false)))
+  (with-open [is (fs/input-stream (path/child garmin-track-path
+                                              "Track_2024-09-13 003253.gpx"))]
+    (binding [geojson/*style-stroke-color* geojson/color-red]
+      (mapcore/geojson-gpx-layer "around Herceg Novi" is true false)))
+  (with-open [is (fs/input-stream (path/child garmin-daily-path
+                                              "2024-09-13 00.33.01 Day.gpx"))]
+    (binding [geojson/*style-stroke-color* geojson/color-red]
+      (mapcore/geojson-gpx-layer "20240510" is true false)))
+  
+  (with-open [is (fs/input-stream (path/child garmin-track-path
+                                              "Track_2024-09-14 010318.gpx"))]
+    (binding [geojson/*style-stroke-color* geojson/color-red]
+      (mapcore/geojson-gpx-layer
+       "bus Herceg Novi -> Trebinje -> Beograd" is true false)))
   (mapcore/geojson-style-extended-layer
    "dots"
    (map

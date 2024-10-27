@@ -14,8 +14,7 @@
 
 ;; initial version copied from matici2024
 
-(def dotstore-path
-  ["Users" "vanja" "dataset-git" "dots"])
+(def dotstore-path ["Users" "vanja" "dataset-git" "dots"])
 
 (def public-maps-path ["Users" "vanja" "projects" "notes-public" "maps"])
 
