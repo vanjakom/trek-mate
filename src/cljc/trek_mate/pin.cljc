@@ -6,9 +6,23 @@
     #_[clj-common.2d :as draw]
     [trek-mate.tag :as tag]))
 
-(defn test [& args]
-  (println "skipping test"))
+;; 20241125
+;; restarted work on this, integrating trek-mate.map (latest mapping)
+;; to this old approach (used in trek-mate), goal is to have single mapping
+;; and work on it to see how complex would get
 
+;; functions should be wide as possible where util fns should help speed things
+;; up, corner cases could be fixed with using some special tag ("enforce-pin")
+;; or something to be able to solve particular case
+
+;; pin is actually two images (or more), first base (usually colored ring)
+;; and second is actual pin to display. additional images could be used or
+;; not depending on app
+
+;; todo go over pins and see for which we have images
+;; cleanup of pins
+
+;; additional functions should exist to convert assigned pins to image (url)
 
 ;;; base layer pin
 (def base-grey-pin "grey_base")
@@ -17,29 +31,29 @@
 
 
 ;;; geocaching integration
-(def geocache-pin "geocache_pin")
+(def geocache-pin "geocache")
 ;;; depricated
-(def geocache-dnf-pin "geocache_dnf_pin")
-(def geocache-found-pin "geocache_found_pin")
-(def geocache-puzzle-pin "geocache_puzzle_pin")
-(def geocache-personal-dnf-pin "geocache_personal_dnf_pin")
-(def geocache-personal-found-pin "geocache_personal_found_pin")
-(def geocache-personal-pin "geocache_personal_pin")
+(def geocache-dnf-pin "geocache_dnf")
+(def geocache-found-pin "geocache_found")
+(def geocache-puzzle-pin "geocache_puzzle")
+(def geocache-personal-dnf-pin "geocache_personal_dnf")
+(def geocache-personal-found-pin "geocache_personal_found")
+(def geocache-personal-pin "geocache_personal")
 
 ;;; urban integration
-(def sleep-pin "sleep_pin")
-(def camp-pin "camp_pin")
-(def rooftoptent-pin "rooftoptent_pin")
-(def eat-pin "eat_pin")
-(def drink-pin "drink_pin")
-(def gas-pin "gas_pin")
-(def church-pin "church_pin")
-(def history-pin "history_pin")
-(def art-pin "art_pin")
-(def shopping-pin "shopping_pin")
-(def parking-pin "parking_pin")
-(def toll-pin "toll_pin")
-(def visit-pin "visit_pin")
+(def sleep-pin "sleep")
+(def camp-pin "camp")
+(def rooftoptent-pin "rooftoptent")
+(def eat-pin "eat")
+(def drink-pin "drink")
+(def gas-pin "gas")
+(def church-pin "church")
+(def history-pin "history")
+(def art-pin "art")
+(def shopping-pin "shopping")
+(def parking-pin "parking")
+(def toll-pin "toll")
+(def visit-pin "visit") ;; todo
 
 ;;; global places
 (def airport-pin "airport_pin")
@@ -48,43 +62,43 @@
 (def highway-pin "highway_pin")
 
 ;;; outdoor
-(def water-pin "water_pin")
-(def rest-pin "rest_pin")
-(def creek-pin "creek_pin")
-(def view-pin "view_pin")
-(def sign-pin "sign_pin")
-(def road-end-pin "road-end_pin")
-(def offroad-pin "offroad_pin")
-(def footpath-pin "footpath_pin")
-(def crossroad-pin "crossroad_pin")
-(def road-pin "road_pin")
-(def cave-pin "cave_pin")
+(def water-pin "water")
+(def rest-pin "rest")
+(def creek-pin "creek")
+(def view-pin "view")
+(def sign-pin "sign")
+(def road-end-pin "road-end")
+(def offroad-pin "offroad")
+(def footpath-pin "footpath")
+(def crossroad-pin "crossroad")
+(def road-pin "road")
+(def cave-pin "cave")
 
 ;;; high level
-(def city-pin "city_pin")
-(def village-pin "village_pin")
-(def beach-pin "beach_pin")
-(def summit-pin "summit_pin")
-(def national-park-pin "national-park_pin")
+(def city-pin "city")
+(def village-pin "village")
+(def beach-pin "beach")
+(def summit-pin "summit")
+(def national-park-pin "national-park")
 
 ;;; integratons
-(def penny-press-pin "penny-press_pin")
-(def brompton-pin "brompton_pin")
+(def penny-press-pin "penny-press")
+(def brompton-pin "brompton")
 
 ;;; defaults
-(def personal-pin "personal_pin")
-(def no-tags-pin "no_tags_pin")
-(def trek-mate-original-pin "trekmate-original_pin")
-(def location-pin "location_pin")
+(def personal-pin "personal")
+(def no-tags-pin "no_tags") ;; todo no need for this tag
+(def trek-mate-original-pin "trekmate-original")
+(def location-pin "location")
 
 ;; activity
-(def bike-pin "bike_route_pin")
-(def hike-pin "hike_route_pin")
-(def kayak-pin "kayak_route_pin")
+(def bike-pin "bike_route")
+(def hike-pin "hike_route")
+(def kayak-pin "kayak_route")
 
 ;; mapping pins
-(def photo-pin "photo_pin")
-(def note-pin "note_pin")
+(def photo-pin "photo")
+(def note-pin "note")
 
 (defn base-pin-trigger [tags]
   (cond
@@ -169,11 +183,12 @@
 
 (defn personal-trigger [tags]
   (or
-   (if (contains? tags tag/tag-visit) visit-pin)))
+   ;; temporary until visit tag is made
+   (if (contains? tags tag/tag-visit) art-pin)))
 
 (defn calculate-pins
-  "For given set of tags calculates pins to display. First returned pin is base one, Rest of
-  pins are extracted based on tags"
+  "For given set of tags calculates pins to display. First returned pin is base 
+  one, Rest of pins are extracted based on tags"
   [tags]
   (filter
    some?
@@ -183,6 +198,14 @@
     [
      base-pin-trigger
      geocache-trigger
+
+
+     (fn [tags]
+       (when (contains? tags tag/tag-museum) art-pin))
+     (fn [tags]
+       (when (contains? tags tag/tag-attraction) art-pin))
+
+     
      urban-trigger
      global-trigger
      outdoor-trigger
@@ -199,11 +222,13 @@
      (fn [tags]
        (when (contains? tags tag/tag-note)
          note-pin))
-     
+
+     ;; 20241125 no need, using pending
      ;; no tags pin
-     (fn [tags]
-       (if (= (count tags) 0)
-         no-tags-pin))
+     #_(fn [tags]
+         (if (= (count tags) 0)
+           no-tags-pin))
+     
      (fn [tags]
        (if (some? (first (filter tag/personal-tag? tags))) personal-pin))
      (fn [tags]
@@ -212,50 +237,43 @@
      (fn [_]
        location-pin)])))
 
-;;; tests are outdated
-(test
-  "geocache dnf test"
-  (and
-    (=
-      (calculate-pins #{tag/tag-geocache tag/tag-geocache-dnf (tag/date-tag 20160415)})
-      (list geocache-dnf-pin geocache-pin location-pin))
-    (=
-      (calculate-pins #{tag/tag-geocache tag/tag-geocache-dnf tag/tag-check-in})
-      (list geocache-dnf-pin geocache-pin location-pin))))
+(defn test-base [case tags expected]
+  (let [result (calculate-pins tags)
+        base (first result)]
+    (when (not (= base expected))
+      (println "[TEST FAIL] expected base pin:" expected "got" base))))
 
-(test
-  "geocache found test"
-  (and
-    (=
-      (calculate-pins #{tag/tag-geocache (tag/date-tag 20160415)})
-      (list geocache-found-pin geocache-pin location-pin))
-    (=
-      (calculate-pins #{tag/tag-geocache tag/tag-check-in})
-      (list geocache-found-pin geocache-pin location-pin))))
+(defn test-main [case tags expected]
+  (let [result (calculate-pins tags)
+        main (second result)]
+    (when (not (= main expected))
+      (println "[TEST FAIL] expected main pin:" expected "got" main))))
 
-(test
-  "geocache test"
-  (=
-    (calculate-pins #{tag/tag-geocache})
-    (list geocache-pin location-pin)))
+;; new tests
+(test-main "general shop" #{tag/tag-shop} shopping-pin)
+(test-main "general art" #{tag/tag-museum} art-pin)
 
-(test
-  "geocache puzzle test"
-  (=
-    (calculate-pins #{tag/tag-geocache-puzzle})
-    (list geocache-puzzle-pin geocache-pin location-pin)))
+(test-base "geocache not found" #{tag/tag-geocache} base-grey-pin)
+(test-main "geocache not found" #{tag/tag-geocache} geocache-pin)
 
-(test
-  "geocache found personal test"
-  (=
-    (calculate-pins #{tag/tag-geocache-personal tag/tag-check-in})
-    (list geocache-personal-found-pin geocache-personal-pin geocache-pin location-pin)))
+(test-base "geocache found" #{tag/tag-geocache "20241125"} base-green-pin)
+(test-main "geocache found" #{tag/tag-geocache "20241125"} geocache-pin)
 
-(test
-  "geocache personal test"
-  (=
-    (calculate-pins #{tag/tag-geocache-personal})
-    (list geocache-personal-pin geocache-pin location-pin)))
+;; migrated from trek-mate.map
+(test-main "#visit -> art" #{tag/tag-visit} art-pin)
+(test-main "#museum -> art" #{tag/tag-museum} art-pin)
+(test-main "#attraction -> art" #{tag/tag-attraction} art-pin)
+(test-main "#eat" #{tag/tag-eat} eat-pin)
+(test-main "#drink" #{tag/tag-drink} drink-pin)
+(test-main "#sleep" #{tag/tag-sleep} sleep-pin)
+(test-main "#view" #{tag/tag-view} view-pin)
+(test-main "#beach" #{tag/tag-beach} beach-pin)
 
-
-
+(test-base
+ "geocache dnf"
+ #{tag/tag-geocache tag/tag-geocache-dnf "20241125"}
+ base-red-pin)
+(test-main
+ "geocache dnf"
+ #{tag/tag-geocache tag/tag-geocache-dnf "20241125"}
+ geocache-pin)

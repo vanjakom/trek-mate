@@ -1641,7 +1641,12 @@
       :status 200
       :headers {
                 "Content-Type" "application/json; charset=utf-8"}
-      :body (json/write-to-string data)}))))
+      :body (json/write-to-string data)}))
+
+  ;; 20241117
+  ;; dot extract from osm link
+  ;; todo
+  ))
 
 (project-report
  "home"

@@ -310,6 +310,10 @@
 #_(node-coordinate 10832042062) "8.7819767, 50.1382388"
 #_(way-coordinate 694020017) "17.4541695, 47.859636"
 
+
+;; use to create tags as it should be, do not assign for pin
+;; use trek-mate.map to map tag to pin
+;; todo document all possible tags, latest mapping, 20241124
 (defn prepare-humandot [osm-url]
   (let [extract-tags (fn [tags]
                        (filter
@@ -326,6 +330,9 @@
                             (when-let [website (get tags :website)]
                               website))
                           (fn [tags]
+                            (when-let [instagram (get tags :instagram)]
+                              instagram))
+                          (fn [tags]
                             (when-let [wikipedia (get tags :wikipedia)]
                               (osm/wikipedia-url wikipedia)))
                           (fn [tags]
@@ -334,6 +341,11 @@
                           (fn [tags]
                             (when-let [website (get tags :contact:website)]
                               website))
+                          (fn [tags]
+                            (when (and
+                                   (= (get tags :leisure) "playground")
+                                   (= (get tags :indoor) "yes"))
+                              "играоница"))
                           (fn [tags]
                             (when (= (get tags :leisure) "playground")
                               "дечије игралиште"))
@@ -348,7 +360,10 @@
                               "#visit"))
                           (fn [tags]
                             (when (= (get tags :shop) "agrarian")
-                              "пољопривредна апотека"))
+                              "#poljoapoteka"))
+                          (fn [tags]
+                            (when (= (get tags :shop) "garden_centre")
+                              "#rasadnik"))          
                           (fn [tags]
                             (when (some? (get tags :shop))
                               "#shop"))
@@ -372,8 +387,17 @@
                             (when (= (get tags :tourism) "hotel")
                               "#sleep"))
                           (fn [tags]
+                            (when (= (get tags :tourism) "motel")
+                              "#sleep"))                          
+                          (fn [tags]
                             (when (= (get tags :tourism) "attraction")
-                              "#visit"))
+                              "#attraction"))
+                          (fn [tags]
+                            (when (= (get tags :tourism) "zoo")
+                              "#attraction"))                          
+                          (fn [tags]
+                            (when (= (get tags :tourism) "museum")
+                              "#museum"))                          
                           (fn [tags]
                             (when (= (get tags :tourism) "viewpoint")
                               "#view"))])))]
@@ -424,10 +448,12 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/963881212"))
+   (prepare-humandot "https://www.openstreetmap.org/way/392690628"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/4512551513"))
+ (prepare-humandot "https://www.openstreetmap.org/node/8768586837"))
+
+#_12403478794
 
 #_(println
    (prepare-humandot "https://www.openstreetmap.org/relation/8063258"))

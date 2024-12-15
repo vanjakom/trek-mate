@@ -12,7 +12,8 @@
    [clj-geo.import.gpx :as gpx]
    [clj-geo.visualization.map :as map]
    [trek-mate.dotstore :as dotstore]
-   [trek-mate.env :as env]))
+   [trek-mate.env :as env]
+   [trek-mate.pin :as pin]))
 
 (def maps (atom {}))
 
@@ -101,22 +102,10 @@
         tag))
     (:tags location))))
 
-(def pin-mapping
-  {
-   "#visit" "art" ;; use art instead new visit pin is made
-   "#eat" "eat"
-   "#drink" "drink"
-   "#sleep" "sleep"
-   "#view" "view"
-   "#beach" "beach"})
-
-(defn extract-pin-name [tags]
-  (or
-   (first
-    (filter
-     some?
-     (map #(get pin-mapping %) tags)))
-   "location"))
+(defn extract-pin-name
+  "DEPRECATED, use pin/calculate-pins instead"
+  [tags]
+  (second (pin/calculate-pins (into #{} tags))))
 
 #_(extract-pin-name []) ;; "location"
 #_(extract-pin-name ["test" "#sleep"]) ;; "sleep"

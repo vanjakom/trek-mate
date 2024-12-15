@@ -6,8 +6,9 @@
        :cljs [
               cljs.reader])))
 
-(defn test [& args]
-  (println "skipping test"))
+(defn test [case result]
+  (when (not result)
+    (println "[TEST FAIL]" case)))
 
 ;;; application tags, sometimes not shown to user 
 ;;; |<TAG>
@@ -25,6 +26,10 @@
 ;;; private tag, should be not uploaded, used to mark whole location as private
 ;;; $private
 
+
+
+;; 20241126
+;; continued work, using tags to gather all extract functions at one place
 
 
 ;;; used to specify which actual tags user added or removed
@@ -162,7 +167,9 @@
 (def tag-trekmate-original "#trekmate-original")
 
 ;;; to be used when planning road trips
+;; todo deprecated, use attraction instead, visit to wide
 (def tag-visit "#visit")
+(def tag-attraction "#attraction")
 ;;; same purpose as initially #visit but personal
 (def tag-todo "@todo")
 
@@ -231,6 +238,10 @@
     (contains? tags activity-train) activity-train
     :else nil))
 
+
+(defn tag? [tag]
+  (string/starts-with? tag tag-prefix-defined))
+
 (defn personal-tag? [tag]
   (string/starts-with? tag tag-prefix-personal))
 
@@ -245,6 +256,8 @@
 (defn personal-tag->title [tag]
   (subs tag 1))
 
+;; todo
+;; date should not be tag? just date in YYYYMMDD format
 (defn date-tag [date]
   (personal-tag date))
 
@@ -255,14 +268,25 @@
     (catch #?(:clj Exception :cljs :default) e nil)))
 
 (defn date-tag? [tag]
-  (and
-   (personal-tag? tag)
-   (= (count tag) 9)
-   (some? (parse-date (subs tag 1)))))
+  (or
+   ;; old personal approach
+   (and
+    (or
+     (personal-tag? tag)
+     (tag? tag))
+    (= (count tag) 9)
+    (some? (parse-date (subs tag 1))))
+   (and
+    (= (count tag) 8)
+    (some? (parse-date tag)))))
+
+(test "personal date, right approach" (date-tag? "@20241125"))
+(test "tag date, DEPRECATED" (date-tag? "#20241125"))
+(test "simple date, used a bit" (date-tag? "20241125"))
 
 ;;; depricated
 #_(defn private? [tags]
-  (contains? tags tag-private))
+    (contains? tags tag-private))
 
 (declare name-tag->title)
 (declare name-tag?)
@@ -334,16 +358,15 @@
 (defn geonames-tag [geonames-id]
   (link-tag "geonames" geonames-id))
 
-
-
 ;;; test for url tag
 (let [tag (url-tag "TrekMate website" "http://www.trek-mate.eu")]
   (test
    "url tag parsing test"
-   (= tag "|url|TrekMate website|http://www.trek-mate.eu")
-   (= (url-tag->title tag) "TrekMate website")
-   (= (url-tag->url tag) "http://www.trek-mate.eu")
-   (url-tag? tag)))
+   (and
+    (= tag "|url|TrekMate website|http://www.trek-mate.eu")
+    (= (url-tag->title tag) "TrekMate website")
+    (= (url-tag->url tag) "http://www.trek-mate.eu")
+    (url-tag? tag))))
 
 (defn defined-tag? [tag]
   (string/starts-with? tag tag-prefix-defined))
@@ -395,9 +418,10 @@
 
 (test
  "tags cleanup routine"
+ (and
   (= (cleanup-tags #{"#pending" "#trekmate-original"}) #{})
   (= (cleanup-tags #{"#trekmate-original"}) #{})
-  (= (cleanup-tags #{"#pending" "#trekmate-original" "test"}) #{"test" "#trekmate-original"}))
+  (= (cleanup-tags #{"#pending" "#trekmate-original" "test"}) #{"test" "#trekmate-original"})))
 
 (defn remove-name-tag [tags]
   (into
@@ -433,121 +457,215 @@
   ;; todo ( incorporate with overpass )
   )
 
+;; mapping tags -> osm tags
+
+;; todo da li da razdvojim ove querije i da se svodi na pretragu #lidl taga ...
+
+(def simple-mapping
+  ;; sequence of mappings
+  ;; each mapping has single trek-mate tag which follows number of key value
+  ;; osm pairs AND is applied between pairs, if only key is needed use string
+  ;; ( example: ["#checkin" ["building"] ["name"]) in case OR is needed divide
+  ;; in multiple mappings, trek-mate tag can have duplicates
+  [
+   ;; general poi
+   ["#gas" ["amenity" "fuel"]]
+   ["#prodavnica" ["shop" "supermarket"]]
+   ["#playground" ["leisure" "playground"]]
+   ["#camp" ["tourism" "camp_site"]]
+    
+   ;; brands
+   ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
+   ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
+   ;; https://www.openstreetmap.org/way/730020050
+   ["#starbucks" ["amenity" "cafe"] ["name" "Starbucks"]]
+   ["#starbucks" ["amenity" "cafe"] ["name:en" "Starbucks"]]
+   ;; https://www.openstreetmap.org/node/6407770286
+   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]
+   ;; https://www.openstreetmap.org/node/440956457
+   ["#burgerking" ["amenity" "fast_food"] ["name" "Burger King"]]
+   ["#burgerking" ["amenity" "fast_food"] ["brand" "Burger King"]]
+   ["#burgerking" ["amenity" "fast_food"] ["brand:wikidata" "Q177054"]]
+   ;; https://www.openstreetmap.org/node/2480272255
+   ["#nordsee" ["amenity" "fast_food"] ["name" "Nordsee"]]
+   ["#nordsee" ["amenity" "fast_food"] ["brand" "Nordsee"]]
+   ["#nordsee" ["amenity" "fast_food"] ["brand:wikidata" "Q74866"]]
+   ;; https://www.openstreetmap.org/node/2480272255
+   ["#obi" ["shop" "doityourself"] ["name" "OBI"]]
+   ;; https://www.openstreetmap.org/way/38921810
+   ["#hornbach" ["shop" "doityourself"] ["name" "Hornbach"]]
+   ;; https://www.openstreetmap.org/way/23037095
+
+   ;; checkin
+   ["#checkin" ["amenity"]]
+   ["#checkin" ["travel"]]
+   ["#checkin" ["shop"]]
+   ["#checkin" ["tourism"]]
+   ["#checkin" ["leisure"]]
+   ["#checkin" ["barrier" "border_control"]]
+   ["#checkin" ["public_transport" "station"]]
+   ["#checkin" ["building"] ["name"]]])
+
+#_(defn simple-mapping->overpass [mapping]
+    (cond
+      (list? mapping)
+      (apply
+       str
+       (map
+        simple-mapping->overpass
+        mapping))
+
+      (vector? mapping)
+      (str
+       "nwr"
+       (apply
+        str
+        (map (fn [[tag value]] (str "[" tag "=" value "]")) mapping))
+       ";")
+      ;; todo
+      :else
+      nil))
+
+(defn simple-mapping->overpass [mapping]
+  (let [[tag & pair-seq] mapping]
+    (str
+     "nwr"
+     (apply
+      str
+      (map
+       (fn [pair]
+         (let [[key value] pair]
+           (cond
+             (nil? value)
+             (str "[\"" key "\"]")
+             :else
+             (str "[\"" key "\"=\"" value "\"]"))))
+       pair-seq))
+     ";")))
+
+#_(simple-mapping->overpass ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]])
+;; "nwr[shop=supermarket][name=Lidl];"
+(simple-mapping->overpass ["#checkin" ["building"] ["name"]])
+;; "nwr[\"building\"][\"name\"];"
+
+(defn mappings-per-tag [tag]
+  (filter
+   (fn [[mapping-tag & pair-seq]]
+     (= tag mapping-tag))
+   simple-mapping))
+
+#_(mappings-per-tag "#lidl")
+;; (
+;; ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
+;; ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]])
+
 (defn generate-overpass [tags]
   (str
    (reduce
     (fn [statement tag]
-      (cond
-        (= tag "#starbucks")
-        (str
-         statement
-         "nwr[amenity=cafe][name=Starbucks];"
-         "nwr[amenity=cafe][\"name:en\"=Starbucks];")
-        (= tag "#vapiano")
-        (str
-         statement
-         "nwr[amenity=restaurant][name=Vapiano];")
-        ;; https://www.openstreetmap.org/node/440956457
-        (= tag "#burgerking")
-        (str
-         statement
-         "nwr[amenity=fast_food][name=\"Burger King\"];"
-         "nwr[amenity=fast_food][brand=\"Burger King\"];"
-         "nwr[amenity=fast_food][\"brand:wikidata\"=Q177054];")
-        ;; https://www.openstreetmap.org/node/2480272255
-        (= tag "#nordsee")
-        (str
-         statement
-         "nwr[amenity=fast_food][name=Nordsee];"
-         "nwr[amenity=fast_food][brand=Nordsee];"
-         "nwr[amenity=fast_food][\"brand:wikidata\"=Q74866];")        
-        (= tag "#gas")
-        (str
-         statement
-         "nwr[amenity=fuel];")
-        (= tag "#playground")
-        (str
-         statement
-         "nwr[leisure=playground];")
-        (= tag "#camp")
-        (str
-         statement
-         "nwr[tourism=camp_site];")
-
-        ;; support for check-in try to collect all POI
-        (= tag "#checkin")
-        (str
-         statement
-         "nwr[amenity];"
-         "nwr[travel];"
-         "nwr[shop];"
-         "nwr[tourism];"
-         "nwr[leisure];")
-
-        :else
-        statement))
+      (str
+       statement
+       (apply
+        str
+        (map
+         simple-mapping->overpass
+         (mappings-per-tag tag)))))
     "("
     tags)
    ");"))
 
+
+
 #_(generate-overpass ["#vapiano"])
-;; "(nwr[amenity=restaurant][name=Vapiano];);"
+;; "(nwr[\"amenity\"=\"restaurant\"][\"name\"=\"Vapiano\"];);"
 #_(generate-overpass ["#starbucks"])
-;; "(nwr[amenity=cafe][name=Starbucks];nwr[amenity=cafe][\"name:en\"=Starbucks];);"
+;; "(nwr[\"amenity\"=\"cafe\"][\"name\"=\"Starbucks\"];nwr[\"amenity\"=\"cafe\"][\"name:en\"=\"Starbucks\"];);"
 #_(generate-overpass ["#starbucks" "#vapiano"])
-;; "(nwr[amenity=cafe][name=Starbucks];nwr[amenity=cafe][\"name:en\"=Starbucks];nwr[amenity=restaurant][name=Vapiano];);"
+;; "(nwr[\"amenity\"=\"cafe\"][\"name\"=\"Starbucks\"];nwr[\"amenity\"=\"cafe\"][\"name:en\"=\"Starbucks\"];nwr[\"amenity\"=\"restaurant\"][\"name\"=\"Vapiano\"];);"
 
 (defn osm-tags->tags
   "note: #checkin must be added to all"
   [osm-tags]
-  (cond
-    (and
-     (= (get osm-tags "amenity") "cafe")
-     (or
-      (= (get osm-tags "name:en") "Starbucks")
-      (= (get osm-tags "name") "Starbucks")))
-    ["#starbucks" "#drink" "#cafe" "#checkin"]
-    (and
-     (= (get osm-tags "amenity") "fast_food")
-     (or
-      (= (get osm-tags "name") "Burger King")
-      (= (get osm-tags "brand") "Burger King")))
-    ["#burgerking" "#eat" "#checkin"]
-    (and
-     (= (get osm-tags "amenity") "fast_food")
-     (or
-      (= (get osm-tags "name") "Nordsee")
-      (= (get osm-tags "brand") "Nordsee")
-      (= (get osm-tags "brand:wikidata") "Q74866")))
-    ["#nordsee" "#eat" "#checkin"]
+  ;; todo should tags be set or list ( list gives possibility to combine tags
+  ;; in order but addes a lot of complexity
+  ;; going with set for now
+
+  ;; todo add checkin on level of trek-mate app?
+  (into
+   #{}
+   (cond
+     ;; brands, must be added on both places generate-overpass
+     ;; and osm-tags->tags, improve
+     (and
+      (= (get osm-tags "amenity") "cafe")
+      (or
+       (= (get osm-tags "name:en") "Starbucks")
+       (= (get osm-tags "name") "Starbucks")))
+     ["#starbucks" "#drink" "#cafe" "#checkin"]
+     (and
+      (= (get osm-tags "amenity") "fast_food")
+      (or
+       (= (get osm-tags "name") "Burger King")
+       (= (get osm-tags "brand") "Burger King")))
+     ["#burgerking" "#eat" "#checkin"]
+     (and
+      (= (get osm-tags "amenity") "fast_food")
+      (or
+       (= (get osm-tags "name") "Nordsee")
+       (= (get osm-tags "brand") "Nordsee")
+       (= (get osm-tags "brand:wikidata") "Q74866")))
+     ["#nordsee" "#eat" "#checkin"]
+     (and
+      (= (get osm-tags "amenity") "restaurant")
+      (= (get osm-tags "name") "Vapiano"))
+     ["#vapiano" "#eat" "#restaurant" "#checkin"]
+     (and
+      (= (get osm-tags "shop") "doityourself")
+      (= (get osm-tags "name") "OBI"))
+     ["#obi" "#shopping" "#checkin"]
+     (and
+      (= (get osm-tags "shop") "doityourself")
+      (= (get osm-tags "name") "Hornbach"))
+     ["#hornbach" "#shopping" "#checkin"]
     
-    (and
      (= (get osm-tags "amenity") "restaurant")
-     (= (get osm-tags "name") "Vapiano"))
-    ["#vapiano" "#eat" "#restaurant" "#checkin"]
+     ["#eat" "#restaurant" "#checkin"]
+     (= (get osm-tags "amenity") "cafe")
+     ["#drink" "#cafe" "#checkin"]
+     (= (get osm-tags "amenity") "fuel")
+     ["#gas" "#checkin"]
+     (= (get osm-tags "leisure") "playground")
+     ["#playground" "#checkin"]
+     (= (get osm-tags "tourism") "camp_site")
+     ["#camp" "#checkin"]
 
-    (= (get osm-tags "amenity") "restaurant")
-    ["#eat" "#restaurant" "#checkin"]
-    (= (get osm-tags "amenity") "cafe")
-    ["#drink" "#cafe" "#checkin"]
-    (= (get osm-tags "amenity") "fuel")
-    ["#gas" "#checkin"]
-    (= (get osm-tags "leisure") "playground")
-    ["#playground" "#checkin"]
-    (= (get osm-tags "tourism") "camp_site")
-    ["#camp" "#checkin"]
+     ;; 20241129 default to checkin until better
+     ;; leave it on the end
+     #_(or
+        (contains? osm-tags "amenity")
+        (contains? osm-tags "travel")
+        (contains? osm-tags "shop")
+        (contains? osm-tags "tourism")
+        (contains? osm-tags "leisure"))
+     #_["#checkin"]
 
-    ;; leave it on the end
-    (or
-     (contains? osm-tags "amenity")
-     (contains? osm-tags "travel")
-     (contains? osm-tags "shop")
-     (contains? osm-tags "tourism")
-     (contains? osm-tags "leisure"))
-    ["#checkin"]
+     :else
+     ["#checkin"])))
 
-    :else
-    []))
+(defn test-osm-tags [case osm-tags expected-tags]
+  (let [expected-tags (into #{} expected-tags)
+        extracted (osm-tags->tags osm-tags)]
+    (when (not (= extracted expected-tags))
+      (println
+       "[TEST FAIL]" case ", expected:"
+       (clojure.string/join "," expected-tags)
+       "extracted:"
+       (clojure.string/join "," extracted)))))
+
+(test-osm-tags
+ "restaurant"
+ {"amenity" "restaurant"}
+ #{"#restaurant" "#eat" "#checkin"})
 
 #_(osm-tags->tags {"amenity" "restaurant"})
 ;; ["#restaurant"]
