@@ -12,6 +12,8 @@
    [clj-geo.import.osmapi :as osmapi]
    [clj-geo.dotstore.humandot :as humandot]
 
+   [trek-mate.tag :as tag]
+   
    trek-mate.integration.osm))
 
 (def ^:dynamic *endpoint* "http://overpass-api.de/")
@@ -316,91 +318,36 @@
 ;; todo document all possible tags, latest mapping, 20241124
 (defn prepare-humandot [osm-url]
   (let [extract-tags (fn [tags]
-                       (filter
-                        some?
-                        (map
-                         #(% tags)
-                         [
-                          (fn [tags]
-                            (or
-                             (get tags :name:sr)
-                             (get tags :name:en)
-                             (get tags :name)))
-                          (fn [tags]
-                            (when-let [website (get tags :website)]
-                              website))
-                          (fn [tags]
-                            (when-let [instagram (get tags :instagram)]
-                              instagram))
-                          (fn [tags]
-                            (when-let [wikipedia (get tags :wikipedia)]
-                              (osm/wikipedia-url wikipedia)))
-                          (fn [tags]
-                            (when-let [wikidata (get tags :wikidata)]
-                              (osm/wikidata-url wikidata)))                          
-                          (fn [tags]
-                            (when-let [website (get tags :contact:website)]
-                              website))
-                          (fn [tags]
-                            (when (and
-                                   (= (get tags :leisure) "playground")
-                                   (= (get tags :indoor) "yes"))
-                              "играоница"))
-                          (fn [tags]
-                            (when (= (get tags :leisure) "playground")
-                              "дечије игралиште"))
-                          (fn [tags]
-                            (when (= (get tags :leisure) "playground")
-                              "#playground"))
-                          (fn [tags]
-                            (when (= (get tags :natural) "beach")
-                              "#beach"))
-                          (fn [tags]
-                            (when (= (get tags :natural) "cave_entrance")
-                              "#visit"))
-                          (fn [tags]
-                            (when (= (get tags :shop) "agrarian")
-                              "#poljoapoteka"))
-                          (fn [tags]
-                            (when (= (get tags :shop) "garden_centre")
-                              "#rasadnik"))          
-                          (fn [tags]
-                            (when (some? (get tags :shop))
-                              "#shop"))
-                          (fn [tags]
-                            (when (= (get tags :amenity) "bar")
-                              "#drink"))
-                          ;; amenity -> pub should result in #pub and #drink
-                          (fn [tags]
-                            (when (= (get tags :amenity) "pub")
-                              "#pub"))
-                          (fn [tags]
-                            (when (= (get tags :amenity) "pub")
-                              "#drink"))                          
-                          (fn [tags]
-                            (when (= (get tags :amenity) "restaurant")
-                              "#eat"))
-                          (fn [tags]
-                            (when (= (get tags :amenity) "fast_food")
-                              "#eat"))                          
-                          (fn [tags]
-                            (when (= (get tags :tourism) "hotel")
-                              "#sleep"))
-                          (fn [tags]
-                            (when (= (get tags :tourism) "motel")
-                              "#sleep"))                          
-                          (fn [tags]
-                            (when (= (get tags :tourism) "attraction")
-                              "#attraction"))
-                          (fn [tags]
-                            (when (= (get tags :tourism) "zoo")
-                              "#attraction"))                          
-                          (fn [tags]
-                            (when (= (get tags :tourism) "museum")
-                              "#museum"))                          
-                          (fn [tags]
-                            (when (= (get tags :tourism) "viewpoint")
-                              "#view"))])))]
+                       (concat
+                        (filter
+                         some?
+                         (map
+                          #(% tags)
+                          [
+                           (fn [tags]
+                             (or
+                              (get tags :name:sr)
+                              (get tags :name:en)
+                              (get tags :name)))
+                           (fn [tags]
+                             (when-let [website (get tags :website)]
+                               website))
+                           (fn [tags]
+                             (when-let [instagram (get tags :instagram)]
+                               instagram))
+                           (fn [tags]
+                             (when-let [wikipedia (get tags :wikipedia)]
+                               (osm/wikipedia-url wikipedia)))
+                           (fn [tags]
+                             (when-let [wikidata (get tags :wikidata)]
+                               (osm/wikidata-url wikidata)))                          
+                           (fn [tags]
+                             (when-let [website (get tags :contact:website)]
+                               website))]))
+                        (disj
+                         (tag/osm-tags->tags (clojure.walk/stringify-keys tags))
+                         ;; todo, remove checkin
+                         "#checkin")))]
     (cond
       (.contains osm-url "/way/")
       (let [id (second (.split osm-url "/way/"))]
@@ -448,13 +395,13 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/392690628"))
+   (prepare-humandot "https://www.openstreetmap.org/way/387316007"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/8768586837"))
+ (prepare-humandot "https://www.openstreetmap.org/node/488715125"))
 
 #_12403478794
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/relation/8063258"))
+   (prepare-humandot "https://www.openstreetmap.org/relation/17776571"))
 

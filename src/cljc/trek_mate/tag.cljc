@@ -459,21 +459,20 @@
 
 ;; mapping tags -> osm tags
 
-;; todo da li da razdvojim ove querije i da se svodi na pretragu #lidl taga ...
+;; todo order izvucenih tagova, smatram da je bitan? ( da za sada )
+;; funkcije su dosta kompleksnije zbog ovoga
 
 (def simple-mapping
   ;; sequence of mappings
-  ;; each mapping has single trek-mate tag which follows number of key value
+  ;; each mapping has single trek-mate tag which follows number of rules
+  ;; ( key value ) tags from osm
   ;; osm pairs AND is applied between pairs, if only key is needed use string
   ;; ( example: ["#checkin" ["building"] ["name"]) in case OR is needed divide
   ;; in multiple mappings, trek-mate tag can have duplicates
+
+  ;; order of mappings is important, from most specific to general
+  
   [
-   ;; general poi
-   ["#gas" ["amenity" "fuel"]]
-   ["#prodavnica" ["shop" "supermarket"]]
-   ["#playground" ["leisure" "playground"]]
-   ["#camp" ["tourism" "camp_site"]]
-    
    ;; brands
    ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
    ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
@@ -496,6 +495,63 @@
    ["#hornbach" ["shop" "doityourself"] ["name" "Hornbach"]]
    ;; https://www.openstreetmap.org/way/23037095
 
+   ;; serbia
+   ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
+   ;; https://www.openstreetmap.org/node/6959796644
+   ["#nis" ["amenity" "fuel"] ["brand:wikidata" "Q1279721"]] ;; todo improve
+   ["#grubin" ["shop" "shoes"] ["brand" "Grubin"]]
+   
+   ;; general poi
+   ["#gas" ["amenity" "fuel"]]
+   ["#prodavnica" ["shop" "supermarket"]]
+   ["#playground" ["leisure" "playground"]]
+
+   ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
+   ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
+   ["#apoteka" ["amenity" "pharmacy"]]
+   ["#zubar" ["amenity" "dentist"]]
+   ["#doktor" ["amenity" "doctors"]]
+   ["#doktor" ["amenity" "hospital"]]
+   ["#restaurant" ["amenity" "restaurant"]]
+   
+   ["#pekara" ["shop" "bakery"]]
+   ["#rasadnik" ["shop" "garden_centre"]]
+   ["poljoapoteka" ["shop" "agrarian"]]
+   
+   ["#cafe" ["amenity" "cafe"]]
+   ["#pub" ["amenity" "pub"]]
+   ["#posta" ["amenity" "post_office"]]
+   ["#pumpa" ["amenity" "fuel"]]
+   ["#reciklaza" ["amenity" "recycling"]] ;; definisati malo bolje
+   ["#kontejner" ["amenity" "waste_disposal"]]
+   ["#zapis"
+    ["amenity" "place_of_worship"]
+    ["natural" "tree"]
+    ["denomination" "serbian_orthodox"]
+    ["religion" "christian"]]
+   ["#camp" ["tourism" "camp_site"]]
+   ["#camp" ["tourism" "caravan_site"]]
+   ["#paketomat" ["amenity" "parcel_locker"]]
+
+   ["#beach" ["natural" "beach"]]
+   ["#zoo" ["tourism" "zoo"]]
+   
+   ["#drink" ["amenity" "cafe"]]
+   ["#drink" ["amenity" "bar"]]
+   ["#drink" ["amenity" "pub"]]
+   ["#eat" ["amenity" "restaurant"]]
+   ["#eat" ["amenity" "fast_food"]]
+   ["#eat" ["shop" "bakery"]]
+   ["#shop" ["shop"]]
+   ["#sleep" ["tourism" "hotel"]]
+   ["#sleep" ["tourism" "motel"]]
+
+   ["#visit" ["natural" "cave_entrance"]]
+   ["#visit" ["tourism" "attraction"]]
+   ["#visit" ["tourism" "zoo"]]
+   ["#visit" ["tourism" "museum"]]
+   ["#view" ["tourism" "viewpoint"]]
+   
    ;; checkin
    ["#checkin" ["amenity"]]
    ["#checkin" ["travel"]]
@@ -504,7 +560,8 @@
    ["#checkin" ["leisure"]]
    ["#checkin" ["barrier" "border_control"]]
    ["#checkin" ["public_transport" "station"]]
-   ["#checkin" ["building"] ["name"]]])
+   ["#checkin" ["building"] ["name"]]
+   ["#checkin" ["natural"] ["name"]]])
 
 #_(defn simple-mapping->overpass [mapping]
     (cond
@@ -545,7 +602,7 @@
 
 #_(simple-mapping->overpass ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]])
 ;; "nwr[shop=supermarket][name=Lidl];"
-(simple-mapping->overpass ["#checkin" ["building"] ["name"]])
+#_(simple-mapping->overpass ["#checkin" ["building"] ["name"]])
 ;; "nwr[\"building\"][\"name\"];"
 
 (defn mappings-per-tag [tag]
@@ -574,8 +631,6 @@
     tags)
    ");"))
 
-
-
 #_(generate-overpass ["#vapiano"])
 ;; "(nwr[\"amenity\"=\"restaurant\"][\"name\"=\"Vapiano\"];);"
 #_(generate-overpass ["#starbucks"])
@@ -583,81 +638,113 @@
 #_(generate-overpass ["#starbucks" "#vapiano"])
 ;; "(nwr[\"amenity\"=\"cafe\"][\"name\"=\"Starbucks\"];nwr[\"amenity\"=\"cafe\"][\"name:en\"=\"Starbucks\"];nwr[\"amenity\"=\"restaurant\"][\"name\"=\"Vapiano\"];);"
 
+(defn mapping-match? [mapping osm-tags]
+  (let [[tag & rule-seq] mapping]
+    (not
+     (some?
+      (first
+       (filter
+        (fn [[key value]]
+          (if (nil? value)
+            (not (contains? osm-tags key))
+            (not (= value (get osm-tags key)))))
+        rule-seq))))))
+
+#_(mapping-match? ["#gas" ["amenity" "fuel"]] {"amenity" "fuel"}) ;; true
+#_(mapping-match? ["#checkin" ["amenity"]] {"amenity" "fuel"}) ;; true
+#_(mapping-match? ["#checkin" ["amenity"] ["name" "NIS"]] {"amenity" "fuel"}) ;; false
+
 (defn osm-tags->tags
-  "note: #checkin must be added to all"
+  "osm-tags is map of string string from osm
+  note: #checkin must be added to all"
   [osm-tags]
+
   ;; todo should tags be set or list ( list gives possibility to combine tags
   ;; in order but addes a lot of complexity
-  ;; going with set for now
+  ;; <20250105 going with set for now
 
-  ;; todo add checkin on level of trek-mate app?
   (into
    #{}
-   (cond
-     ;; brands, must be added on both places generate-overpass
-     ;; and osm-tags->tags, improve
-     (and
-      (= (get osm-tags "amenity") "cafe")
-      (or
-       (= (get osm-tags "name:en") "Starbucks")
-       (= (get osm-tags "name") "Starbucks")))
-     ["#starbucks" "#drink" "#cafe" "#checkin"]
-     (and
-      (= (get osm-tags "amenity") "fast_food")
-      (or
-       (= (get osm-tags "name") "Burger King")
-       (= (get osm-tags "brand") "Burger King")))
-     ["#burgerking" "#eat" "#checkin"]
-     (and
-      (= (get osm-tags "amenity") "fast_food")
-      (or
-       (= (get osm-tags "name") "Nordsee")
-       (= (get osm-tags "brand") "Nordsee")
-       (= (get osm-tags "brand:wikidata") "Q74866")))
-     ["#nordsee" "#eat" "#checkin"]
-     (and
-      (= (get osm-tags "amenity") "restaurant")
-      (= (get osm-tags "name") "Vapiano"))
-     ["#vapiano" "#eat" "#restaurant" "#checkin"]
-     (and
-      (= (get osm-tags "shop") "doityourself")
-      (= (get osm-tags "name") "OBI"))
-     ["#obi" "#shopping" "#checkin"]
-     (and
-      (= (get osm-tags "shop") "doityourself")
-      (= (get osm-tags "name") "Hornbach"))
-     ["#hornbach" "#shopping" "#checkin"]
+   (reduce
+    (fn [extracted-tags mapping]
+      (if (mapping-match? mapping osm-tags)
+        (let [tags-set (into #{} extracted-tags)
+              tag (first mapping)]
+          (if (contains? tags-set tag)
+            extracted-tags
+            (conj extracted-tags tag)))
+        extracted-tags))
+    []
+    simple-mapping))
+  
+  ;; todo add checkin on level of trek-mate app?
+  #_(into
+     #{}
+     (cond
+       ;; brands, must be added on both places generate-overpass
+       ;; and osm-tags->tags, improve
+       (and
+        (= (get osm-tags "amenity") "cafe")
+        (or
+         (= (get osm-tags "name:en") "Starbucks")
+         (= (get osm-tags "name") "Starbucks")))
+       ["#starbucks" "#drink" "#cafe" "#checkin"]
+       (and
+        (= (get osm-tags "amenity") "fast_food")
+        (or
+         (= (get osm-tags "name") "Burger King")
+         (= (get osm-tags "brand") "Burger King")))
+       ["#burgerking" "#eat" "#checkin"]
+       (and
+        (= (get osm-tags "amenity") "fast_food")
+        (or
+         (= (get osm-tags "name") "Nordsee")
+         (= (get osm-tags "brand") "Nordsee")
+         (= (get osm-tags "brand:wikidata") "Q74866")))
+       ["#nordsee" "#eat" "#checkin"]
+       (and
+        (= (get osm-tags "amenity") "restaurant")
+        (= (get osm-tags "name") "Vapiano"))
+       ["#vapiano" "#eat" "#restaurant" "#checkin"]
+       (and
+        (= (get osm-tags "shop") "doityourself")
+        (= (get osm-tags "name") "OBI"))
+       ["#obi" "#shopping" "#checkin"]
+       (and
+        (= (get osm-tags "shop") "doityourself")
+        (= (get osm-tags "name") "Hornbach"))
+       ["#hornbach" "#shopping" "#checkin"]
     
-     (= (get osm-tags "amenity") "restaurant")
-     ["#eat" "#restaurant" "#checkin"]
-     (= (get osm-tags "amenity") "cafe")
-     ["#drink" "#cafe" "#checkin"]
-     (= (get osm-tags "amenity") "fuel")
-     ["#gas" "#checkin"]
-     (= (get osm-tags "leisure") "playground")
-     ["#playground" "#checkin"]
-     (= (get osm-tags "tourism") "camp_site")
-     ["#camp" "#checkin"]
+       (= (get osm-tags "amenity") "restaurant")
+       ["#eat" "#restaurant" "#checkin"]
+       (= (get osm-tags "amenity") "cafe")
+       ["#drink" "#cafe" "#checkin"]
+       (= (get osm-tags "amenity") "fuel")
+       ["#gas" "#checkin"]
+       (= (get osm-tags "leisure") "playground")
+       ["#playground" "#checkin"]
+       (= (get osm-tags "tourism") "camp_site")
+       ["#camp" "#checkin"]
 
-     ;; 20241129 default to checkin until better
-     ;; leave it on the end
-     #_(or
-        (contains? osm-tags "amenity")
-        (contains? osm-tags "travel")
-        (contains? osm-tags "shop")
-        (contains? osm-tags "tourism")
-        (contains? osm-tags "leisure"))
-     #_["#checkin"]
+       ;; 20241129 default to checkin until better
+       ;; leave it on the end
+       #_(or
+          (contains? osm-tags "amenity")
+          (contains? osm-tags "travel")
+          (contains? osm-tags "shop")
+          (contains? osm-tags "tourism")
+          (contains? osm-tags "leisure"))
+       #_["#checkin"]
 
-     :else
-     ["#checkin"])))
+       :else
+       ["#checkin"])))
 
 (defn test-osm-tags [case osm-tags expected-tags]
   (let [expected-tags (into #{} expected-tags)
-        extracted (osm-tags->tags osm-tags)]
+        extracted (into #{} (osm-tags->tags osm-tags))]
     (when (not (= extracted expected-tags))
       (println
-       "[TEST FAIL]" case ", expected:"
+       "[TEST FAIL]" case "expected:"
        (clojure.string/join "," expected-tags)
        "extracted:"
        (clojure.string/join "," extracted)))))
@@ -665,14 +752,24 @@
 (test-osm-tags
  "restaurant"
  {"amenity" "restaurant"}
- #{"#restaurant" "#eat" "#checkin"})
+ ["#restaurant" "#eat" "#checkin"])
+
+(test-osm-tags
+ "starbucks"
+ {"amenity" "cafe"
+  "name" "Starbucks"}
+ ["#starbucks" "#drink" "#checkin"])
 
 #_(osm-tags->tags {"amenity" "restaurant"})
-;; ["#restaurant"]
-#_(osm-tags->tags {"amenity" "restaurant"
-                 "name" "Starbucks"})
-;; ["#restaurant"]
-#_(osm-tags->tags {"amenity" "cafe"
-                 "name" "Starbucks"})
-;;["#starbucks" "#cafe"]
+;; #{"#eat" "#checkin" "#restaurant"}
 
+#_(osm-tags->tags {"amenity" "restaurant"
+                   "name" "Starbucks"})
+;; #{"#eat" "#checkin" "#restaurant"}
+
+#_(osm-tags->tags {"amenity" "cafe"
+                   "name" "Starbucks"})
+;; #{"#checkin" "#drink" "#starbucks"}
+
+#_(osm-tags->tags {})
+;; #{}

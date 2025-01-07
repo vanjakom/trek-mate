@@ -74,18 +74,38 @@
 ;; and map helper stuff
 
 (defn pin-grey-url [pin]
-  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".grey.png"))
+  (cond
+    (or
+     ;; todo improve / remove
+     (= pin "camp")
+     (= pin "defined"))
+    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/" pin ".grey.png")
+
+    :else
+    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".grey.png")))
 
 
 (defn pin-green-url [pin]
-  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".green.png"))
+  (cond
+    (or
+     ;; todo improve / remove
+     (= pin "camp")
+     (= pin "defined"))
+    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/" pin ".green.png")
 
-(defn pin-concept-grey-url [pin]
+    :else
+    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".green.png")))
+
+(defn pin-concept-grey-url
+  "Deprecated."
+  [pin]
   (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/"
        pin
        ".grey.png"))
 
-(defn pin-concept-green-url [pin]
+(defn pin-concept-green-url
+  "Deprecated."
+  [pin]
   (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/"
        pin
        ".green.png"))
