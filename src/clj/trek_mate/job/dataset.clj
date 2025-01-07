@@ -9,6 +9,11 @@
 
    [trek-mate.tag :as tag]))
 
+;; 20250107
+;; todo support extraction of center
+;; investigate dataset functions, worked there with it
+
+
 (defn extract-dataset [context]
   (let [channel-provider (pipeline/create-channels-provider)
         resource-controller (pipeline/create-trace-resource-controller context)
