@@ -33,3 +33,6 @@
 
 (defn ^:export osm-tags->tags [tags]
   (clj->js (tag/osm-tags->tags (js->clj tags))))
+
+(defn ^:export supported-tags []
+  (clj->js (into [] (tag/supported-tags))))

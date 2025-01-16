@@ -395,10 +395,10 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/387316007"))
+   (prepare-humandot "https://www.openstreetmap.org/way/1068275407"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/488715125"))
+ (prepare-humandot "https://www.openstreetmap.org/node/5936496417"))
 
 #_12403478794
 

@@ -494,6 +494,9 @@
    ;; https://www.openstreetmap.org/way/38921810
    ["#hornbach" ["shop" "doityourself"] ["name" "Hornbach"]]
    ;; https://www.openstreetmap.org/way/23037095
+   ["#dm" ["shop" "chemist"] ["brand" "dm"]]
+   ["#dm" ["shop" "chemist"] ["name" "dm"]]
+   ;; https://www.openstreetmap.org/node/4361362068
 
    ;; serbia
    ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
@@ -649,6 +652,13 @@
             (not (contains? osm-tags key))
             (not (= value (get osm-tags key)))))
         rule-seq))))))
+
+(defn supported-tags []
+  (into
+   #{}
+   (map first simple-mapping)))
+
+#_(take 5 (supported-tags)) ;; ("#kontejner" "#lidl" "#cafe" "#nordsee" "#igraonica")
 
 #_(mapping-match? ["#gas" ["amenity" "fuel"]] {"amenity" "fuel"}) ;; true
 #_(mapping-match? ["#checkin" ["amenity"]] {"amenity" "fuel"}) ;; true
