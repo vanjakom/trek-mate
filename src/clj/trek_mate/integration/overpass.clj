@@ -328,22 +328,11 @@
                              (or
                               (get tags :name:sr)
                               (get tags :name:en)
-                              (get tags :name)))
-                           (fn [tags]
-                             (when-let [website (get tags :website)]
-                               website))
-                           (fn [tags]
-                             (when-let [instagram (get tags :instagram)]
-                               instagram))
-                           (fn [tags]
-                             (when-let [wikipedia (get tags :wikipedia)]
-                               (osm/wikipedia-url wikipedia)))
-                           (fn [tags]
-                             (when-let [wikidata (get tags :wikidata)]
-                               (osm/wikidata-url wikidata)))                          
-                           (fn [tags]
-                             (when-let [website (get tags :contact:website)]
-                               website))]))
+                              (get tags :name)))]))
+                        ;; strip |url attribute format
+                        (map
+                         #(last (.split % "\\|"))
+                         (tag/osm-tags->links (clojure.walk/stringify-keys tags)))
                         (disj
                          (tag/osm-tags->tags (clojure.walk/stringify-keys tags))
                          ;; todo, remove checkin
@@ -395,10 +384,10 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/1068275407"))
+   (prepare-humandot "https://www.openstreetmap.org/way/59097282"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/5936496417"))
+ (prepare-humandot "https://www.openstreetmap.org/node/11755710982"))
 
 #_12403478794
 

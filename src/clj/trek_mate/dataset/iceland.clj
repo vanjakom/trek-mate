@@ -1039,8 +1039,7 @@
                    (web/tile-number-overlay-fn
                     (web/create-static-raster-tile-fn
                      (path/child dataset-path "raw" "osm-tile"))))
-  :locations-fn (fn [] location-seq)
-  :state-fn })
+  :locations-fn (fn [] location-seq)})
 
 
 ;;; todo on the road

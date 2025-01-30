@@ -471,6 +471,12 @@
   ;; in multiple mappings, trek-mate tag can have duplicates
 
   ;; order of mappings is important, from most specific to general
+
+  ;; 20250120
+  ;; in case simple mapping is not enough I can go in two ways, develop
+  ;; my own schema to support both overpass and simple filter or have
+  ;; two mappings for each tag, one to return true/false for filtering
+  ;; other to suggest tags I need from overpass to decide
   
   [
    ;; brands
@@ -497,12 +503,23 @@
    ["#dm" ["shop" "chemist"] ["brand" "dm"]]
    ["#dm" ["shop" "chemist"] ["name" "dm"]]
    ;; https://www.openstreetmap.org/node/4361362068
-
+   ;; https://www.openstreetmap.org/node/12484342877
+   ["#bikeep"
+    ["amenity" "bicycle_parking"]
+    ["brand" "Bikeep"]]
+   
    ;; serbia
    ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
    ;; https://www.openstreetmap.org/node/6959796644
    ["#nis" ["amenity" "fuel"] ["brand:wikidata" "Q1279721"]] ;; todo improve
    ["#grubin" ["shop" "shoes"] ["brand" "Grubin"]]
+   ["#intesa" ["amenity" "bank"] ["name" "Banca Intesa"]]
+   ["#intesa" ["amenity" "bank"] ["brand" "Banca Intesa"]]
+   ["#intesabankomat" ["amenity" "atm"] ["name" "Banca Intesa"]]
+   ["#intesabankomat" ["amenity" "atm"] ["brand" "Banca Intesa"]]
+   ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["name" "Banca Intesa"]]
+   ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["brand" "Banca Intesa"]]
+   ["#organico" ["shop" "convenience"] ["brand" "Organico"]]
    
    ;; general poi
    ["#gas" ["amenity" "fuel"]]
@@ -510,22 +527,50 @@
    ["#playground" ["leisure" "playground"]]
 
    ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
+   ["#igraonica" ["leisure" "indoor_play"]]
+
+   
    ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
    ["#apoteka" ["amenity" "pharmacy"]]
    ["#zubar" ["amenity" "dentist"]]
    ["#doktor" ["amenity" "doctors"]]
    ["#doktor" ["amenity" "hospital"]]
    ["#restaurant" ["amenity" "restaurant"]]
+
+   ["#bank" ["amenity" "bank"]]
+   ["#atm" ["amenity" "atm"]]
+   ["#atm" ["amenity" "bank"] ["atm" "yes"]]
    
    ["#pekara" ["shop" "bakery"]]
+   ["#mlekomat" ["amenity" "vending_machine"] ["vending" "milk"]]
    ["#rasadnik" ["shop" "garden_centre"]]
    ["poljoapoteka" ["shop" "agrarian"]]
+   ["#shoppingmall" ["shop" "mall"]]
    
    ["#cafe" ["amenity" "cafe"]]
    ["#pub" ["amenity" "pub"]]
+   ["#winery" ["craft" "winery"]]
+   
    ["#posta" ["amenity" "post_office"]]
    ["#pumpa" ["amenity" "fuel"]]
    ["#reciklaza" ["amenity" "recycling"]] ;; definisati malo bolje
+   ["#reciklazastaklo"
+    ["amenity" "recycling"]
+    ["recycling_type" "container"]
+    ["recycling:glass_bottles" "yes"]]
+   ["#reciklazapapir"
+    ["amenity" "recycling"]
+    ["recycling_type" "container"]
+    ["recycling:paper" "yes"]]
+   ["#reciklazalimenka"
+    ["amenity" "recycling"]
+    ["recycling_type" "container"]
+    ["recycling:cans" "yes"]]
+   ["#reciklazaplastika"
+    ["amenity" "recycling"]
+    ["recycling_type" "container"]
+    ["recycling:plastic" "yes"]]
+   
    ["#kontejner" ["amenity" "waste_disposal"]]
    ["#zapis"
     ["amenity" "place_of_worship"]
@@ -554,7 +599,10 @@
    ["#visit" ["tourism" "zoo"]]
    ["#visit" ["tourism" "museum"]]
    ["#view" ["tourism" "viewpoint"]]
-   
+
+   ;; wikipedia / wikidata, add tag when it has them
+   ["#wikipedia" ["wikipedia"]]
+   ["#wikidata" ["wikidata"]]
    ;; checkin
    ["#checkin" ["amenity"]]
    ["#checkin" ["travel"]]
@@ -783,3 +831,41 @@
 
 #_(osm-tags->tags {})
 ;; #{}
+
+;; copy from clj-geo.import.osm
+(defn wikipedia-url [wikipedia-tag]
+  (let [[lang article] (clojure.string/split wikipedia-tag #":")]
+    (str "https://" lang ".wikipedia.org/wiki/"
+         (clojure.string/replace article #" " "_"))))
+
+;; copy from clj-geo.import.osm
+(defn wikidata-url [wikidata-tag]
+  (str "https://www.wikidata.org/wiki/" wikidata-tag))
+
+
+(defn osm-tags->links [osm-tags]
+  (filter
+   some?
+   (map
+    #(%1 osm-tags)
+    [
+     (fn [osm-tags]
+       (if-let [website (get osm-tags "website")]
+         (str "|url|website|" website)))
+     (fn [osm-tags]
+       (if-let [website (get osm-tags "contact:website")]
+         (str "|url|website|" website)))
+     (fn [osm-tags]
+       ;; todo support instagram link with only user name, valid
+       (if-let [instagram (get osm-tags "contact:instagram")]
+         (str "|url|instagram|" instagram)))
+     (fn [osm-tags]
+       (if-let [instagram (get osm-tags "instagram")]
+         (str "|url|instagram|" instagram)))
+     (fn [osm-tags]
+       (if-let [wikipedia (get osm-tags "wikipedia")]
+         (str "|url|wikipedia|" (wikipedia-url wikipedia))))
+     (fn [osm-tags]
+       (if-let [wikidata (get osm-tags "wikidata")]
+         (str "|url|wikidata|" (wikidata-url wikidata))))])))
+
