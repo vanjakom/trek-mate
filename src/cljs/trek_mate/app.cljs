@@ -3,40 +3,34 @@
    [trek-mate.tag :as tag]
    [trek-mate.pin :as pin]))
 
-(defn ^:export test-println []
+(defn ^:export testPrintln []
   (println "test println from cljs"))
 
-(defn ^:export pins-for-location [location]
-  (println "starting pin")
+(defn ^:export pinsForLocation [location]
   (let [pure-location (update-in
                        (js->clj location :keywordize-keys true)
                        [:tags]
                        (fn [tags] (into #{} tags)))
-        pins (pin/calculate-pins (:tags pure-location))
-        patched-pins (map-indexed
-                      ;; fix expectation in app that pins have suffix
-                      (fn [index pin]
-                        (if (> index 0) (str pin "_pin") pin))
-                      pins)]
-    (clj->js patched-pins)))
+        pins (pin/calculate-pins (:tags pure-location))]
+    (clj->js pins)))
 
-(defn ^:export pin-for-tag [tag]
+(defn ^:export pinForTag [tag]
   (let [pins (pin/calculate-pins #{tag})]
     ;; to stay compatible with trek-mate app
     (str (second pins) "_pin")))
 
-(defn ^:export test-fn [tag]
+(defn ^:export testFn [tag]
   (tag/parse-date tag))
 
-(defn ^:export generate-overpass [tags]
+(defn ^:export generateOverpass [tags]
   (tag/generate-overpass tags))
 
-(defn ^:export osm-tags->tags [tags]
+(defn ^:export osmTagsToTags [tags]
   (clj->js (tag/osm-tags->tags (js->clj tags))))
 
-(defn ^:export osm-tags->links [tags]
+(defn ^:export osmTagsToLinks [tags]
   (clj->js (tag/osm-tags->links (js->clj tags))))
 
 
-(defn ^:export supported-tags []
+(defn ^:export supportedTags []
   (clj->js (into [] (tag/supported-tags))))

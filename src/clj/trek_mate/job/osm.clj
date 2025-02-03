@@ -9,13 +9,16 @@
 
    [trek-mate.tag :as tag]))
 
-(defn split-geofabrik-pbf-nwr-with-tm-tags [context]
+;; 20250131 todo
+;; support extraction of center for way and relation
+;; tm dataset should be dot
+;; maybe extract tm tags but leave possibilty to repopulate
+
+(defn split-geofabrik-pbf-with-tm-tags [context]
   (let [channel-provider (pipeline/create-channels-provider)
         resource-controller (pipeline/create-trace-resource-controller context)
         osm-pbf-path (get (context/configuration context) :osm-pbf-path)
-        tm-node-path (get (context/configuration context) :tm-node-path)
-        tm-way-path (get (context/configuration context) :tm-way-path)
-        tm-relation-path (get (context/configuration context) :tm-relation-path)
+        tm-dataset-path (get (context/configuration context) :tm-dataset-path)
         state-done-node (get (context/configuration context) :state-done-node)
         timestamp (System/currentTimeMillis)]
     (import/read-osm-pbf-go
@@ -30,21 +33,11 @@
      (channel-provider :filter-node-in)
      (filter #(not (empty? (tag/osm-tags->tags (:tags %)))))
      (channel-provider :write-node-in))
-    (pipeline/write-edn-go
-     (context/wrap-scope context "write-node-with-tm-tags")
-     resource-controller
-     tm-node-path
-     (channel-provider :write-node-in))
 
     (pipeline/transducer-stream-go
      (context/wrap-scope context "filter-way-with-tm-tags")
      (channel-provider :filter-way-in)
      (filter #(not (empty? (tag/osm-tags->tags (:tags %)))))
-     (channel-provider :write-way-in))
-    (pipeline/write-edn-go
-     (context/wrap-scope context "write-way-with-tm-tags")
-     resource-controller
-     tm-way-path
      (channel-provider :write-way-in))
 
     (pipeline/transducer-stream-go
@@ -52,13 +45,22 @@
      (channel-provider :filter-relation-in)
      (filter #(not (empty? (tag/osm-tags->tags (:tags %)))))
      (channel-provider :write-relation-in))
+
+    (pipeline/funnel-go
+     (context/wrap-scope context "collect-all")
+     [
+      (channel-provider :write-node-in)
+      (channel-provider :write-way-in)
+      (channel-provider :write-relation-in)]
+     (channel-provider :write-in))
+
     (pipeline/write-edn-go
-     (context/wrap-scope context "write-relation-with-tm-tags")
+     (context/wrap-scope context "write-with-tm-tags")
      resource-controller
-     tm-relation-path
-     (channel-provider :write-relation-in))
-    
+     tm-dataset-path
+     (channel-provider :write-in))
+        
     (pipeline/wait-pipeline channel-provider)
 
-    (context/store-set state-done-node timestamp)
+    (context/store-set context state-done-node timestamp)
     (context/trace context (str "state set at " state-done-node))))
