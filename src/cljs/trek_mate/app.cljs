@@ -16,8 +16,7 @@
 
 (defn ^:export pinForTag [tag]
   (let [pins (pin/calculate-pins #{tag})]
-    ;; to stay compatible with trek-mate app
-    (str (second pins) "_pin")))
+    (second pins)))
 
 (defn ^:export testFn [tag]
   (tag/parse-date tag))

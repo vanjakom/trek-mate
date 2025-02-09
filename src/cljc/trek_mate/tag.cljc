@@ -507,6 +507,11 @@
    ["#bikeep"
     ["amenity" "bicycle_parking"]
     ["brand" "Bikeep"]]
+
+   ;; attributes as main tags
+   ;; todo support extraction of complex query ( and, or )
+   ["#nosmoking" ["smoking" "no"]]
+   ["#nosmoking" ["smoking" "outside"]]
    
    ;; serbia
    ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
