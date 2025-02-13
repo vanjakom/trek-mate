@@ -387,7 +387,7 @@
    (prepare-humandot "https://www.openstreetmap.org/way/59097282"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/11755710982"))
+ (prepare-humandot "https://www.openstreetmap.org/node/5220467585"))
 
 #_12403478794
 
