@@ -512,6 +512,8 @@
    ;; todo support extraction of complex query ( and, or )
    ["#nosmoking" ["smoking" "no"]]
    ["#nosmoking" ["smoking" "outside"]]
+   ["#deozadecu" ["kids_area" "yes"]]
+   ["#deozadecu" ["kids_area:indoor" "yes"]]
    
    ;; serbia
    ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
