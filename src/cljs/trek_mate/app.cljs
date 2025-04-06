@@ -30,6 +30,8 @@
 (defn ^:export osmTagsToLinks [tags]
   (clj->js (tag/osm-tags->links (js->clj tags))))
 
+(defn ^:export osmTagsToName [tags]
+  (clj->js (tag/osm-tags->name (js->clj tags))))
 
 (defn ^:export supportedTags []
   (clj->js (into [] (tag/supported-tags))))

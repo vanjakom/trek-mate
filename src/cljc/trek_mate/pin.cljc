@@ -173,7 +173,8 @@
    (if (contains? tags tag/tag-footpath) footpath-pin)
    (if (contains? tags tag/tag-crossroad) crossroad-pin)
    (if (contains? tags tag/tag-road) road-pin)
-   (if (contains? tags tag/tag-cave) cave-pin)))
+   (if (contains? tags tag/tag-cave) cave-pin)
+   (if (contains? tags "#tree") national-park-pin)))
 
 (defn activity-trigger [tags]
   (or
@@ -190,52 +191,54 @@
   "For given set of tags calculates pins to display. First returned pin is base 
   one, Rest of pins are extracted based on tags"
   [tags]
-  (filter
-   some?
-   (map
-    (fn [pin-check-fn]
-      (pin-check-fn tags))
-    [
-     base-pin-trigger
-     geocache-trigger
+  ;; ensure tags are set
+  (let [tags (into #{} tags)]
+    (filter
+     some?
+     (map
+      (fn [pin-check-fn]
+        (pin-check-fn tags))
+      [
+       base-pin-trigger
+       geocache-trigger
 
 
-     (fn [tags]
-       (when (contains? tags tag/tag-museum) art-pin))
-     (fn [tags]
-       (when (contains? tags tag/tag-attraction) art-pin))
+       (fn [tags]
+         (when (contains? tags tag/tag-museum) art-pin))
+       (fn [tags]
+         (when (contains? tags tag/tag-attraction) art-pin))
 
      
-     urban-trigger
-     global-trigger
-     outdoor-trigger
-     integration-trigger
-     personal-trigger
+       urban-trigger
+       global-trigger
+       outdoor-trigger
+       integration-trigger
+       personal-trigger
 
-     activity-trigger
+       activity-trigger
 
-     ;; photo pin
-     (fn [tags]
-       (when (contains? tags tag/tag-photo)
-         photo-pin))
-     ;; note pin
-     (fn [tags]
-       (when (contains? tags tag/tag-note)
-         note-pin))
+       ;; photo pin
+       (fn [tags]
+         (when (contains? tags tag/tag-photo)
+           photo-pin))
+       ;; note pin
+       (fn [tags]
+         (when (contains? tags tag/tag-note)
+           note-pin))
 
-     ;; 20241125 no need, using pending
-     ;; no tags pin
-     #_(fn [tags]
-         (if (= (count tags) 0)
-           no-tags-pin))
+       ;; 20241125 no need, using pending
+       ;; no tags pin
+       #_(fn [tags]
+           (if (= (count tags) 0)
+             no-tags-pin))
      
-     (fn [tags]
-       (if (some? (first (filter tag/personal-tag? tags))) personal-pin))
-     (fn [tags]
-       (if (contains? tags tag/tag-trekmate-original) trek-mate-original-pin))
-     ;; default pin
-     (fn [_]
-       location-pin)])))
+       (fn [tags]
+         (if (some? (first (filter tag/personal-tag? tags))) personal-pin))
+       (fn [tags]
+         (if (contains? tags tag/tag-trekmate-original) trek-mate-original-pin))
+       ;; default pin
+       (fn [_]
+         location-pin)]))))
 
 (defn test-base [case tags expected]
   (let [result (calculate-pins tags)
@@ -248,6 +251,8 @@
         main (second result)]
     (when (not (= main expected))
       (println "[TEST FAIL] expected main pin:" expected "got" main))))
+
+#_(calculate-pins #{"#camp" "#20250226"})
 
 ;; new tests
 (test-main "general shop" #{tag/tag-shop} shopping-pin)

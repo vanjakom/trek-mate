@@ -240,10 +240,14 @@
 
 
 (defn tag? [tag]
-  (string/starts-with? tag tag-prefix-defined))
+  (if (some? tag)
+    (string/starts-with? tag tag-prefix-defined)
+    false))
 
 (defn personal-tag? [tag]
-  (string/starts-with? tag tag-prefix-personal))
+  (if (some? tag)
+    (string/starts-with? tag tag-prefix-personal)
+    false))
 
 (defn personal-tag [name]
   (str tag-prefix-personal name))
@@ -508,10 +512,29 @@
     ["amenity" "bicycle_parking"]
     ["brand" "Bikeep"]]
 
+   ;; categorization
+   ;; result of trek-mate.job.categorization
+   ["#banka" ["amenity" "bank"]]
+   ["#kafe" ["amenity" "bar"]]
+   ["#kafe" ["amenity" "cafe"]]
+   ["#brzahrana" ["amenity" "fast_food"]]
+   ["#deosahranom" ["amenity" "food_court"]]
+   ["#sladoledzinica" ["amenity" "ice_cream"]]
+   ["#pijaca" ["amenity" "marketplace"]]
+   ["#posta" ["amenity" "post_office"]]
+   ["#pab" ["amenity" "pub"]]
+   ["#restoran" ["amenity" "restaurant"]]
+   ["#skola" ["amenity" "school"]]
+   ["#opstina" ["amenity" "townhall"]]
+   ["#radioamateri" ["club" "amateur_radio"]]
+   ;; todo leisure=outdoor_seating, nisam siguran kako ovo mapirati
+   ["#igraliste" ["leisure" "playground"]]
+
+   
    ;; attributes as main tags
    ;; todo support extraction of complex query ( and, or )
-   ["#nosmoking" ["smoking" "no"]]
-   ["#nosmoking" ["smoking" "outside"]]
+   ["#zabranjenopusenje" ["amenity"] ["smoking" "no"]]
+   ["#zabranjenopusenje" ["amenity"] ["smoking" "outside"]]
    ["#deozadecu" ["kids_area" "yes"]]
    ["#deozadecu" ["kids_area:indoor" "yes"]]
    
@@ -531,7 +554,8 @@
    ;; general poi
    ["#gas" ["amenity" "fuel"]]
    ["#prodavnica" ["shop" "supermarket"]]
-   ["#playground" ["leisure" "playground"]]
+   ["#kompanija" ["office" "company"]]
+
 
    ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
    ["#igraonica" ["leisure" "indoor_play"]]
@@ -542,9 +566,9 @@
    ["#zubar" ["amenity" "dentist"]]
    ["#doktor" ["amenity" "doctors"]]
    ["#doktor" ["amenity" "hospital"]]
-   ["#restaurant" ["amenity" "restaurant"]]
+   
 
-   ["#bank" ["amenity" "bank"]]
+
    ["#atm" ["amenity" "atm"]]
    ["#atm" ["amenity" "bank"] ["atm" "yes"]]
    
@@ -554,29 +578,36 @@
    ["poljoapoteka" ["shop" "agrarian"]]
    ["#shoppingmall" ["shop" "mall"]]
    
-   ["#cafe" ["amenity" "cafe"]]
-   ["#pub" ["amenity" "pub"]]
+   
+   
    ["#winery" ["craft" "winery"]]
    
-   ["#posta" ["amenity" "post_office"]]
+   
    ["#pumpa" ["amenity" "fuel"]]
+
    ["#reciklaza" ["amenity" "recycling"]] ;; definisati malo bolje
    ["#reciklazastaklo"
     ["amenity" "recycling"]
-    ["recycling_type" "container"]
     ["recycling:glass_bottles" "yes"]]
+   ["#reciklazabaterija"
+    ["amenity" "recycling"]
+    ["recycling:batteries" "yes"]]
    ["#reciklazapapir"
     ["amenity" "recycling"]
-    ["recycling_type" "container"]
     ["recycling:paper" "yes"]]
    ["#reciklazalimenka"
     ["amenity" "recycling"]
-    ["recycling_type" "container"]
     ["recycling:cans" "yes"]]
    ["#reciklazaplastika"
     ["amenity" "recycling"]
-    ["recycling_type" "container"]
     ["recycling:plastic" "yes"]]
+   ["#reciklazacep"
+    ["amenity" "recycling"]
+    ["recycling:plastic_bottle_caps" "yes"]]
+   ["#cepzahendikep"
+    ["amenity" "recycling"]
+    ["recycling:plastic_bottle_caps" "yes"]
+    ["operator" "Чеп за хендикеп"]]
    
    ["#kontejner" ["amenity" "waste_disposal"]]
    ["#zapis"
@@ -612,10 +643,12 @@
    ["#wikidata" ["wikidata"]]
    ;; checkin
    ["#checkin" ["amenity"]]
+   ["#checkin" ["office"]]
    ["#checkin" ["travel"]]
    ["#checkin" ["shop"]]
    ["#checkin" ["tourism"]]
    ["#checkin" ["leisure"]]
+   ["#checkin" ["club"]]
    ["#checkin" ["barrier" "border_control"]]
    ["#checkin" ["public_transport" "station"]]
    ["#checkin" ["building"] ["name"]]
@@ -876,3 +909,9 @@
        (if-let [wikidata (get osm-tags "wikidata")]
          (str "|url|wikidata|" (wikidata-url wikidata))))])))
 
+(defn osm-tags->name [osm-tags]
+  (or
+   (get osm-tags "name:sr")
+   (get osm-tags "name:sr-Latn")
+   (get osm-tags "name:en")
+   (get osm-tags "name")))

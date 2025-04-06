@@ -73,45 +73,23 @@
 ;; 20240911, during #sfcg2024, one more try of mapping tags to pins
 ;; and map helper stuff
 
+(defn pin-url
+  "pin should be result of trek-mate.pin/calculate-pins"
+  [[base pin _]]
+  (let [base (.replace base "_base" "")]
+    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin "." base ".png")))
+
 (defn pin-grey-url [pin]
-  (cond
-    (or
-     ;; todo improve / remove
-     (= pin "camp")
-     (= pin "defined"))
-    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/" pin ".grey.png")
-
-    :else
-    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".grey.png")))
-
+  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".grey.png"))
 
 (defn pin-green-url [pin]
-  (cond
-    (or
-     ;; todo improve / remove
-     (= pin "camp")
-     (= pin "defined"))
-    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/" pin ".green.png")
+  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".green.png"))
 
-    :else
-    (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".green.png")))
-
-(defn pin-concept-grey-url
-  "Deprecated."
-  [pin]
-  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/"
-       pin
-       ".grey.png"))
-
-(defn pin-concept-green-url
-  "Deprecated."
-  [pin]
-  (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey_concept/"
-       pin
-       ".green.png"))
-
-(defn build-description [location]
-  (clojure.string/join
+(defn build-description
+  ([location]
+   (build-description location false))
+  ([location remove-private]
+   (clojure.string/join
    "</br>"
    (map
     (fn [tag]
@@ -120,7 +98,17 @@
            (.startsWith tag "https://"))
         (str "<a href='" tag "' target='blank'>" tag "</a>")
         tag))
-    (:tags location))))
+    (second
+     (reduce
+      (fn [[skip tags] tag]
+        ;; private tags section start with ===
+        (if (and (= tag "===") remove-private)
+          [true tags]
+          (if skip
+            [skip tags]
+            [skip (conj tags tag)])))
+      [false []]
+      (:tags location)))))))
 
 (defn extract-pin-name
   "DEPRECATED, use pin/calculate-pins instead"

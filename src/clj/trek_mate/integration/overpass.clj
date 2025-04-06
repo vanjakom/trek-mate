@@ -21,21 +21,23 @@
 (defn request
   "Performs qiven query asking for center output"
   [query]
-  (let [encoded (java.net.URLEncoder/encode
-                 (str
-                  "[out:json];\n"
-                  query
-                  "\n"
-                  "out center meta;"))]
+  (let [encoded (.replace
+                 (java.net.URLEncoder/encode
+                  (str
+                   "[out:json];\n"
+                   query
+                   "\n"
+                   "out center meta;"))
+                 "+" "%20")]
     (println query)
     ;; todo stringify tags on arrival, possible issue with tags which cannot be keywords
     ;; currently stringified in each type convert fn
-    (json/read-keyworded
-     (http/get-as-stream
-      (str
-       *endpoint*
-       "/api/interpreter?data="
-       encoded)))))
+    (let [url (str
+               *endpoint*
+              "/api/interpreter?data="
+              encoded)]
+      (println url)
+      (json/read-keyworded (http/get-as-stream url)))))
 
 (defn tag-seq->tag-string
   [tag-seq]
@@ -51,24 +53,33 @@
   {
    :longitude (:lon element)
    :latitude (:lat element)
-   :osm-id (str "n" (:id element))
-   :osm (clojure.walk/stringify-keys (:tags element))})
+   ;; 20250223 id and type to be compatible with api
+   :id (:id element)
+   :type "node"
+   ;; 20250223 using tags instead of :osm to be compatible with api
+   :tags (clojure.walk/stringify-keys (:tags element))})
 
 (defn way->single-location
   [element]
   {
    :longitude (:lon (:center element))
    :latitude (:lat (:center element))
-   :osm-id (str "w" (:id element))
-   :osm (clojure.walk/stringify-keys (:tags element))})
+   ;; 20250223 id and type to be compatible with api
+   :id (:id element)
+   :type "way"
+   ;; 20250223 using tags instead of :osm to be compatible with api   
+   :tags (clojure.walk/stringify-keys (:tags element))})
 
 (defn relation->single-location
   [element]
   {
    :longitude (:lon (:center element))
    :latitude (:lat (:center element))
-   :osm-id (str "r" (:id element))
-   :osm (clojure.walk/stringify-keys (:tags element))})
+   ;; 20250223 id and type to be compatible with api
+   :id (:id element)
+   :type "relation"
+   ;; 20250223 using tags instead of :osm to be compatible with api   
+   :tags (clojure.walk/stringify-keys (:tags element))})
 
 (defn way->location-seq
   [element]
@@ -384,13 +395,13 @@
       nil)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/59097282"))
+   (prepare-humandot "https://www.openstreetmap.org/way/284501849"))
 
 #_(println
- (prepare-humandot "https://www.openstreetmap.org/node/5220467585"))
+ (prepare-humandot "https://www.openstreetmap.org/node/12695331696"))
 
 #_12403478794
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/relation/17776571"))
+   (prepare-humandot "https://www.openstreetmap.org/relation/11247301"))
 

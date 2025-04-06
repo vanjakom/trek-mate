@@ -1523,12 +1523,26 @@
    (let [id (get-in request [:params :id])
          ;; tags will be keywords, solved on relation->relation-xml ensuring key is string
          relation (json/read-keyworded (:body request))
-         changeset (osmapi/changeset-create "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije" {})]
-     (println "changeset:" changeset ", relation:" id )
-     (println relation)
-     (println (osmapi/relation-update changeset relation))
-     #_(do
-       (println "relation:")
+         ;; osm not working with basic auth, not supporting upload currently
+         ;; changeset (osmapi/changeset-create "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije" {})
+         ]
+     
+     ;; osm not working with basic auth, not supporting upload currently
+     #_(println relation)
+     #_(println "changeset:" changeset ", relation:" id )
+     #_ (println (osmapi/relation-update changeset relation))
+
+     ;; output level0 prepared data
+     (do
+       (println (str "open: https://level0.osmz.ru/index.php?url=relation/" id))
+       (println "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije")
+       (println "relation" id)
+       (run!
+        println
+        (map
+         (fn [[key value]]
+           (str "\t" (name key) " = " value))
+         (:tags relation)))
        (run!
         println
         (map
@@ -1536,16 +1550,18 @@
            (str
             (cond
               (= (:type member) "way")
-              "wy"
+              "\twy"
               (= (:type member) "node")
-              "nd"
+              "\tnd"
               (= (:type member) "relation")
-              "rel")
+              "\trel")
             " "
             (:id member)
             " "
             (:role member)))
          (:members relation))))
+
+     
      (ring.util.response/redirect (str "/view/osm/history/relation/" id))))
 
   (compojure.core/GET
