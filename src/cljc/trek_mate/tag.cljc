@@ -514,7 +514,7 @@
 
    ;; categorization
    ;; result of trek-mate.job.categorization
-   ["#banka" ["amenity" "bank"]]
+   ["#banka" ["amenity" "bank"]]   
    ["#kafe" ["amenity" "bar"]]
    ["#kafe" ["amenity" "cafe"]]
    ["#brzahrana" ["amenity" "fast_food"]]
@@ -555,11 +555,16 @@
    ["#gas" ["amenity" "fuel"]]
    ["#prodavnica" ["shop" "supermarket"]]
    ["#kompanija" ["office" "company"]]
-
+   ["#bravar" ["shop" "locksmith"]]
+   ["#bravar" ["craft" "locksmith"]]
+   ["#bravar" ["craft" "key_cutter"]]
+   
+   
 
    ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
    ["#igraonica" ["leisure" "indoor_play"]]
 
+   ["#sankaliste" ["piste:type" "sled"]]
    
    ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
    ["#apoteka" ["amenity" "pharmacy"]]

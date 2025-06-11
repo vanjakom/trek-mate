@@ -17,6 +17,7 @@
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
+   [clj-common.text :as text]
    [clj-common.time :as time]
 
    [clj-geo.import.geojson :as geojson]
@@ -1854,5 +1855,13 @@
        :headers {
                  "Content-Type" "application/json; charset=utf-8"}
        :body (json/write-to-string data)}))))
+
+
+(defn prepare-name [cyrillic]
+  (println (str "name:sr=" cyrillic))
+  (println (str "name=" cyrillic))
+  (println (str "name:sr-Latn=" (text/cyrillic->latin cyrillic))))
+
+(prepare-name "Ристић")
 
 

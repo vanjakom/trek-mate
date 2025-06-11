@@ -1187,6 +1187,8 @@
             [:body {:style "font-family:arial;"}
              [:a {:href "/projects/tracks/garmin"} "garmin tracks"]
              [:br]
+             [:a {:href "/projects/tracks/garmin-daily"} "garmin daily archive"]
+             [:br]
              [:a {:href "/projects/tracks/garmin-wp"} "garmin waypoints"]
              [:br]
              [:a {:href "/projects/tracks/garmin-connect"} "garmin connect tracks"]
