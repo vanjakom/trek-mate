@@ -26,6 +26,11 @@
    [trek-mate.tag :as tag]
    [trek-mate.integration.osm :as osm]))
 
+;; 20250825, is it deprecated?
+;; trek-mate.map and clj-geo are used for modern dotstore
+;; dotstore functions are not used for dotstore ( tiles on disk ) more
+;; as source of small location list
+
 ;;; todo
 ;;; 20190204 change signature of tile-fn to return image instead of input stream this would
 ;;; enable faster middlewares

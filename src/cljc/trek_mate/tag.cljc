@@ -484,57 +484,90 @@
   
   [
    ;; brands
-   ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
-   ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
-   ;; https://www.openstreetmap.org/way/730020050
-   ["#starbucks" ["amenity" "cafe"] ["name" "Starbucks"]]
-   ["#starbucks" ["amenity" "cafe"] ["name:en" "Starbucks"]]
-   ;; https://www.openstreetmap.org/node/6407770286
-   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]
-   ;; https://www.openstreetmap.org/node/440956457
+   ["#bikeep"
+    ["amenity" "bicycle_parking"]
+    ["brand" "Bikeep"]]
    ["#burgerking" ["amenity" "fast_food"] ["name" "Burger King"]]
    ["#burgerking" ["amenity" "fast_food"] ["brand" "Burger King"]]
    ["#burgerking" ["amenity" "fast_food"] ["brand:wikidata" "Q177054"]]
    ;; https://www.openstreetmap.org/node/2480272255
-   ["#nordsee" ["amenity" "fast_food"] ["name" "Nordsee"]]
-   ["#nordsee" ["amenity" "fast_food"] ["brand" "Nordsee"]]
-   ["#nordsee" ["amenity" "fast_food"] ["brand:wikidata" "Q74866"]]
-   ;; https://www.openstreetmap.org/node/2480272255
-   ["#obi" ["shop" "doityourself"] ["name" "OBI"]]
-   ;; https://www.openstreetmap.org/way/38921810
    ["#hornbach" ["shop" "doityourself"] ["name" "Hornbach"]]
    ;; https://www.openstreetmap.org/way/23037095
    ["#dm" ["shop" "chemist"] ["brand" "dm"]]
    ["#dm" ["shop" "chemist"] ["name" "dm"]]
    ;; https://www.openstreetmap.org/node/4361362068
    ;; https://www.openstreetmap.org/node/12484342877
-   ["#bikeep"
-    ["amenity" "bicycle_parking"]
-    ["brand" "Bikeep"]]
+   ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
+   ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
+   ["#mcdonalds" ["amenity" "fast_food"] ["name" "McDonald's"]]
+   ["#mcdonalds" ["amenity" "fast_food"] ["brand" "McDonald's"]]
+   ;; https://www.openstreetmap.org/node/11112532796
+   ["#muller" ["shop" "chemist"] ["brand" "Müller"]]
+   ["#muller" ["shop" "chemist"] ["name" "Müller"]]
+   ["#nordsee" ["amenity" "fast_food"] ["name" "Nordsee"]]
+   ["#nordsee" ["amenity" "fast_food"] ["brand" "Nordsee"]]
+   ["#nordsee" ["amenity" "fast_food"] ["brand:wikidata" "Q74866"]]
+   ;; https://www.openstreetmap.org/node/2480272255
+   ["#obi" ["shop" "doityourself"] ["name" "OBI"]]
+   ;; https://www.openstreetmap.org/way/38921810
+   ;; https://www.openstreetmap.org/way/730020050
+   ["#starbucks" ["amenity" "cafe"] ["name" "Starbucks"]]
+   ["#starbucks" ["amenity" "cafe"] ["name:en" "Starbucks"]]
+   ;; https://www.openstreetmap.org/node/6407770286
+   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]
+   ;; https://www.openstreetmap.org/node/440956457
 
    ;; categorization
    ;; result of trek-mate.job.categorization
+   ["#aerodrom" ["aeroway" "aerodrome"]]
+   ;; todo because of pin
+   ["#airport" ["aeroway" "aerodrome"]]
    ["#banka" ["amenity" "bank"]]   
    ["#kafe" ["amenity" "bar"]]
    ["#kafe" ["amenity" "cafe"]]
+   ["#kiosk" ["shop" "kiosk"]]
    ["#brzahrana" ["amenity" "fast_food"]]
    ["#deosahranom" ["amenity" "food_court"]]
    ["#sladoledzinica" ["amenity" "ice_cream"]]
    ["#pijaca" ["amenity" "marketplace"]]
+   ["#plaza" ["natural" "beach"]]
    ["#posta" ["amenity" "post_office"]]
    ["#pab" ["amenity" "pub"]]
    ["#restoran" ["amenity" "restaurant"]]
    ["#skola" ["amenity" "school"]]
+   ["#skolajezika" ["amenity" "language_school"]]
    ["#opstina" ["amenity" "townhall"]]
    ["#radioamateri" ["club" "amateur_radio"]]
+   ["#veterinar" ["amenity" "veterinary"]]
+   
+   ["#stovariste" ["shop" "trade"]]
+   ;; https://www.openstreetmap.org/node/13184941881
+   ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_supplies"]]
+   ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_materials"]]
+   ;; https://www.openstreetmap.org/node/13184975186
+   ["#gradja" ["shop" "trade"] ["trade" "timber"]]
+   ;; https://www.openstreetmap.org/node/13184969498
+   ;; todo, better naming
+   ["#" ["shop" "trade"] ["trade" "metal"]]
+
+   ["#autoperionica" ["amenity" "car_wash"]]
+   ["#autocetke" ["amenity" "car_wash"] ["automated" "yes"]]
+   ["#autofolije" ["shop" "car_repair"] ["service:vehicle:body_repair" "foil"]]
    ;; todo leisure=outdoor_seating, nisam siguran kako ovo mapirati
    ["#igraliste" ["leisure" "playground"]]
-
+   ;; voda za pijenje
+   ["#voda" ["amenity" "drinking_water"]]
    
    ;; attributes as main tags
    ;; todo support extraction of complex query ( and, or )
    ["#zabranjenopusenje" ["amenity"] ["smoking" "no"]]
    ["#zabranjenopusenje" ["amenity"] ["smoking" "outside"]]
+
+
+   ;; todo izbaciti jaslice
+   ["#vrtic" ["amenity" "kindergarten"]]
+   ["#jaslice" ["amenity" "kindergarten"] ["nursery" "yes"]]
+   ["#cuvaonica" ["amenity" "childcare"]]
    ["#deozadecu" ["kids_area" "yes"]]
    ["#deozadecu" ["kids_area:indoor" "yes"]]
    
@@ -550,14 +583,26 @@
    ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["name" "Banca Intesa"]]
    ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["brand" "Banca Intesa"]]
    ["#organico" ["shop" "convenience"] ["brand" "Organico"]]
+   ;; https://www.openstreetmap.org/node/6587495488
+   ["#benu" ["healthcare" "pharmacy"] ["name" "Benu"]]
+   ["#benu" ["healthcare" "pharmacy"] ["brand" "Benu"]]
+   ;; https://www.openstreetmap.org/node/13179720673
+   ["#mojkiosk" ["shop" "kiosk"] ["brand" "Мој киоск"]]
    
    ;; general poi
+   ["#crkva" ["amenity" "place_of_worship"]]
+   ["#crkva" ["building" "church"]]
+   ["#pravoslavnacrkva" ["amenity" "place_of_worship"] ["religion" "christian"] ["denomination" "serbian_orthodox"]]
+   ["#groblje" ["landuse" "cemetery"]]
+   ["#groblje" ["amenity" "grave_yard"]]
+   
    ["#gas" ["amenity" "fuel"]]
    ["#prodavnica" ["shop" "supermarket"]]
    ["#kompanija" ["office" "company"]]
    ["#bravar" ["shop" "locksmith"]]
    ["#bravar" ["craft" "locksmith"]]
    ["#bravar" ["craft" "key_cutter"]]
+   ["#farbara" ["shop" "paint"]]
    
    
 
@@ -568,6 +613,7 @@
    
    ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
    ["#apoteka" ["amenity" "pharmacy"]]
+   ["#apoteka" ["healthcare" "pharmacy"]]
    ["#zubar" ["amenity" "dentist"]]
    ["#doktor" ["amenity" "doctors"]]
    ["#doktor" ["amenity" "hospital"]]
@@ -620,8 +666,12 @@
     ["natural" "tree"]
     ["denomination" "serbian_orthodox"]
     ["religion" "christian"]]
+
    ["#camp" ["tourism" "camp_site"]]
    ["#camp" ["tourism" "caravan_site"]]
+   ;; parcela na kamp mestu
+   ["#parcela" ["tourism" "camp_pitch"]]
+   
    ["#paketomat" ["amenity" "parcel_locker"]]
 
    ["#beach" ["natural" "beach"]]
@@ -648,15 +698,18 @@
    ["#wikidata" ["wikidata"]]
    ;; checkin
    ["#checkin" ["amenity"]]
+   ["#checkin" ["aeroway" "aerodrome"]]
+   ["#checkin" ["barrier" "border_control"]]
+   ["#checkin" ["club"]]
+   ["#checkin" ["craft"]]
    ["#checkin" ["office"]]
    ["#checkin" ["travel"]]
    ["#checkin" ["shop"]]
    ["#checkin" ["tourism"]]
    ["#checkin" ["leisure"]]
-   ["#checkin" ["club"]]
-   ["#checkin" ["barrier" "border_control"]]
    ["#checkin" ["public_transport" "station"]]
    ["#checkin" ["building"] ["name"]]
+   ["#checkin" ["natural" "beach"]]
    ["#checkin" ["natural"] ["name"]]])
 
 #_(defn simple-mapping->overpass [mapping]

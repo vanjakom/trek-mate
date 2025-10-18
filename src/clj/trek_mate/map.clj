@@ -68,7 +68,7 @@
 
 (def geojson-gpx-garmin-layer tile-overlay-gpx-garmin)
 
-(def dotstore-root-path (path/child env/*dataset-local-path* "dotstore"))
+(def dotstore-root-path ["Volumes" "dotstore"])
 
 ;; 20240911, during #sfcg2024, one more try of mapping tags to pins
 ;; and map helper stuff
@@ -117,9 +117,6 @@
 
 #_(extract-pin-name []) ;; "location"
 #_(extract-pin-name ["test" "#sleep"]) ;; "sleep"
-
-
-
 
 (server/create-server
  7071

@@ -1257,6 +1257,19 @@
                                 track-seq)]))}))
                  {:status 404})))
 
+           (= dataset "garmin-daily")
+           (let [path (path/child env/garmin-track-daily-path (str track ".gpx"))]
+               (if (fs/exists? path)
+                 (with-open [is (fs/input-stream path)]
+                   (let [track-seq (:track-seq (gpx/read-track-gpx is))]
+                     {
+                      :status 200
+                      :body (json/write-to-string
+                             (geojson/geojson
+                              [(geojson/location-seq-seq->multi-line-string
+                                track-seq)]))}))
+                 {:status 404}))
+           
            (= dataset "trek-mate")
            (if (some? waypoint)
              (let [path (path/child env/trek-mate-location-path waypoint)]
@@ -1363,16 +1376,72 @@
                       last
                       (fs/list env/garmin-track-path)))))))]]]))})
   (compojure.core/GET
+   "/projects/tracks/garmin-daily"
+   _
+   {
+    :status 200
+    :headers {
+              "Content-Type" "text/html; charset=utf-8"}
+    :body (let [tags-map (into
+                          {}
+                          (with-open [is (fs/input-stream
+                                          (path/child env/garmin-track-daily-path "index.tsv"))]
+                            (doall
+                             (filter
+                              some?
+                              (map
+                               (fn [line]
+                                 (when (not (.startsWith line ";;"))
+                                   (let [fields (.split line "\\|")]
+                                     (when (== (count fields) 2)
+                                       [
+                                        (first fields)
+                                        (.split (second fields) " ")]))))
+                               (io/input-stream->line-seq is))))))]
+            (hiccup/html
+             [:html
+              [:head
+               [:meta {:charset "UTF-8"}]]
+              [:body {:style "font-family:arial;"}
+               [:table {:style "border-collapse:collapse;"}
+                (map
+                 (fn [name]
+                   [:tr
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str
+                              "/projects/tracks/view?type=track&dataset=garmin-daily&track="
+                              (base64/string->base64-string name))
+                       :target "_blank"}
+                      name]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     [:a
+                      {:href (str "javascript:navigator.clipboard.writeText(\"" name "\")")}
+                      "copy"]]
+                    [:td {:style "border: 1px solid black; padding: 5px;"}
+                     (if-let [tags (get tags-map name)]
+                       (clojure.string/join " " tags)
+                       "#pending")]])
+                 (reverse
+                  (sort
+                   (map
+                    #(.replace % ".gpx" "")
+                    (filter
+                     #(.endsWith % ".gpx")
+                     (map
+                      last
+                      (fs/list env/garmin-track-daily-path)))))))]]]))})  
+  (compojure.core/GET
    "/projects/tracks/garmin-wp"
    _
    {
     :status 200
     :headers {
-             "Content-Type" "text/html; charset=utf-8"}
+              "Content-Type" "text/html; charset=utf-8"}
     :body (hiccup/html
            [:html
             [:head
-               [:meta {:charset "UTF-8"}]]
+             [:meta {:charset "UTF-8"}]]
             [:body {:style "font-family:arial;"}
              [:table {:style "border-collapse:collapse;"}
               (map

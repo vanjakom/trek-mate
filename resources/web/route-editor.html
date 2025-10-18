@@ -421,7 +421,7 @@
 	      let featureLayer = L.featureGroup()
 	      relationLayer.addLayer(featureLayer)
 	      if (memberInfo.type == "node") {
-		  let node = relationDataset.nodes[memberInfo.id]
+		  let node = relationDataset.node[memberInfo.id]
 		  let marker =  L.marker([node.latitude, node.longitude])
 		  featureLayer.addLayer(marker)
 		  featureLayer.select = function() {
@@ -431,10 +431,10 @@
 		      }
 		  }
 	      } else if (memberInfo.type == "way") {
-		  let way = relationDataset.ways[memberInfo.id]
+		  let way = relationDataset.way[memberInfo.id]
 		  let coords = []
 		  way.nodes.forEach(function (nodeId) {
-		      let node = relationDataset.nodes[nodeId]
+		      let node = relationDataset.node[nodeId]
 		      coords.push([
 			  parseFloat(node.latitude),
 			  parseFloat(node.longitude)])
@@ -491,7 +491,7 @@
       
       fetch("/route/edit/" + routeId + "/retrieve").then(response => response.json()).then(function(data) {
 	  relationDataset = data
-	  relation = data.relations[routeId]
+	  relation = data.relation[routeId]
 	  refreshRelationFn()
 	  
 	  map.fitBounds(relationLayer.getBounds())
@@ -522,7 +522,7 @@
 	      .then(response => response.json()).then(function(data) {
 		  // todo
 		  //relationDataset = data
-		  //relation = data.relations[routeId]
+		  //relation = data.relation[routeId]
 		  //refreshRelationFn()
 		  //map.fitBounds(relationLayer.getBounds())
 	  })

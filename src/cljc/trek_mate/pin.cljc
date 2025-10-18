@@ -56,10 +56,10 @@
 (def visit-pin "visit") ;; todo
 
 ;;; global places
-(def airport-pin "airport_pin")
-(def bus-pin "bus_pin")
-(def border-pin "border_pin")
-(def highway-pin "highway_pin")
+(def airport-pin "airport")
+(def bus-pin "bus")
+(def border-pin "border")
+(def highway-pin "highway")
 
 ;;; outdoor
 (def water-pin "water")

@@ -1,5 +1,6 @@
 (ns trek-mate.app
   (:require
+   [clj-geo.import.osmapi :as osmapi]
    [trek-mate.tag :as tag]
    [trek-mate.pin :as pin]))
 
@@ -35,3 +36,6 @@
 
 (defn ^:export supportedTags []
   (clj->js (into [] (tag/supported-tags))))
+
+(defn ^:export fetchNode [id]
+  (clj->js (osmapi/node-full id)))

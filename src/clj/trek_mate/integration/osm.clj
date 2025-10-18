@@ -14,43 +14,135 @@
    [clj-geo.math.core :as geo]
    [clj-common.pipeline :as pipeline]
    [trek-mate.tag :as tag]
+   [clj-geo.dotstore.humandot :as humandot]
    [clj-geo.import.osm :as import]
+   [clj-geo.import.osmapi :as osmapi]
    [clj-geo.math.tile :as tile-math]
-   [clj-geo.import.osmapi :as osmapi]))
+   [clj-geo.osm.dataset :as dataset]))
+
+;; todo go over functions after DEPRECATION note and migrate to new
+;; extraction process
+
+;; 20250708 #rovinj2025 work on united extraction of location from
+;; OSM data sources ( osmapi, overpass, batch )
+
+;; trek-mate is responsible for extraction of location from osm data
+;; longitude, latitude, tags, where tags are string list
+
+(defn extract-location [dataset type id]
+  (let [extract-tags (fn [tags]
+                       (concat
+                        (filter
+                         some?
+                         (map
+                          #(% tags)
+                          [
+                           (fn [tags]
+                             (or
+                              (get tags "name:sr")
+                              (get tags "name:en")
+                              (get tags "name")))]))
+                        [
+                         (str "https://openstreetmap.org/" (name type) "/" id)]
+                        (tag/osm-tags->links tags)
+                        (disj
+                         (tag/osm-tags->tags tags)
+                         ;; todo, remove checkin
+                         "#checkin")))]
+    (cond
+      (= type :node)
+      (let [node (get-in dataset [:node id])]
+        {
+         :longitude (:longitude node)
+         :latitude (:latitude node)
+         :tags (extract-tags (:tags node))})
+
+      (= type :way)
+      (let [way (get-in dataset [:way id])]
+        (assoc
+         (dataset/way-center dataset id)
+         :tags
+         (extract-tags (:tags way))))
+
+      (= type :relation)
+      (let [relation (get-in dataset [:relation id])]
+        (assoc
+         (dataset/relation-center dataset id)
+         :tags
+         (extract-tags (:tags relation)))))))
+
+(defn prepare-humandot [location]
+  ;; strip |url attribute format
+  (let [tags (map
+              #(if (.startsWith % "|url|")
+                 (last (.split % "\\|"))
+                 %)
+              (:tags location))]
+    (humandot/write-to-string
+     (assoc location :tags tags))))
+
+(defn retrieve-osm-location [osm-url]
+  (let [[type id] (cond
+                    (.contains osm-url "/node/")
+                    [:node (as/as-long (second (.split osm-url "/node/")))]
+                    
+                    (.contains osm-url "/way/")
+                    [:way (as/as-long (second (.split osm-url "/way/")))]
+                    
+                    (.contains osm-url "/relation/")
+                    [:relation (as/as-long (second (.split osm-url "/relation/")))])
+        dataset (cond
+                  (= type :node)
+                  (osmapi/node-full id)
+                  (= type :way)
+                  (osmapi/way-full id)
+                  (= type :relation)
+                  (osmapi/relation-full id))
+        location (extract-location dataset type id)]
+    (prepare-humandot location)))
+
+#_(println
+   (retrieve-osm-location "https://www.openstreetmap.org/node/5260118422"))
+
+#_(println
+   (retrieve-osm-location "https://www.openstreetmap.org/way/634035239"))
+
+#_(println
+   (retrieve-osm-location "https://www.openstreetmap.org/relation/19105404"))
 
 ;; DEPRECATED, most of useful stuff migrated to clj-geo.import.osm
 ;; if something more needed migrate
 
 ;;; old version with extraction
 #_(defn osm-tags->tags [osm-tags]
-  (let [mapping {
-                 "name:en" (fn [key value] [(tag/name-tag value)])
-                 "tourism" (fn [_ value]
+    (let [mapping {
+                   "name:en" (fn [key value] [(tag/name-tag value)])
+                   "tourism" (fn [_ value]
+                               (cond
+                                 (= value "attraction") [tag/tag-visit]
+                                 (= value "camp_site") [tag/tag-sleep]))
+                   "place" (fn [_ value]
                              (cond
-                               (= value "attraction") [tag/tag-visit]
-                               (= value "camp_site") [tag/tag-sleep]))
-                 "place" (fn [_ value]
-                           (cond
-                             (= value "city") [tag/tag-city]
-                             (= value "town") [tag/tag-city]
-                             (= value "village") [tag/tag-village]))
-                 ;; route tags
-                 "highway" (fn [_ value]
-                             (cond
-                               (= value "trunk") [tag/tag-road "#trunk"]
-                               :else [tag/tag-road]))}]
-    (into
-     #{}
-     (filter
-      some?
-      (mapcat
-       (fn [[key value]]
-         (if-let [fn (get mapping key)]
-           (if-let [tags (fn key value)]
-             (conj tags (str "#osm:" key ":" value))
-             [(str "#osm:" key ":" value)] )
-           [(str "#osm:" key ":" value)]))
-       osm-tags)))))
+                               (= value "city") [tag/tag-city]
+                               (= value "town") [tag/tag-city]
+                               (= value "village") [tag/tag-village]))
+                   ;; route tags
+                   "highway" (fn [_ value]
+                               (cond
+                                 (= value "trunk") [tag/tag-road "#trunk"]
+                                 :else [tag/tag-road]))}]
+      (into
+       #{}
+       (filter
+        some?
+        (mapcat
+         (fn [[key value]]
+           (if-let [fn (get mapping key)]
+             (if-let [tags (fn key value)]
+               (conj tags (str "#osm:" key ":" value))
+               [(str "#osm:" key ":" value)] )
+             [(str "#osm:" key ":" value)]))
+         osm-tags)))))
 
 (def osm-tag-node-prefix "osm:n:")
 (def osm-tag-way-prefix "osm:w:")
@@ -1191,141 +1283,9 @@
                             role))})
                (.getMembers entity))}))
 
-#_(defn read-osm-pbf-go
-  "Reads osm pbf and emits nodes, ways and relations to specific channels. If
-  given channel is nil emit will be ignored.
-  note: structure of data returned should mimic one returned by reading xml
-  using read-osm-go.
-  todo: support stopping, currently whole pbf must be read"
-  [context path node-ch way-ch relation-ch]
-  (let [sink (reify
-               org.openstreetmap.osmosis.core.task.v0_6.Sink
-               (initialize [this conf])
-               (process [this entity]
-                 (context/set-state context "step")
-                 (cond
-                   (instance?
-                    org.openstreetmap.osmosis.core.container.v0_6.NodeContainer
-                    entity)
-                   (do
-                      (context/counter context "node-in")
-                      (when node-ch
-                        (async/>!! node-ch (read-pbf-node entity))
-                        (context/counter context "node-out")))
-                   (instance?
-                    org.openstreetmap.osmosis.core.container.v0_6.WayContainer
-                    entity)
-                   (do
-                     (context/counter context "way-in")
-                     (when way-ch
-                       (async/>!! way-ch (read-pbf-way entity))
-                       (context/counter context "way-out")))
-                   (instance?
-                    org.openstreetmap.osmosis.core.container.v0_6.RelationContainer
-                    entity)
-                   (do
-                     (context/counter context "relation-in")
-                     (when relation-ch
-                       (async/>!! relation-ch (read-pbf-relation entity))
-                       (context/counter context "relation-out")))
-                   :else
-                   (context/counter context "error-unknown-type")))
-               (complete [this])
-               (close [this]))]
-    (async/thread
-      (context/set-state context "init")
-      (with-open [is (fs/input-stream path)]
-        (let [reader (new crosby.binary.osmosis.OsmosisReader is)]
-          (.setSink reader sink)
-          (.run reader)))
-      (when node-ch
-        (async/close! node-ch))
-      (when way-ch
-        (async/close! way-ch))
-      (when relation-ch
-        (async/close! relation-ch))
-      (context/set-state context "completion"))))
 
 ;; moved to clj-geo, used a lot, refactor skip
 (def read-osm-pbf-go import/read-osm-pbf-go)
-
-(defn relation-histset-go
-  "First reads relations, aggregating all versions in histset and all node and
-  way ids that need to find in way-in and node-in. Next reads ways, aggregates
-  needed and accumulates nodes that are required. At the end adds to histset
-  required nodes by reading all nodes from node channel."
-  [context relation-id node-in way-in relation-in histset-out]
-  (async/go
-    (context/set-state context "init")
-    ;; go over relations
-    (loop [node-set #{}
-           way-set #{}
-           histset (osmapi/histset-create)
-           relation (async/<! relation-in)]
-      (if relation
-        (do
-          (context/set-state context "relation-scan")
-          (context/increment-counter context "relation-in")
-          (if (= (:id relation) relation-id)
-            (do
-              (context/increment-counter context "relation-match")
-              (recur
-               (into node-set (filter some? (map
-                                             (fn [member]
-                                               (when (= (:type member) :node)
-                                                 (:id member)))
-                                             (:members relation))))
-               (into way-set (filter some? (map
-                                            (fn [member]
-                                              (when (= (:type member) :way)
-                                                (:id member)))
-                                            (:members relation))))
-               (osmapi/histset-append-relation histset relation)
-               (async/<! relation-in)))
-            (recur
-             node-set
-             way-set
-             histset
-             (async/<! relation-in))))
-        ;; go over ways
-        (loop [node-set node-set
-               histset histset
-               way (async/<! way-in)]
-          (if way
-            (do
-              (context/set-state context "way-scan")
-              (context/increment-counter context "way-in")
-              (if (contains? way-set (:id way))
-                (do
-                  (context/increment-counter context "way-match")
-                  (recur
-                   (into node-set (:nodes way))
-                   (osmapi/histset-append-way histset way)
-                   (async/<! way-in)))
-                (recur
-                 node-set
-                 histset
-                 (async/<! way-in))))
-            ;; go over nodes
-            (loop [histset histset
-                   node (async/<! node-in)]
-              (if node
-                (do
-                  (context/set-state context "node-scan")
-                  (context/increment-counter context "node-in")
-                  (if (contains? node-set (:id node))
-                    (do
-                      (context/increment-counter context "node-match")
-                      (recur
-                       (osmapi/histset-append-node histset node)
-                       (async/<! node-in)))
-                    (recur
-                     histset
-                     (async/<! node-in))))
-                (do
-                  (async/>! histset-out histset)
-                  (async/close! histset-out)
-                  (context/set-state context "completion"))))))))))
 
 (defn position-way-go
   "Reads in all ways into inverse index, then iterates over nodes replacing

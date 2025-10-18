@@ -23,8 +23,8 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.osm :as osm]
    [clj-geo.import.osmapi :as osmapi]
+   [clj-geo.osm.dataset :as dataset]
    
-
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.integration.wikidata :as wikidata]
@@ -116,7 +116,7 @@
  (list "add" "brand" "NIS Petrol" "website" "http://nis.eu" "update" "test" "true" "remove" "tag1" "add" "tag2" "value2"))
 
 (defn extract-relation-geometry [dataset id]
-  (if-let [relation (get-in dataset [:relations id])]
+  (if-let [relation (get-in dataset [:relation id])]
     {
      :type "FeatureCollection"
      :properties {}
@@ -131,9 +131,9 @@
             (= (:type member) :way)
             (let [nodes (map
                          (fn [id]
-                           (let [node (get-in dataset [:nodes id])]
+                           (let [node (get-in dataset [:node id])]
                              [(as/as-double (:longitude node)) (as/as-double (:latitude node))]))
-                         (:nodes (get-in dataset [:ways (:id member)])))
+                         (:nodes (get-in dataset [:way (:id member)])))
                   center (nth nodes (int (Math/floor (/ (count nodes) 2))))]
               {
                  :type "Feature"
@@ -151,7 +151,7 @@
          (fn [[feature-map index] member]
            (cond
              (= (:type member) :node)
-             (let [node (get-in dataset [:nodes (:id member)])
+             (let [node (get-in dataset [:node (:id member)])
                    id (str "n" (:id member))
                    feature (or
                             (get feature-map id)
@@ -176,9 +176,9 @@
              (= (:type member) :way)
              (let [nodes (map
                           (fn [id]
-                            (let [node (get-in dataset [:nodes id])]
+                            (let [node (get-in dataset [:node id])]
                               [(as/as-double (:longitude node)) (as/as-double (:latitude node))]))
-                          (:nodes (get-in dataset [:ways (:id member)])))
+                          (:nodes (get-in dataset [:way (:id member)])))
                    center (nth nodes (int (Math/floor (/ (count nodes) 2))))
                    id (str "w" (:id member))
                    feature (or
@@ -374,7 +374,7 @@
   (swap!
    cache
    (fn [cache]
-     (osmapi/merge-datasets cache dataset))))
+     (dataset/merge-datasets cache dataset))))
 
 (defn dataset-node
   "Returns node in same format as node-full.
@@ -385,13 +385,13 @@
      :nodes {
              id
              (or
-              (get-in dataset [:nodes id])
+              (get-in dataset [:node id])
               (let [cache (deref cache)
-                    node (get-in cache [:nodes id])]
+                    node (get-in cache [:node id])]
                 (if (some? node)
                   node
                   (let [node (osmapi/node id)]
-                    (cache-update {:nodes {id node}})
+                    (cache-update {:node {id node}})
                     node))))}} ))
 
 (defn dataset-way
@@ -399,21 +399,21 @@
   First tries in dataset, after in cache and at the end on osm and adds to cache"
   [id]
   (let [dataset (deref dataset)
-        way (get-in dataset [:ways id])]
+        way (get-in dataset [:way id])]
     (if (some? way)
       (apply
-       osmapi/merge-datasets
+       dataset/merge-datasets
        (conj
         (map dataset-node (:nodes way)) 
-        {:ways {id way}}))
+        {:way {id way}}))
       (let [cache (deref cache)
-            way (get-in cache [:ways id])]
+            way (get-in cache [:way id])]
         (if (some? way)
           (apply
-           osmapi/merge-datasets
+           dataset/merge-datasets
            (conj
             (map dataset-node (:nodes way)) 
-            {:ways {id way}}))
+            {:way {id way}}))
           (let [way (osmapi/way-full id)]
            (cache-update way)
            way))))))
@@ -423,10 +423,10 @@
   First tries in dataset, after in cache and at the end on osm and adds to cache"
   [id]
   (let [dataset (deref dataset)
-        relation (get-in dataset [:relations id])]
+        relation (get-in dataset [:relation id])]
     (if (some? relation)
       (apply
-       osmapi/merge-datasets
+       dataset/merge-datasets
        (conj
         (map
          (fn [member]
@@ -434,7 +434,7 @@
              (dataset-way (:id member))
              (dataset-node (:id member))))
          (:members relation))
-        {:relations {id relation}}))
+        {:relation {id relation}}))
       (let [relation (osmapi/relation-full id)]
         (cache-update relation)
         relation))))
@@ -445,11 +445,11 @@
      dataset
      #(update-in
        %
-       [:relations id]
+       [:relation id]
        (constantly relation)))))
 
 #_(swap! cache {})
-#_(get-in (deref cache) [:relations 11258223])
+#_(get-in (deref cache) [:relation 11258223])
 
 ;; todo migrate all links to clj-geo
 (def check-connected? osm/check-connected?)
@@ -480,7 +480,7 @@
                        []
                        (map
                         (fn [member]
-                          (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                          (let [way (get-in (dataset-way (:id member)) [:way (:id member)])]
                             [
                              member
                              (first (:nodes way))
@@ -490,7 +490,7 @@
                        []
                        (map
                         (fn [member]
-                          (let [way (get-in (dataset-way (:id member)) [:ways (:id member)])]
+                          (let [way (get-in (dataset-way (:id member)) [:way (:id member)])]
                             [
                              member
                              (first (:nodes way))
@@ -631,7 +631,7 @@
 
 (defn prepare-route-data [id]
   (let [dataset (dataset-relation id)
-        relation (second (first (:relations dataset)))
+        relation (second (first (:relation dataset)))
         way-map (into
                  {}
                  (filter some?
@@ -640,7 +640,7 @@
                             (when (= (:type member) :way)
                               [
                                (:id member)
-                               (get-in dataset [:ways (:id member)])]))
+                               (get-in dataset [:way (:id member)])]))
                           (:members relation))))
         [connected-way-seq connected] (check-connected? way-map relation)
         source-geojson (get (deref route-source-map) id)]
@@ -667,11 +667,11 @@
   ([way-id]
    (way->feature (dataset-way way-id) way-id))
   ([dataset way-id]
-   (let [way (get-in dataset [:ways way-id])]
+   (let [way (get-in dataset [:way way-id])]
      (assoc
       (geojson/location-seq->line-string
        (map
-        #(let [node (get-in dataset [:nodes %])]
+        #(let [node (get-in dataset [:node %])]
            {
             :longitude (as/as-double (:longitude node))
             :latitude (as/as-double (:latitude node))})
@@ -686,7 +686,7 @@
   ([node-id]
    (node->feature (dataset-node node-id) node-id))
   ([dataset node-id]
-   (let [node (get-in dataset [:nodes node-id])]
+   (let [node (get-in dataset [:node node-id])]
      (assoc
       (geojson/location->feature
        {:longitude (:longitude node) :latitude (:latitude node)})
@@ -720,7 +720,7 @@
      (filter
       #(contains? (:tags %) "highway")
       (vals
-       (:ways (osmapi/map-bounding-box
+       (:way (osmapi/map-bounding-box
                min-longitude min-latitude max-longitude max-latitude))))))))
 
 (defn update-network-data
@@ -1401,10 +1401,10 @@
                        #{}
                        (concat
                         (map :id (filter #(= (:type %) :node) (:members relation)))
-                        (mapcat :nodes (vals (:ways way-dataset)))))
+                        (mapcat :nodes (vals (:way way-dataset)))))
           node-dataset (when (not (empty? node-id-seq)) (osmapi/nodes node-id-seq))
           data (extract-relation-geometry
-                (merge {:relations {id relation}} way-dataset node-dataset)
+                (merge {:relation {id relation}} way-dataset node-dataset)
                 id)]
        (render-relation-geometry data))
      (catch Exception e
@@ -1503,7 +1503,7 @@
                                 (when (= (name (:type member)) "way")
                                   [
                                    (:id member)
-                                   (get-in (dataset-way (:id member)) [:ways (:id member)])]))
+                                   (get-in (dataset-way (:id member)) [:way (:id member)])]))
                               (:members ordered))))
             [connected-way-seq connected] (check-connected? way-map ordered)]
         {
@@ -1779,7 +1779,7 @@
                            :id
                            (filter
                             #(contains? (:tags %) "highway")
-                            (vals (:ways dataset)))))
+                            (vals (:way dataset)))))
                          (map
                           (fn [node-id]
                             (update-in
@@ -1794,7 +1794,7 @@
                               (= (get-in % [:tags "tourism"]) "information")
                               (= (get-in % [:tags "information"]) "guidepost")
                               (= (get-in % [:tags "bicycle"]) "yes" ))
-                            (vals (:nodes dataset))))))))})))
+                            (vals (:node dataset))))))))})))
   nil)
 
 

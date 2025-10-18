@@ -252,30 +252,37 @@
   "Performs query and returns dataset in same format as osmapi.
   Executed query [out:xml];...out center meta;"
   [query]
-  (let [full-query (str "[out:xml];" query "out center meta;")]
+  (let [full-query
+        (str
+         "[out:xml];" query
+         ;; 20250708 #rovinj2025 downloading all related elements
+         ;; in case of way or relation
+         "(._; >>;);"
+         "out center meta;")]
     (println "[overpass]" full-query)
     (reduce
      (fn [dataset element]
        (cond
          (= (:tag element) :node)
-         (let [node (osmapi/node-xml->node element)]
+         (let [node (osmapi/node-parse-coordinates
+                     (osmapi/node-xml->node element))]
            (update-in
             dataset
-            [:nodes (:id node)]
+            [:node (:id node)]
             (constantly node)))
          
          (= (:tag element) :way)
          (let [way (osmapi/way-xml->way element)]
            (update-in
             dataset
-            [:ways (:id way)]
+            [:way (:id way)]
             (constantly way)))
          
          (= (:tag element) :relation)
          (let [relation (osmapi/relation-xml->relation element)]
            (update-in
             dataset
-            [:relations (:id relation)]
+            [:relation (:id relation)]
             (constantly relation)))))
      {}
      (filter
@@ -327,82 +334,27 @@
 ;; use to create tags as it should be, do not assign for pin
 ;; use trek-mate.map to map tag to pin
 ;; todo document all possible tags, latest mapping, 20241124
-(defn prepare-humandot [osm-url]
-  (let [extract-tags (fn [tags]
-                       (concat
-                        (filter
-                         some?
-                         (map
-                          #(% tags)
-                          [
-                           (fn [tags]
-                             (or
-                              (get tags :name:sr)
-                              (get tags :name:en)
-                              (get tags :name)))]))
-                        ;; strip |url attribute format
-                        (map
-                         #(last (.split % "\\|"))
-                         (tag/osm-tags->links (clojure.walk/stringify-keys tags)))
-                        (disj
-                         (tag/osm-tags->tags (clojure.walk/stringify-keys tags))
-                         ;; todo, remove checkin
-                         "#checkin")))]
-    (cond
-      (.contains osm-url "/way/")
-      (let [id (second (.split osm-url "/way/"))]
-        (when-let [object (get-in
-                           (request (str "way(" id ");"))
-                           [:elements 0])]
-          (let [tags (get object :tags)]
-            (humandot/write-to-string
-             {
-              :longitude (get-in object [:center :lon])
-              :latitude (get-in object [:center :lat])
-              :tags (conj
-                     (extract-tags tags)
-                     osm-url)}))))
-
-      (.contains osm-url "/relation/")
-      (let [id (second (.split osm-url "/relation/"))]
-        (when-let [object (get-in
-                           (request (str "relation(" id ");"))
-                           [:elements 0])]
-          (let [tags (get object :tags)]
-            (humandot/write-to-string
-             {
-              :longitude (get-in object [:center :lon])
-              :latitude (get-in object [:center :lat])
-              :tags (conj
-                     (extract-tags tags)
-                     osm-url)}))))
-
-      (.contains osm-url "/node/")
-      (let [id (second (.split osm-url "/node/"))]
-        (when-let [object (get-in
-                           (request (str "node(" id ");"))
-                           [:elements 0])]
-          (let [tags (get object :tags)]
-            (humandot/write-to-string
-             {
-              :longitude (get-in object [:lon])
-              :latitude (get-in object [:lat])
-              :tags (conj
-                     (extract-tags tags)
-                     osm-url)}))))
-
-      :else
-      nil)))
+(defn retrieve-osm-location [osm-url]
+  (let [[type id] (cond
+                    (.contains osm-url "/node/")
+                    [:node (as/as-long (second (.split osm-url "/node/")))]
+                    
+                    (.contains osm-url "/way/")
+                    [:way (as/as-long (second (.split osm-url "/way/")))]
+                    
+                    (.contains osm-url "/relation/")
+                    [:relation (as/as-long (second (.split osm-url "/relation/")))])
+        query (str (name type) "(" id ");")
+        dataset (query->dataset query)
+        location (trek-mate.integration.osm/extract-location dataset type id)]
+    (trek-mate.integration.osm/prepare-humandot location)))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/node/12908147485"))
-
-
-#_(println
-   (prepare-humandot "https://www.openstreetmap.org/way/316593236"))
-
-#_12403478794
+   (retrieve-osm-location "https://www.openstreetmap.org/node/11897531774"))
 
 #_(println
-   (prepare-humandot "https://www.openstreetmap.org/relation/19105404"))
+   (retrieve-osm-location "https://www.openstreetmap.org/way/1334598502"))
+
+#_(println
+   (retrieve-osm-location "https://www.openstreetmap.org/relation/19105404"))
 

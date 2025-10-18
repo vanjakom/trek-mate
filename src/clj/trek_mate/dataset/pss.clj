@@ -18,17 +18,20 @@
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
    [clj-common.view :as view]
-   [clj-geo.import.gpx :as gpx]
-   [clj-geo.import.location :as location]
    [trek-mate.dot :as dot]
    [trek-mate.dataset.hike-and-bike :as hike-and-bike]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
+
+   [clj-geo.import.gpx :as gpx]
    [clj-geo.import.geojson :as geojson]
+   [clj-geo.import.location :as location]
    [clj-geo.import.osm :as osm]
    [clj-geo.import.osmapi :as osmapi]
+   [clj-geo.osm.dataset :as dataset]
    [clj-geo.visualization.map :as mapcore]
+
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.map :as map]
    [trek-mate.osmeditor :as osmeditor]
@@ -43,29 +46,29 @@
 ;; used for http interface until migrated
 ;; providing gpx for trails
 
-(def dataset-path (path/child env/*dataset-git-path* "pss.rs"))
 (def integration-git-path ["Users" "vanja" "projects" "osm-pss-integration"])
+(def dataset-path (path/child integration-git-path "dataset" "pss.rs" "routes"))
 
 ;; find references to E7 and E4
 #_(doseq [post posts]
-  (let [post (update-in post [:postmeta] #(view/seq->map :label %))
-        postid (:ID post)
-        title (:title post)
-        link (:permalink post)
-        oznaka (get-in post [:postmeta "Oznaka" :value])
-        info-path (path/child dataset-path "routes" (str oznaka ".json"))
-        content-path (path/child dataset-path "routes" (str oznaka ".html"))
-        gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
-    (if (fs/exists? content-path)
-      (let [content (with-open [is (fs/input-stream content-path)]
-                      (io/input-stream->string is))]
-        (if
-            (or
-             (.contains content "E-7")
-             (.contains content "E7"))
-          (do
-            (println oznaka "-" title)
-            (println "\t" link)))))))
+    (let [post (update-in post [:postmeta] #(view/seq->map :label %))
+          postid (:ID post)
+          title (:title post)
+          link (:permalink post)
+          oznaka (get-in post [:postmeta "Oznaka" :value])
+          info-path (path/child dataset-path "routes" (str oznaka ".json"))
+          content-path (path/child dataset-path "routes" (str oznaka ".html"))
+          gpx-path (path/child dataset-path "routes" (str oznaka ".gpx"))]
+      (if (fs/exists? content-path)
+        (let [content (with-open [is (fs/input-stream content-path)]
+                        (io/input-stream->string is))]
+          (if
+              (or
+               (.contains content "E-7")
+               (.contains content "E7"))
+              (do
+                (println oznaka "-" title)
+                (println "\t" link)))))))
 
 ;; find references to zapis
 #_(doseq [post posts]
@@ -968,7 +971,7 @@
   (let [id (:id relation)]
     (println "assigning source for" id (get-in relation [:tags "ref"]) (get-in relation [:tags "name"]))
     (if-let [ref (get-in relation [:tags "ref"])]
-      (let [path (path/child env/*dataset-git-path* "pss.rs" "routes" (str ref ".gpx"))]
+      (let [path (path/child dataset-path (str ref ".gpx"))]
         (if (fs/exists? path)
           (swap!
            osmeditor/route-source-map
@@ -996,7 +999,7 @@
                           "</span>"
                           "</div>")}))
                      (take-nth 100 (apply concat track-seq))))))))))
-          (println "[WARN] no path for" id "," ref)))
+          (println "[WARN] no path for" id "," ref (path/path->string path))))
       (println "[WARN] not pss trail" id (get-in relation [:tags "name"])))))
 
 #_(Get (deref osmeditor/route-source-map) 14194463)
@@ -1192,7 +1195,7 @@
 ;; mapa valjevskih staza
 (def valjevske-dataset
   (apply
-   osmapi/merge-datasets
+   dataset/merge-datasets
    (filter
     some?
     (map
@@ -1260,7 +1263,7 @@
    (var valjevske-dataset)
    (fn [dataset]
      (apply
-      (partial osmapi/merge-datasets dataset)
+      (partial dataset/merge-datasets dataset)
       (filter
        some?
        (map

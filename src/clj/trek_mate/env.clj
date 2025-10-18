@@ -38,6 +38,11 @@
    *global-my-dataset-path*
    "garmin"
    "gpx"))
+(def garmin-track-daily-path
+  (path/child
+   *global-my-dataset-path*
+   "garmin"
+   "daily"))
 (def garmin-waypoints-path
   (path/child
    *global-my-dataset-path*
