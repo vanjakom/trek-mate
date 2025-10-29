@@ -466,6 +466,48 @@
 ;; todo order izvucenih tagova, smatram da je bitan? ( da za sada )
 ;; funkcije su dosta kompleksnije zbog ovoga
 
+(def brands
+  [
+   ;; https://www.openstreetmap.org/node/2480272255
+   ["#bikeep"
+    ["amenity" "bicycle_parking"]
+    ["brand" "Bikeep"]]
+   ["#burgerking" ["amenity" "fast_food"] ["name" "Burger King"]]
+   ["#burgerking" ["amenity" "fast_food"] ["brand" "Burger King"]]
+   ["#burgerking" ["amenity" "fast_food"] ["brand:wikidata" "Q177054"]]
+   ;; https://www.openstreetmap.org/way/23037095
+   ["#hornbach" ["shop" "doityourself"] ["name" "Hornbach"]]
+   ;; https://www.openstreetmap.org/node/4361362068
+   ["#dm" ["shop" "chemist"] ["brand" "dm"]]
+   ["#dm" ["shop" "chemist"] ["name" "dm"]]
+   ;; https://www.openstreetmap.org/node/12484342877
+   ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
+   ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
+   ;; https://www.openstreetmap.org/node/11112532796
+   ["#mcdonalds" ["amenity" "fast_food"] ["name" "McDonald's"]]
+   ["#mcdonalds" ["amenity" "fast_food"] ["brand" "McDonald's"]]
+
+   ["#muller" ["shop" "chemist"] ["brand" "Müller"]]
+   ["#muller" ["shop" "chemist"] ["name" "Müller"]]
+   ;; https://www.openstreetmap.org/node/2480272255
+   ["#nordsee" ["amenity" "fast_food"] ["name" "Nordsee"]]
+   ["#nordsee" ["amenity" "fast_food"] ["brand" "Nordsee"]]
+   ["#nordsee" ["amenity" "fast_food"] ["brand:wikidata" "Q74866"]]
+   ;; https://www.openstreetmap.org/node/2324390746
+   ["#obi" ["shop" "doityourself"] ["name" "OBI"]]
+   ["#primark" ["shop" "clothes"] ["brand" "Primark"]]
+   ;; https://www.openstreetmap.org/node/2480256164
+   ["#mediamarkt" ["shop" "electronics"] ["brand" "MediaMarkt"]]
+   ;; https://www.openstreetmap.org/way/155052306
+   ["#zgonc" ["shop" "doityourself"] ["name" "Zgonc"]]
+   ;; https://www.openstreetmap.org/way/38921810
+   ;; https://www.openstreetmap.org/way/730020050
+   ;; https://www.openstreetmap.org/node/6407770286
+   ["#starbucks" ["amenity" "cafe"] ["name" "Starbucks"]]
+   ["#starbucks" ["amenity" "cafe"] ["name:en" "Starbucks"]]
+   ;; https://www.openstreetmap.org/node/440956457
+   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]])
+
 (def simple-mapping
   ;; sequence of mappings
   ;; each mapping has single trek-mate tag which follows number of rules
@@ -482,41 +524,9 @@
   ;; two mappings for each tag, one to return true/false for filtering
   ;; other to suggest tags I need from overpass to decide
   
-  [
-   ;; brands
-   ["#bikeep"
-    ["amenity" "bicycle_parking"]
-    ["brand" "Bikeep"]]
-   ["#burgerking" ["amenity" "fast_food"] ["name" "Burger King"]]
-   ["#burgerking" ["amenity" "fast_food"] ["brand" "Burger King"]]
-   ["#burgerking" ["amenity" "fast_food"] ["brand:wikidata" "Q177054"]]
-   ;; https://www.openstreetmap.org/node/2480272255
-   ["#hornbach" ["shop" "doityourself"] ["name" "Hornbach"]]
-   ;; https://www.openstreetmap.org/way/23037095
-   ["#dm" ["shop" "chemist"] ["brand" "dm"]]
-   ["#dm" ["shop" "chemist"] ["name" "dm"]]
-   ;; https://www.openstreetmap.org/node/4361362068
-   ;; https://www.openstreetmap.org/node/12484342877
-   ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
-   ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
-   ["#mcdonalds" ["amenity" "fast_food"] ["name" "McDonald's"]]
-   ["#mcdonalds" ["amenity" "fast_food"] ["brand" "McDonald's"]]
-   ;; https://www.openstreetmap.org/node/11112532796
-   ["#muller" ["shop" "chemist"] ["brand" "Müller"]]
-   ["#muller" ["shop" "chemist"] ["name" "Müller"]]
-   ["#nordsee" ["amenity" "fast_food"] ["name" "Nordsee"]]
-   ["#nordsee" ["amenity" "fast_food"] ["brand" "Nordsee"]]
-   ["#nordsee" ["amenity" "fast_food"] ["brand:wikidata" "Q74866"]]
-   ;; https://www.openstreetmap.org/node/2480272255
-   ["#obi" ["shop" "doityourself"] ["name" "OBI"]]
-   ;; https://www.openstreetmap.org/way/38921810
-   ;; https://www.openstreetmap.org/way/730020050
-   ["#starbucks" ["amenity" "cafe"] ["name" "Starbucks"]]
-   ["#starbucks" ["amenity" "cafe"] ["name:en" "Starbucks"]]
-   ;; https://www.openstreetmap.org/node/6407770286
-   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]
-   ;; https://www.openstreetmap.org/node/440956457
-
+  (concat
+   brands
+   [ 
    ;; categorization
    ;; result of trek-mate.job.categorization
    ["#aerodrom" ["aeroway" "aerodrome"]]
@@ -571,11 +581,22 @@
    ["#deozadecu" ["kids_area" "yes"]]
    ["#deozadecu" ["kids_area:indoor" "yes"]]
    
-   ;; serbia
-   ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
-   ;; https://www.openstreetmap.org/node/6959796644
-   ["#nis" ["amenity" "fuel"] ["brand:wikidata" "Q1279721"]] ;; todo improve
-   ["#grubin" ["shop" "shoes"] ["brand" "Grubin"]]
+    ;; serbia
+    ;; https://www.openstreetmap.org/node/6959796644
+    ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
+
+    ;; https://www.openstreetmap.org/way/403077219
+    ["#nis" ["amenity" "fuel"] ["name" "НИС Петрол"]]
+    ["#nis" ["amenity" "fuel"] ["brand" "НИС Петрол"]]
+    ["#nis" ["amenity" "fuel"] ["brand:wikidata" "Q1279721"]]
+
+    ;; https://www.openstreetmap.org/node/2604438611
+    ["#gazprom" ["amenity" "fuel"] ["brand" "Gazprom"]]
+    ["#gazprom" ["amenity" "fuel"] ["name" "Газпром"]]
+    ["#gazprom" ["amenity" "fuel"] ["brand:wikidata" "Q102673"]]
+
+    
+    ["#grubin" ["shop" "shoes"] ["brand" "Grubin"]]
    ["#intesa" ["amenity" "bank"] ["name" "Banca Intesa"]]
    ["#intesa" ["amenity" "bank"] ["brand" "Banca Intesa"]]
    ["#intesabankomat" ["amenity" "atm"] ["name" "Banca Intesa"]]
@@ -710,7 +731,7 @@
    ["#checkin" ["public_transport" "station"]]
    ["#checkin" ["building"] ["name"]]
    ["#checkin" ["natural" "beach"]]
-   ["#checkin" ["natural"] ["name"]]])
+   ["#checkin" ["natural"] ["name"]]]))
 
 #_(defn simple-mapping->overpass [mapping]
     (cond
