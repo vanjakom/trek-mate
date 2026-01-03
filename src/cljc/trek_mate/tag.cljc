@@ -527,60 +527,60 @@
   (concat
    brands
    [ 
-   ;; categorization
-   ;; result of trek-mate.job.categorization
-   ["#aerodrom" ["aeroway" "aerodrome"]]
-   ;; todo because of pin
-   ["#airport" ["aeroway" "aerodrome"]]
-   ["#banka" ["amenity" "bank"]]   
-   ["#kafe" ["amenity" "bar"]]
-   ["#kafe" ["amenity" "cafe"]]
-   ["#kiosk" ["shop" "kiosk"]]
-   ["#brzahrana" ["amenity" "fast_food"]]
-   ["#deosahranom" ["amenity" "food_court"]]
-   ["#sladoledzinica" ["amenity" "ice_cream"]]
-   ["#pijaca" ["amenity" "marketplace"]]
-   ["#plaza" ["natural" "beach"]]
-   ["#posta" ["amenity" "post_office"]]
-   ["#pab" ["amenity" "pub"]]
-   ["#restoran" ["amenity" "restaurant"]]
-   ["#skola" ["amenity" "school"]]
-   ["#skolajezika" ["amenity" "language_school"]]
-   ["#opstina" ["amenity" "townhall"]]
-   ["#radioamateri" ["club" "amateur_radio"]]
-   ["#veterinar" ["amenity" "veterinary"]]
-   
-   ["#stovariste" ["shop" "trade"]]
-   ;; https://www.openstreetmap.org/node/13184941881
-   ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_supplies"]]
-   ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_materials"]]
-   ;; https://www.openstreetmap.org/node/13184975186
-   ["#gradja" ["shop" "trade"] ["trade" "timber"]]
-   ;; https://www.openstreetmap.org/node/13184969498
-   ;; todo, better naming
-   ["#" ["shop" "trade"] ["trade" "metal"]]
+    ;; categorization
+    ;; result of trek-mate.job.categorization
+    ["#aerodrom" ["aeroway" "aerodrome"]]
+    ;; todo because of pin
+    ["#airport" ["aeroway" "aerodrome"]]
+    ["#banka" ["amenity" "bank"]]   
+    ["#kafe" ["amenity" "bar"]]
+    ["#kafe" ["amenity" "cafe"]]
+    ["#kiosk" ["shop" "kiosk"]]
+    ["#brzahrana" ["amenity" "fast_food"]]
+    ["#deosahranom" ["amenity" "food_court"]]
+    ["#sladoledzinica" ["amenity" "ice_cream"]]
+    ["#pijaca" ["amenity" "marketplace"]]
+    ["#plaza" ["natural" "beach"]]
+    ["#posta" ["amenity" "post_office"]]
+    ["#pab" ["amenity" "pub"]]
+    ["#restoran" ["amenity" "restaurant"]]
+    ["#skola" ["amenity" "school"]]
+    ["#skolajezika" ["amenity" "language_school"]]
+    ["#opstina" ["amenity" "townhall"]]
+    ["#radioamateri" ["club" "amateur_radio"]]
+    ["#veterinar" ["amenity" "veterinary"]]
+    
+    ["#stovariste" ["shop" "trade"]]
+    ;; https://www.openstreetmap.org/node/13184941881
+    ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_supplies"]]
+    ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_materials"]]
+    ;; https://www.openstreetmap.org/node/13184975186
+    ["#gradja" ["shop" "trade"] ["trade" "timber"]]
+    ;; https://www.openstreetmap.org/node/13184969498
+    ;; todo, better naming
+    ["#" ["shop" "trade"] ["trade" "metal"]]
 
-   ["#autoperionica" ["amenity" "car_wash"]]
-   ["#autocetke" ["amenity" "car_wash"] ["automated" "yes"]]
-   ["#autofolije" ["shop" "car_repair"] ["service:vehicle:body_repair" "foil"]]
-   ;; todo leisure=outdoor_seating, nisam siguran kako ovo mapirati
-   ["#igraliste" ["leisure" "playground"]]
-   ;; voda za pijenje
-   ["#voda" ["amenity" "drinking_water"]]
-   
-   ;; attributes as main tags
-   ;; todo support extraction of complex query ( and, or )
-   ["#zabranjenopusenje" ["amenity"] ["smoking" "no"]]
-   ["#zabranjenopusenje" ["amenity"] ["smoking" "outside"]]
+    ["#autoperionica" ["amenity" "car_wash"]]
+    ["#autocetke" ["amenity" "car_wash"] ["automated" "yes"]]
+    ["#autofolije" ["shop" "car_repair"] ["service:vehicle:body_repair" "foil"]]
+    ;; todo leisure=outdoor_seating, nisam siguran kako ovo mapirati
+    ["#igraliste" ["leisure" "playground"]]
+    ;; voda za pijenje
+    ["#voda" ["amenity" "drinking_water"]]
+    
+    ;; attributes as main tags
+    ;; todo support extraction of complex query ( and, or )
+    ["#zabranjenopusenje" ["amenity"] ["smoking" "no"]]
+    ["#zabranjenopusenje" ["amenity"] ["smoking" "outside"]]
 
 
-   ;; todo izbaciti jaslice
-   ["#vrtic" ["amenity" "kindergarten"]]
-   ["#jaslice" ["amenity" "kindergarten"] ["nursery" "yes"]]
-   ["#cuvaonica" ["amenity" "childcare"]]
-   ["#deozadecu" ["kids_area" "yes"]]
-   ["#deozadecu" ["kids_area:indoor" "yes"]]
-   
+    ;; todo izbaciti jaslice
+    ["#vrtic" ["amenity" "kindergarten"]]
+    ["#jaslice" ["amenity" "kindergarten"] ["nursery" "yes"]]
+    ["#cuvaonica" ["amenity" "childcare"]]
+    ["#deozadecu" ["kids_area" "yes"]]
+    ["#deozadecu" ["kids_area:indoor" "yes"]]
+    
     ;; serbia
     ;; https://www.openstreetmap.org/node/6959796644
     ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]
@@ -597,141 +597,149 @@
 
     
     ["#grubin" ["shop" "shoes"] ["brand" "Grubin"]]
-   ["#intesa" ["amenity" "bank"] ["name" "Banca Intesa"]]
-   ["#intesa" ["amenity" "bank"] ["brand" "Banca Intesa"]]
-   ["#intesabankomat" ["amenity" "atm"] ["name" "Banca Intesa"]]
-   ["#intesabankomat" ["amenity" "atm"] ["brand" "Banca Intesa"]]
-   ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["name" "Banca Intesa"]]
-   ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["brand" "Banca Intesa"]]
-   ["#organico" ["shop" "convenience"] ["brand" "Organico"]]
-   ;; https://www.openstreetmap.org/node/6587495488
-   ["#benu" ["healthcare" "pharmacy"] ["name" "Benu"]]
-   ["#benu" ["healthcare" "pharmacy"] ["brand" "Benu"]]
-   ;; https://www.openstreetmap.org/node/13179720673
-   ["#mojkiosk" ["shop" "kiosk"] ["brand" "Мој киоск"]]
-   
-   ;; general poi
-   ["#crkva" ["amenity" "place_of_worship"]]
-   ["#crkva" ["building" "church"]]
-   ["#pravoslavnacrkva" ["amenity" "place_of_worship"] ["religion" "christian"] ["denomination" "serbian_orthodox"]]
-   ["#groblje" ["landuse" "cemetery"]]
-   ["#groblje" ["amenity" "grave_yard"]]
-   
-   ["#gas" ["amenity" "fuel"]]
-   ["#prodavnica" ["shop" "supermarket"]]
-   ["#kompanija" ["office" "company"]]
-   ["#bravar" ["shop" "locksmith"]]
-   ["#bravar" ["craft" "locksmith"]]
-   ["#bravar" ["craft" "key_cutter"]]
-   ["#farbara" ["shop" "paint"]]
-   
-   
+    ["#intesa" ["amenity" "bank"] ["name" "Banca Intesa"]]
+    ["#intesa" ["amenity" "bank"] ["brand" "Banca Intesa"]]
+    ["#intesabankomat" ["amenity" "atm"] ["name" "Banca Intesa"]]
+    ["#intesabankomat" ["amenity" "atm"] ["brand" "Banca Intesa"]]
+    ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["name" "Banca Intesa"]]
+    ["#intesabankomat" ["amenity" "bank"] ["atm" "yes"] ["brand" "Banca Intesa"]]
+    ["#organico" ["shop" "convenience"] ["brand" "Organico"]]
+    ;; https://www.openstreetmap.org/node/6587495488
+    ["#benu" ["healthcare" "pharmacy"] ["name" "Benu"]]
+    ["#benu" ["healthcare" "pharmacy"] ["brand" "Benu"]]
+    ;; https://www.openstreetmap.org/node/13179720673
+    ["#mojkiosk" ["shop" "kiosk"] ["brand" "Мој киоск"]]
+    
+    ;; general poi
+    ["#crkva" ["amenity" "place_of_worship"]]
+    ["#crkva" ["building" "church"]]
+    ["#pravoslavnacrkva" ["amenity" "place_of_worship"] ["religion" "christian"] ["denomination" "serbian_orthodox"]]
+    ["#groblje" ["landuse" "cemetery"]]
+    ["#groblje" ["amenity" "grave_yard"]]
+    
+    ["#gas" ["amenity" "fuel"]]
+    ["#prodavnica" ["shop" "supermarket"]]
+    ["#kompanija" ["office" "company"]]
+    ["#bravar" ["shop" "locksmith"]]
+    ["#bravar" ["craft" "locksmith"]]
+    ["#bravar" ["craft" "key_cutter"]]
+    ["#farbara" ["shop" "paint"]]
+    
+    
 
-   ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
-   ["#igraonica" ["leisure" "indoor_play"]]
+    ;; 20251101 igraonica is something you pay for, igraliste is free?
+    ;; hotel outdoor playground is catched, abandon
+    ;;["#igraonica" ["leisure" "playground"] ["access" "customers"]]
+    ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
+    ["#igraonica" ["leisure" "indoor_play"]]
 
-   ["#sankaliste" ["piste:type" "sled"]]
-   
-   ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
-   ["#apoteka" ["amenity" "pharmacy"]]
-   ["#apoteka" ["healthcare" "pharmacy"]]
-   ["#zubar" ["amenity" "dentist"]]
-   ["#doktor" ["amenity" "doctors"]]
-   ["#doktor" ["amenity" "hospital"]]
-   
+    ["#sankaliste" ["piste:type" "sled"]]
+    
+    ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
+    ["#apoteka" ["amenity" "pharmacy"]]
+    ["#apoteka" ["healthcare" "pharmacy"]]
+    ["#zubar" ["amenity" "dentist"]]
+    ["#doktor" ["amenity" "doctors"]]
+    ["#doktor" ["amenity" "hospital"]]
+    
 
 
-   ["#atm" ["amenity" "atm"]]
-   ["#atm" ["amenity" "bank"] ["atm" "yes"]]
-   
-   ["#pekara" ["shop" "bakery"]]
-   ["#mlekomat" ["amenity" "vending_machine"] ["vending" "milk"]]
-   ["#rasadnik" ["shop" "garden_centre"]]
-   ["poljoapoteka" ["shop" "agrarian"]]
-   ["#shoppingmall" ["shop" "mall"]]
-   
-   
-   
-   ["#winery" ["craft" "winery"]]
-   
-   
-   ["#pumpa" ["amenity" "fuel"]]
+    ["#atm" ["amenity" "atm"]]
+    ["#atm" ["amenity" "bank"] ["atm" "yes"]]
+    
+    ["#pekara" ["shop" "bakery"]]
+    ["#mlekomat" ["amenity" "vending_machine"] ["vending" "milk"]]
+    ["#rasadnik" ["shop" "garden_centre"]]
+    ["poljoapoteka" ["shop" "agrarian"]]
+    ["#shoppingmall" ["shop" "mall"]]
+    
+    
+    
+    ["#winery" ["craft" "winery"]]
+    
+    
+    ["#pumpa" ["amenity" "fuel"]]
 
-   ["#reciklaza" ["amenity" "recycling"]] ;; definisati malo bolje
-   ["#reciklazastaklo"
-    ["amenity" "recycling"]
-    ["recycling:glass_bottles" "yes"]]
-   ["#reciklazabaterija"
-    ["amenity" "recycling"]
-    ["recycling:batteries" "yes"]]
-   ["#reciklazapapir"
-    ["amenity" "recycling"]
-    ["recycling:paper" "yes"]]
-   ["#reciklazalimenka"
-    ["amenity" "recycling"]
-    ["recycling:cans" "yes"]]
-   ["#reciklazaplastika"
-    ["amenity" "recycling"]
-    ["recycling:plastic" "yes"]]
-   ["#reciklazacep"
-    ["amenity" "recycling"]
-    ["recycling:plastic_bottle_caps" "yes"]]
-   ["#cepzahendikep"
-    ["amenity" "recycling"]
-    ["recycling:plastic_bottle_caps" "yes"]
-    ["operator" "Чеп за хендикеп"]]
-   
-   ["#kontejner" ["amenity" "waste_disposal"]]
-   ["#zapis"
-    ["amenity" "place_of_worship"]
-    ["natural" "tree"]
-    ["denomination" "serbian_orthodox"]
-    ["religion" "christian"]]
+    ["#reciklaza" ["amenity" "recycling"]] ;; definisati malo bolje
+    ["#reciklazastaklo"
+     ["amenity" "recycling"]
+     ["recycling:glass_bottles" "yes"]]
+    ["#reciklazabaterija"
+     ["amenity" "recycling"]
+     ["recycling:batteries" "yes"]]
+    ["#reciklazapapir"
+     ["amenity" "recycling"]
+     ["recycling:paper" "yes"]]
+    ["#reciklazalimenka"
+     ["amenity" "recycling"]
+     ["recycling:cans" "yes"]]
+    ["#reciklazaplastika"
+     ["amenity" "recycling"]
+     ["recycling:plastic" "yes"]]
+    ["#reciklazacep"
+     ["recycling:plastic_bottle_caps" "yes"]]
+    ["#cepzahendikep"
+     ["recycling:plastic_bottle_caps" "yes"]
+     ["operator" "Чеп за хендикеп"]]
+    
+    ["#kontejner" ["amenity" "waste_disposal"]]
+    ["#zapis"
+     ["amenity" "place_of_worship"]
+     ["natural" "tree"]
+     ["denomination" "serbian_orthodox"]
+     ["religion" "christian"]]
 
-   ["#camp" ["tourism" "camp_site"]]
-   ["#camp" ["tourism" "caravan_site"]]
-   ;; parcela na kamp mestu
-   ["#parcela" ["tourism" "camp_pitch"]]
-   
-   ["#paketomat" ["amenity" "parcel_locker"]]
+    ["#camp" ["tourism" "camp_site"]]
+    ["#camp" ["tourism" "caravan_site"]]
+    ;; parcela na kamp mestu
+    ["#parcela" ["tourism" "camp_pitch"]]
+    
+    ["#paketomat" ["amenity" "parcel_locker"]]
 
-   ["#beach" ["natural" "beach"]]
-   ["#zoo" ["tourism" "zoo"]]
-   
-   ["#drink" ["amenity" "cafe"]]
-   ["#drink" ["amenity" "bar"]]
-   ["#drink" ["amenity" "pub"]]
-   ["#eat" ["amenity" "restaurant"]]
-   ["#eat" ["amenity" "fast_food"]]
-   ["#eat" ["shop" "bakery"]]
-   ["#shop" ["shop"]]
-   ["#sleep" ["tourism" "hotel"]]
-   ["#sleep" ["tourism" "motel"]]
+    ;; priroda
+    ["#beach" ["natural" "beach"]]
+    ["#plaza" ["natural" "beach"]]
+    ["#drvo" ["natural" "tree"]]
 
-   ["#visit" ["natural" "cave_entrance"]]
-   ["#visit" ["tourism" "attraction"]]
-   ["#visit" ["tourism" "zoo"]]
-   ["#visit" ["tourism" "museum"]]
-   ["#view" ["tourism" "viewpoint"]]
+    
+    ["#zoo" ["tourism" "zoo"]]
+    
+    ["#drink" ["amenity" "cafe"]]
+    ["#drink" ["amenity" "bar"]]
+    ["#drink" ["amenity" "pub"]]
+    ["#eat" ["amenity" "restaurant"]]
+    ["#eat" ["amenity" "fast_food"]]
+    ["#eat" ["shop" "bakery"]]
+    ["#shop" ["shop"]]
+    ["#sleep" ["tourism" "hotel"]]
+    ["#sleep" ["tourism" "motel"]]
 
-   ;; wikipedia / wikidata, add tag when it has them
-   ["#wikipedia" ["wikipedia"]]
-   ["#wikidata" ["wikidata"]]
-   ;; checkin
-   ["#checkin" ["amenity"]]
-   ["#checkin" ["aeroway" "aerodrome"]]
-   ["#checkin" ["barrier" "border_control"]]
-   ["#checkin" ["club"]]
-   ["#checkin" ["craft"]]
-   ["#checkin" ["office"]]
-   ["#checkin" ["travel"]]
-   ["#checkin" ["shop"]]
-   ["#checkin" ["tourism"]]
-   ["#checkin" ["leisure"]]
-   ["#checkin" ["public_transport" "station"]]
-   ["#checkin" ["building"] ["name"]]
-   ["#checkin" ["natural" "beach"]]
-   ["#checkin" ["natural"] ["name"]]]))
+    ["#visit" ["natural" "cave_entrance"]]
+    ["#visit" ["tourism" "attraction"]]
+    ["#visit" ["tourism" "zoo"]]
+    ["#visit" ["tourism" "museum"]]
+    ["#view" ["tourism" "viewpoint"]]
+
+    ;; wikipedia / wikidata, add tag when it has them
+    ["#wikipedia" ["wikipedia"]]
+    ["#wikidata" ["wikidata"]]
+    ;; checkin
+    ["#checkin" ["amenity"]]
+    ["#checkin" ["aeroway" "aerodrome"]]
+    ["#checkin" ["barrier" "border_control"]]
+    ["#checkin" ["club"]]
+    ["#checkin" ["craft"]]
+    ["#checkin" ["office"]]
+    ["#checkin" ["travel"]]
+    ["#checkin" ["shop"]]
+    ["#checkin" ["tourism"]]
+    ["#checkin" ["leisure"]]
+    ["#checkin" ["healthcare"]]
+    ["#checkin" ["public_transport" "station"]]
+    ["#checkin" ["building"] ["name"]]
+    ["#checkin" ["natural" "beach"]]
+    ["#checkin" ["natural"] ["tree"]]
+    ["#checkin" ["natural"] ["name"]]]))
 
 #_(defn simple-mapping->overpass [mapping]
     (cond
@@ -819,11 +827,6 @@
             (not (contains? osm-tags key))
             (not (= value (get osm-tags key)))))
         rule-seq))))))
-
-(defn supported-tags []
-  (into
-   #{}
-   (map first simple-mapping)))
 
 #_(take 5 (supported-tags)) ;; ("#kontejner" "#lidl" "#cafe" "#nordsee" "#igraonica")
 

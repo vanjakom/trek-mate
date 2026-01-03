@@ -198,3 +198,38 @@
             (output-fn
              (str "\t\thttps://osm.org/" (name (:type object)) "/" (:id object)))))))))
 
+;; todo
+;; add counters
+;; report tm tags
+;; filter empty entry
+(defn create-name-lookup-md [context]
+  (let [tm-dataset-path (get (context/configuration context) :tm-dataset-path)
+        dataset-path (get (context/configuration context) :dataset-path)]
+    (context/trace context "reading tm dataset")
+    (with-open [is (fs/input-stream tm-dataset-path)
+                os (fs/output-stream dataset-path)]
+      (doseq [entry (edn/input-stream->seq is)]
+        (let [name-set (into
+                        #{}
+                        (map
+                         (fn [name]
+                           (->
+                            name
+                            (.toLowerCase)
+                            (.replace " " "")))
+                         (filter
+                          some?
+                          [
+                           (get-in entry [:tags "name"])
+                           (get-in entry [:tags "name:sr"])
+                           (get-in entry [:tags "name:sr-Latn"])])))]
+          (io/write-line os (clojure.string/join " " name-set))
+          (io/write-line os (str "http://osm.org/" (name (:type entry)) "/" (:id entry)))
+          (io/write-line os ""))))))
+
+(let [dataset-local-path ["Users" "vanja" "dataset-local"]]
+  (create-name-lookup-md
+   (context/create-stdout-context
+    {
+     :tm-dataset-path (path/child dataset-local-path "tm-dataset" "dataset.edn")
+     :dataset-path (path/child dataset-local-path "tm-dataset" "name-lookup.md")})))

@@ -2,7 +2,8 @@
   (:require
    [clj-geo.import.osmapi :as osmapi]
    [trek-mate.tag :as tag]
-   [trek-mate.pin :as pin]))
+   [trek-mate.pin :as pin]
+   [trek-mate.profile :as profile]))
 
 (defn ^:export testPrintln []
   (println "test println from cljs"))
@@ -35,7 +36,7 @@
   (clj->js (tag/osm-tags->name (js->clj tags))))
 
 (defn ^:export supportedTags []
-  (clj->js (into [] (tag/supported-tags))))
+  (clj->js (into [] profile/supported-tags)))
 
 (defn ^:export fetchNode [id]
   (clj->js (osmapi/node-full id)))
