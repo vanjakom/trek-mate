@@ -15,10 +15,10 @@
                  [org.openstreetmap.osmosis/osmosis-pbf "0.47"]
                  [org.apache.commons/commons-compress "1.21"]
                  
-                 [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
-                 [com.mungolab/clj-geo "0.2.0-SNAPSHOT"]
-                 [com.mungolab/clj-cloudkit "0.1.0-SNAPSHOT"]
-                 [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]]
+                 [com.mungolab/clj-common "0.3.2"]
+                 [com.mungolab/clj-geo "0.2.0"]
+                 [com.mungolab/clj-cloudkit "0.1.0"]
+                 [com.mungolab/clj-scraper "0.1.0"]]
   :plugins [[lein-cljsbuild "1.1.8"]]
   :cljsbuild {
               :builds [{
