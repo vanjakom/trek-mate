@@ -1,4 +1,4 @@
-(defproject com.mungolab/trek-mate "0.1.0-SNAPSHOT"
+(defproject com.mungolab/trek-mate "0.1.0"
   :description "http://trek-mate.eu"
   :url "https://github.com/vanjakom/trek-mate"
   :jvm-opts ["-Xmx4g"]
