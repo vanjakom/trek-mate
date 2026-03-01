@@ -102,13 +102,13 @@
     (prepare-humandot location)))
 
 #_(println
-   (retrieve-osm-location "https://www.openstreetmap.org/node/5260118422"))
+   (retrieve-osm-location "https://www.openstreetmap.org/node/428740723"))
 
 #_(println
-   (retrieve-osm-location "https://www.openstreetmap.org/way/634035239"))
+   (retrieve-osm-location "https://www.openstreetmap.org/way/1091692394"))
 
 #_(println
-   (retrieve-osm-location "https://www.openstreetmap.org/relation/19105404"))
+   (retrieve-osm-location "https://www.openstreetmap.org/relation/3962877"))
 
 ;; DEPRECATED, most of useful stuff migrated to clj-geo.import.osm
 ;; if something more needed migrate

@@ -650,6 +650,8 @@
      :connected-way-seq connected-way-seq
      :source-geojson source-geojson)))
 
+#_(get (deref route-source-map) 18841831)
+
 #_(:source-geojson (prepare-route-data 14206055))
 #_(osmapi/relation-full 10948917)
 
@@ -1521,49 +1523,48 @@
   (compojure.core/POST
    "/route/edit/:id/update"
    request
-   (let [id (get-in request [:params :id])
-         ;; tags will be keywords, solved on relation->relation-xml ensuring key is string
-         relation (json/read-keyworded (:body request))
-         ;; osm not working with basic auth, not supporting upload currently
-         ;; changeset (osmapi/changeset-create "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije" {})
-         ]
+    (let [id (get-in request [:params :id])
+          ;; tags will be keywords, solved on relation->relation-xml ensuring key is string
+          relation (json/read-keyworded (:body request))
+          changeset (osmapi/changeset-create "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije" {})]
      
-     ;; osm not working with basic auth, not supporting upload currently
-     #_(println relation)
-     #_(println "changeset:" changeset ", relation:" id )
-     #_ (println (osmapi/relation-update changeset relation))
+      ;; osm not working with basic auth, not supporting upload currently
+      (println relation)
+      (println "changeset:" changeset ", relation:" id )
+      (println (osmapi/relation-update changeset relation))
 
-     ;; output level0 prepared data
-     (do
-       (println (str "open: https://level0.osmz.ru/index.php?url=relation/" id))
-       (println "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije")
-       (println "relation" id)
-       (run!
-        println
-        (map
-         (fn [[key value]]
-           (str "\t" (name key) " = " value))
-         (:tags relation)))
-       (run!
-        println
-        (map
-         (fn [member]
-           (str
-            (cond
-              (= (:type member) "way")
-              "\twy"
-              (= (:type member) "node")
-              "\tnd"
-              (= (:type member) "relation")
-              "\trel")
-            " "
-            (:id member)
-            " "
-            (:role member)))
-         (:members relation))))
+      ;; 20260222 was used temporary when osm api integration was broken
+      ;; output level0 prepared data
+      #_(do
+          (println (str "open: https://level0.osmz.ru/index.php?url=relation/" id))
+          (println "work on https://wiki.openstreetmap.org/wiki/Serbia/Projekti/Održavanje_pešačkih_staza_Srbije")
+          (println "relation" id)
+          (run!
+           println
+           (map
+            (fn [[key value]]
+              (str "\t" (name key) " = " value))
+            (:tags relation)))
+          (run!
+           println
+           (map
+            (fn [member]
+              (str
+               (cond
+                 (= (:type member) "way")
+                 "\twy"
+                 (= (:type member) "node")
+                 "\tnd"
+                 (= (:type member) "relation")
+                 "\trel")
+               " "
+               (:id member)
+               " "
+               (:role member)))
+            (:members relation))))
 
      
-     (ring.util.response/redirect (str "/view/osm/history/relation/" id))))
+      (ring.util.response/redirect (str "/view/osm/history/relation/" id))))
 
   (compojure.core/GET
     "/route/edit/:id"

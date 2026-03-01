@@ -21,6 +21,7 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
+   [clj-geo.import.osmapi :as osmapi]
    [clj-geo.math.tile :as tile-math]
    ;; deprecated
    [trek-mate.dot :as dot]
@@ -29,7 +30,7 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
-   [trek-mate.integration.osmapi :as osmapi]
+
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.osmeditor :as osmeditor]
    [trek-mate.render :as render]

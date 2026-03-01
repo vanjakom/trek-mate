@@ -980,8 +980,12 @@
              [id]
              (constantly
               (with-open [is (fs/input-stream path)]
-                (let [track-seq (:track-seq (gpx/read-gpx is))]
-                  (def a track-seq)
+                (let [gpx (gpx/read-gpx is)
+                      ;; 20260223 take routes in no track ( 6-9-1 )
+                      track-seq (if (not (empty? (:track-seq gpx)))
+                                  (:track-seq gpx)
+                                  (:route-seq gpx))]
+                  #_(def a track-seq)
                   (geojson/geojson
                    (concat
                     (map geojson/line-string track-seq)
@@ -1002,6 +1006,11 @@
           (println "[WARN] no path for" id "," ref (path/path->string path))))
       (println "[WARN] not pss trail" id (get-in relation [:tags "name"])))))
 
+#_(with-open [is (fs/input-stream (path/child dataset-path (str "6-9-1" ".gpx")))]
+  (def a (gpx/read-gpx is)))
+
+(:track-seq a)
+(:route-seq a)
 #_(Get (deref osmeditor/route-source-map) 14194463)
 
 ;; report transversal relations in OSM
@@ -1168,7 +1177,9 @@
   (map/tile-overlay-mapbox
    "vanjakom"
    "cl4vushrv002k14og8qmnpme5"
-   "pk.eyJ1IjoidmFuamFrb20iLCJhIjoiY2pwZHp4N3p6MG1tMDNxbzI2d2wxb3l5bCJ9.NzANQ393MK-tX7j8dQLjNw"
+
+   ;; todo get key from MAPBOX_PUBLIC_KEY
+   
    "osm-pss-map"
    true)
   (map/tile-overlay-waymarked-hiking false)

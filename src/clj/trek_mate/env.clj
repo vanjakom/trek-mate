@@ -34,26 +34,13 @@
   (jvm/environment-variable "TREK_MATE_CK_USER"))
 
 (def garmin-track-path
-  (path/child
-   *global-my-dataset-path*
-   "garmin"
-   "gpx"))
+  ["Users" "vanja" "projects" "dataset-garmin" "gpx"])
 (def garmin-track-daily-path
-  (path/child
-   *global-my-dataset-path*
-   "garmin"
-   "daily"))
+  ["Users" "vanja" "projects" "dataset-garmin" "daily"])
 (def garmin-waypoints-path
-  (path/child
-   *global-my-dataset-path*
-   "garmin"
-   "waypoints"))
+  ["Users" "vanja" "projects" "dataset-garmin" "waypoints"])
 (def garmin-geocache-path
-  (path/child
-   *global-my-dataset-path*
-   "garmin"
-   "geocache"
-   "geocache_logs.xml"))
+  ["Users" "vanja" "projects" "dataset-garmin" "geocache" "geocache_logs.xml"])
 
 (def trek-mate-track-path
   (path/child

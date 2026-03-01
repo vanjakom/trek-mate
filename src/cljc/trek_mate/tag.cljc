@@ -739,7 +739,8 @@
     ["#checkin" ["building"] ["name"]]
     ["#checkin" ["natural" "beach"]]
     ["#checkin" ["natural"] ["tree"]]
-    ["#checkin" ["natural"] ["name"]]]))
+    ["#checkin" ["natural"] ["name"]]
+    ["#checkin" ["place"]]]))
 
 #_(defn simple-mapping->overpass [mapping]
     (cond

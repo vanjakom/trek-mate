@@ -20,12 +20,13 @@
    [clj-common.pipeline :as pipeline]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.location :as location]
+   [clj-geo.import.osmapi :as osmapi]
    [trek-mate.dot :as dot]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
-   [trek-mate.integration.osmapi :as osmapi]
+   
    [trek-mate.integration.overpass :as overpass]
 ;;   circular dependency ...
 ;;   [trek-mate.osmeditor :as osmeditor]
