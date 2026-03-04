@@ -26,6 +26,7 @@
    [clj-geo.osm.dataset :as dataset]
    
    [trek-mate.integration.mapillary :as mapillary]
+   [trek-mate.integration.osm :as integration-osm]
    [trek-mate.integration.overpass :as overpass]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.tag :as tag]
@@ -991,6 +992,48 @@
            (= type :way)
            (osmapi/way-apply-change-seq id comment change-seq))
          (ring.util.response/redirect (str "/view/osm/history/" (name type) "/" id)))))))
+
+  (compojure.core/GET
+   "/dot/retrieve/:type/:id"
+   [type id]
+   (let [url (str "https://www.openstreetmap.org/" type "/" id)]
+     {
+      :status 200
+      :headers {"Content-Type" "text/plain; charset=utf-8"}
+      :body (integration-osm/retrieve-osm-location url)}))
+
+  (compojure.core/GET
+   "/dot/prepare"
+   _
+   {
+    :status 200
+    :headers {"Content-Type" "text/html; charset=utf-8"}
+    :body (hiccup/html
+           [:html
+            [:head
+             [:title "dot prepare"]]
+            [:body
+             [:p "enter OSM URL (e.g. https://www.openstreetmap.org/node/123)"]
+             [:input {:type "text" :id "osm-url" :size 60 :onkeydown "if(event.key==='Enter')prepare()"}]
+             [:span {:style "margin-left:10px"}]
+             [:button {:onclick "prepare()"} "Prepare"]
+             [:pre {:id "result"}]
+             [:script
+              "function prepare() {
+                 var input = document.getElementById('osm-url').value;
+                 var match = input.match(/(node|way|relation)\\/([0-9]+)/);
+                 if (match) {
+                    var type = match[1];
+                    var id = match[2];
+                    fetch('/dot/retrieve/' + type + '/' + id)
+                       .then(response => response.text())
+                       .then(data => {
+                          document.getElementById('result').textContent = data;
+                       });
+                 } else {
+                    document.getElementById('result').textContent = 'Invalid URL format';
+                 }
+              }"]]])})
 
   ;; depricated, if not found to be used remove
   #_(compojure.core/GET

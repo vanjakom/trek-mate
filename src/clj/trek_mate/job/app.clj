@@ -42,7 +42,7 @@
                 mappings)]])
            (sort-by first grouped-mapping))]])))))
 
-(prepare-tm-web-tags-html
+#_(prepare-tm-web-tags-html
  (context/create-stdout-context
   {
    :tm-web-root-path ["Users" "vanja" "projects" "trek-mate-web"]}))

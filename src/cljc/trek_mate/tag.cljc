@@ -506,7 +506,17 @@
    ["#starbucks" ["amenity" "cafe"] ["name" "Starbucks"]]
    ["#starbucks" ["amenity" "cafe"] ["name:en" "Starbucks"]]
    ;; https://www.openstreetmap.org/node/440956457
-   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]])
+   ["#vapiano" ["amenity" "restaurant"] ["name" "Vapiano"]]
+
+   ;; preparation for #london2026
+   ["#costa" ["amenity" "cafe"] ["brand" "Costa"]]
+   ["#smyths" ["shop" "toys"] ["brand" "Smyths"]]
+   ["#applestore" ["shop" "electronics"] ["brand" "Apple Store"]]
+
+   ;; london specific
+   ;;["#tube" ["railway" "stop"] ["operator" "Transport for London"]]
+   ["#tube" ["public_transport" "station"] ["operator" "London Underground"]]
+   ])
 
 (def simple-mapping
   ;; sequence of mappings
@@ -558,7 +568,7 @@
     ["#gradja" ["shop" "trade"] ["trade" "timber"]]
     ;; https://www.openstreetmap.org/node/13184969498
     ;; todo, better naming
-    ["#" ["shop" "trade"] ["trade" "metal"]]
+    ["#bravarija" ["shop" "trade"] ["trade" "metal"]]
 
     ["#autoperionica" ["amenity" "car_wash"]]
     ["#autocetke" ["amenity" "car_wash"] ["automated" "yes"]]
@@ -618,6 +628,7 @@
     ["#groblje" ["amenity" "grave_yard"]]
     
     ["#gas" ["amenity" "fuel"]]
+    
     ["#prodavnica" ["shop" "supermarket"]]
     ["#kompanija" ["office" "company"]]
     ["#bravar" ["shop" "locksmith"]]
@@ -646,7 +657,8 @@
 
     ["#atm" ["amenity" "atm"]]
     ["#atm" ["amenity" "bank"] ["atm" "yes"]]
-    
+
+    ["#knjizara" ["shop" "books"]]
     ["#pekara" ["shop" "bakery"]]
     ["#mlekomat" ["amenity" "vending_machine"] ["vending" "milk"]]
     ["#rasadnik" ["shop" "garden_centre"]]
@@ -711,6 +723,7 @@
     ["#eat" ["amenity" "fast_food"]]
     ["#eat" ["shop" "bakery"]]
     ["#shop" ["shop"]]
+    
     ["#sleep" ["tourism" "hotel"]]
     ["#sleep" ["tourism" "motel"]]
 
