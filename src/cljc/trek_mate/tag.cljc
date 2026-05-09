@@ -512,6 +512,7 @@
    ["#costa" ["amenity" "cafe"] ["brand" "Costa"]]
    ["#smyths" ["shop" "toys"] ["brand" "Smyths"]]
    ["#applestore" ["shop" "electronics"] ["brand" "Apple Store"]]
+   ["#clarks" ["shop" "shoes"] ["brand" "Clarks"]]
 
    ;; london specific
    ;;["#tube" ["railway" "stop"] ["operator" "Transport for London"]]
@@ -561,6 +562,7 @@
     ["#veterinar" ["amenity" "veterinary"]]
     
     ["#stovariste" ["shop" "trade"]]
+    ["#stovariste" ["shop" "building_materials"]]
     ;; https://www.openstreetmap.org/node/13184941881
     ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_supplies"]]
     ["#gradjevinskimaterijal" ["shop" "trade"] ["trade" = "building_materials"]]
@@ -582,7 +584,11 @@
     ;; todo support extraction of complex query ( and, or )
     ["#zabranjenopusenje" ["amenity"] ["smoking" "no"]]
     ["#zabranjenopusenje" ["amenity"] ["smoking" "outside"]]
-
+    ["#nosmoking" ["amenity"] ["smoking" "no"]]
+    ["#nosmoking" ["amenity"] ["smoking" "outside"]]
+    ["#petfriendly" ["pets_allowed" "yes"]]
+    ["#petfriendly" ["pets" "yes"]]
+    ["#petfriendly" ["pets" "allowed"]]
 
     ;; todo izbaciti jaslice
     ["#vrtic" ["amenity" "kindergarten"]]

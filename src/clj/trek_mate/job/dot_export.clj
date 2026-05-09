@@ -9,6 +9,9 @@
    [clj-common.path :as path]
    [clj-geo.dotstore.humandot :as humandot]))
 
+;; 20260306 deprecated
+;; trek-mate app is now able to read human dot on its' own
+
 (defn export [context]
   (let [dot-path (get (context/configuration context) :dot-path)
         export-path (get (context/configuration context) :export-path)]
@@ -32,7 +35,7 @@
         (json/write-to-stream geojson os)
         (context/trace context (str "exported " (count features) " locations"))))))
 
-(export
+#_(export
  (context/create-stdout-context
   {
    :dot-path ["Users" "vanja" "dataset-git" "dots" "london2026.dot"]

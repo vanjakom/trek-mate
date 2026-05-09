@@ -3,13 +3,15 @@
    clj-common.clojure)
   (:require
    clojure.set
+   clojure.string
    [clj-common.as :as as]
    [clj-common.context :as context]
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
-   [clj-geo.dotstore.humandot :as humandot]))
+   [clj-geo.dotstore.humandot :as humandot]
+   [clj-geo.import.gpx :as gpx]))
 
 ;; 20250121 #starbucks #vitara #servis initial work
 ;; jobs to retrieve data from container of application
@@ -99,13 +101,14 @@
 (defn extract-dotstore [context]
   (let [configuration (context/configuration context)
         stream-root-path (get configuration :stream-root-path)
+        extract-root-path (get configuration :extract-root-path)
         filter-tags (into #{} (get configuration :tags))
         dotstore-name (get configuration :dotstore-name)]
     (let [locations-path (last
                           (filter
                            #(.endsWith (path/name %) ".json")
                            (fs/list (path/child stream-root-path "location"))))
-          dotstore-path (path/child stream-root-path "extract" (str dotstore-name ".dot"))]
+          dotstore-path (path/child extract-root-path (str dotstore-name ".dot"))]
       (context/trace context (str "reading locations: " locations-path))
       (context/trace context (str "tags: " filter-tags))
       (with-open [is (fs/input-stream locations-path)
@@ -124,11 +127,11 @@
            location-seq))))))
 
 #_(extract-dotstore
- (context/create-stdout-context
-  {
-   :stream-root-path ["Users" "vanja" "projects" "dataset-trek-mate" "stream-v1"]
-   :dotstore-name "todo"
-   :tags ["#todo"]}))
+   (context/create-stdout-context
+    {
+     :stream-root-path ["Users" "vanja" "projects" "dataset-trek-mate" "stream-v1"]
+     :dotstore-name "todo"
+     :tags ["#todo"]}))
 
 #_(import-container
    (context/create-stdout-context
@@ -143,3 +146,48 @@
    :container-path ["Users" "vanja" "dataset-cloud" "trek-mate" "container-backup"
                     "iphone" "2025-01-21.xcappdata"]
    :store-stream-path ["Users" "vanja" "dataset-cloud" "trek-mate" "stream-v1"]}))
+
+(defn read-track-index [path]
+  (with-open [is (fs/input-stream path)]
+    (reduce
+     (fn [index line]
+       (if (or (empty? line) (.startsWith line ";"))
+         index
+         (let [[track-file-name description] (clojure.string/split line #"\|" 2)
+               words (clojure.string/split description #"\s+")
+               tags (filter #(.startsWith % "#") words)
+               rest-words (clojure.string/join " " (filter #(not (.startsWith % "#")) words))
+               value (vec (concat tags [rest-words]))]
+           (assoc index track-file-name value))))
+     {}
+     (line-seq (java.io.BufferedReader. (java.io.InputStreamReader. is))))))
+
+(defn extract-gpx [context]
+  (let [configuration (context/configuration context)
+        dataset-root-path (get configuration :dataset-root-path)
+        track-root-path (path/child dataset-root-path "stream-v1" "track")
+        track-index-path (path/child dataset-root-path "alter" "track-index.md")
+        extract-root-path (path/child dataset-root-path "extract" "gpx")
+        track-index (read-track-index track-index-path)
+        date-format (doto
+                        (java.text.SimpleDateFormat. "yyyyMMdd HHmmss")
+                        (.setTimeZone (java.util.TimeZone/getTimeZone "UTC")))]
+    (doseq [track-file (fs/list track-root-path)]
+      (let [track-name (-> (path/name track-file) (.replace ".json" ""))]
+        (when (contains? track-index track-name)
+          (let [timestamp (-> track-name (.replace "track-" "") as/as-long)
+                gpx-name (str (.format date-format (java.util.Date. timestamp)) ".gpx")
+                gpx-path (path/child extract-root-path gpx-name)]
+            (context/trace context (str "extracting: " track-name " -> " gpx-name))
+            (with-open [is (fs/input-stream track-file)
+                        os (fs/output-stream gpx-path)]
+              (let [location-seq (map
+                                  (fn [point]
+                                    {:longitude (:longitude point)
+                                     :latitude (:latitude point)
+                                     :timestamp (:updated point)})
+                                  (json/read-lines-keyworded is))]
+                (gpx/write-gpx
+                 os
+                 [(gpx/track [(gpx/track-segment location-seq)])])))))))))
+

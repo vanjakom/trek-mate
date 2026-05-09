@@ -38,5 +38,7 @@
 (defn ^:export supportedTags []
   (clj->js (into [] profile/supported-tags)))
 
+
+;; todo, stopped work, iOS do not support HTTP retrieve
 (defn ^:export fetchNode [id]
   (clj->js (osmapi/node-full id)))

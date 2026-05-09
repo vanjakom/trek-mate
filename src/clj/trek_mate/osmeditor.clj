@@ -23,11 +23,12 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.osm :as osm]
    [clj-geo.import.osmapi :as osmapi]
+   [clj-geo.import.overpass :as overpass]
    [clj-geo.osm.dataset :as dataset]
    
    [trek-mate.integration.mapillary :as mapillary]
    [trek-mate.integration.osm :as integration-osm]
-   [trek-mate.integration.overpass :as overpass]
+
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.tag :as tag]
    [trek-mate.util :as util]
@@ -1209,51 +1210,53 @@
       :status 404}))
 
   ;; proxy routes since they require center
-  (compojure.core/GET
-   "/proxy/mapillary/:type/:id"
-   [type id]
-   (let [type (keyword type)
-         id (as/as-long id)
-         location (cond
-                    (= type :node)
-                    (overpass/node-id->location id)
-                    (= type :way)
-                    (overpass/way-id->location id)
-                    (= type :relation)
-                    (overpass/relation-id->location id)
-                    :else
-                    nil)]
-     (if (some? location)
-       (ring.util.response/redirect
-        (str
-         "https://www.mapillary.com/app/?focus=map&lat="
-         (:latitude location)
-         "&lng=" (:longitude location)
-         "&z=18"))
-       {:status 404})))
+  ;; 20260408 disabled, requires removed overpass, if neded rewrite
+  #_(compojure.core/GET
+        "/proxy/mapillary/:type/:id"
+        [type id]
+        (let [type (keyword type)
+              id (as/as-long id)
+              location (cond
+                         (= type :node)
+                         (overpass/node-id->location id)
+                         (= type :way)
+                         (overpass/way-id->location id)
+                         (= type :relation)
+                         (overpass/relation-id->location id)
+                         :else
+                         nil)]
+          (if (some? location)
+            (ring.util.response/redirect
+             (str
+              "https://www.mapillary.com/app/?focus=map&lat="
+              (:latitude location)
+              "&lng=" (:longitude location)
+              "&z=18"))
+            {:status 404})))
   ;; proxy routes since they require center
-  (compojure.core/GET
-   "/proxy/id/:type/:id"
-   [type id]
-   (let [type (keyword type)
-         id (as/as-long id)
-         location (cond
-                    (= type :node)
-                    (overpass/node-id->location id)
-                    (= type :way)
-                    (overpass/way-id->location id)
-                    (= type :relation)
-                    (overpass/relation-id->location id)
-                    :else
-                    nil)]
-     (if (some? location)
-       (ring.util.response/redirect
-       (str
-        "https://preview.ideditor.com/master/#map=18/"
-        (:latitude location)
-        "/"
-        (:longitude location)))
-       {:status 404})))
+  ;; 20260408 disabled, requires removed overpass, if neded rewrite
+  #_(compojure.core/GET
+      "/proxy/id/:type/:id"
+      [type id]
+      (let [type (keyword type)
+            id (as/as-long id)
+            location (cond
+                       (= type :node)
+                       (overpass/node-id->location id)
+                       (= type :way)
+                       (overpass/way-id->location id)
+                       (= type :relation)
+                       (overpass/relation-id->location id)
+                       :else
+                       nil)]
+        (if (some? location)
+          (ring.util.response/redirect
+           (str
+            "https://preview.ideditor.com/master/#map=18/"
+            (:latitude location)
+            "/"
+            (:longitude location)))
+          {:status 404})))
 
   (compojure.core/GET
    "/view/osm/history/:type/:id"
@@ -1464,46 +1467,47 @@
      (render-relation-geometry data)))
   
   ;; to be used as unified view of osm element, map, tags, images, history?
-  (compojure.core/GET
-   "/view/:type/:id"
-   [type id]
-   ;; todo support other types
-   (let [type (keyword type)
-         location (cond
-                    (= type :node) (overpass/node-id->location id)
-                    (= type :way) (overpass/way-id->location id)
-                    (= type :relation) (overpass/relation-id->location id))
-         image-seq (mapillary/query-result->image-seq
-                    (mapillary/query-look-at
-                     (:longitude location)
-                     (:latitude location)))]
-     {
-      :status 200
-      :headers {
-                "Content-Type" "text/html; charset=utf-8"}
-      :body
-      (hiccup/html
-       [:html
-        [:body {:style "font-family:arial;"}
-         (cond
-           (= type :node)
-           [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id] [:br]]
-           (= type :way)
-           [:div "way: " [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id] [:br]]
-           (= type :relation)
-           [:div "relation: " [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id] [:br]])
-         [:table
-          (map
-           (fn [image-row]
-             [:tr
-              (map
-             (fn [image]
-               [:td
-                [:a
-                 {:href (:url image) :target "_blank"}
-                 [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
-             image-row)])
-           (partition 3 3 nil image-seq))]]])}))
+  ;; 20260408 disabled, requires removed overpass, if neded rewrite
+  #_(compojure.core/GET
+      "/view/:type/:id"
+      [type id]
+    ;; todo support other types
+      (let [type (keyword type)
+            location (cond
+                       (= type :node) (overpass/node-id->location id)
+                       (= type :way) (overpass/way-id->location id)
+                       (= type :relation) (overpass/relation-id->location id))
+            image-seq (mapillary/query-result->image-seq
+                       (mapillary/query-look-at
+                        (:longitude location)
+                        (:latitude location)))]
+        {
+         :status 200
+         :headers {
+                   "Content-Type" "text/html; charset=utf-8"}
+         :body
+         (hiccup/html
+          [:html
+           [:body {:style "font-family:arial;"}
+            (cond
+              (= type :node)
+              [:div "node: " [:a {:href (str "https://www.openstreetmap.org/node/" id) :target "_blank"} id] [:br]]
+              (= type :way)
+              [:div "way: " [:a {:href (str "https://www.openstreetmap.org/way/" id) :target "_blank"} id] [:br]]
+              (= type :relation)
+              [:div "relation: " [:a {:href (str "https://www.openstreetmap.org/relation/" id) :target "_blank"} id] [:br]])
+            [:table
+             (map
+              (fn [image-row]
+                [:tr
+                 (map
+                  (fn [image]
+                    [:td
+                     [:a
+                      {:href (:url image) :target "_blank"}
+                      [:img {:style "margin: 10px;" :src (:thumb-url image)}]]])
+                  image-row)])
+              (partition 3 3 nil image-seq))]]])}))
 
   (compojure.core/GET
     "/route/edit/:id/retrieve"

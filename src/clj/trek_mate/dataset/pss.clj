@@ -19,7 +19,6 @@
    [clj-common.pipeline :as pipeline]
    [clj-common.view :as view]
    [trek-mate.dot :as dot]
-   [trek-mate.dataset.hike-and-bike :as hike-and-bike]
    [trek-mate.env :as env]
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
@@ -436,6 +435,9 @@
    "4-31-9" "gpx problematičan, dosta odstupanja"
    
    ;; "2-16-1" "dosta odstupanje, staza nije markirana 20200722, srednjeno 20221213"
+
+   "1-3-2" "staza se menja svake godine, tesko je ispratiti promene"
+   "1-3-3" "staza se menja svake godine, tesko je ispratiti promene"
    })
 
 (def valjevo-staze-seq

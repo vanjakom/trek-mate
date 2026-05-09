@@ -209,7 +209,8 @@
     (with-open [is (fs/input-stream tm-dataset-path)
                 os (fs/output-stream dataset-path)]
       (doseq [entry (edn/input-stream->seq is)]
-        (let [name-set (into
+        (let [tags (disj (tag/osm-tags->tags (:tags entry)) "#checkin")
+              name-set (into
                         #{}
                         (map
                          (fn [name]
@@ -222,12 +223,22 @@
                           [
                            (get-in entry [:tags "name"])
                            (get-in entry [:tags "name:sr"])
-                           (get-in entry [:tags "name:sr-Latn"])])))]
-          (io/write-line os (clojure.string/join " " name-set))
+                           (get-in entry [:tags "name:sr-Latn"])])))
+              brand (get-in entry [:tags "brand"])
+              operator (get-in entry [:tags "operator"])]
+          (io/write-line os (clojure.string/join
+                             " "
+                             (concat
+                              tags
+                              (filter
+                               some?
+                               [brand operator])
+                              name-set)))
           (io/write-line os (str "http://osm.org/" (name (:type entry)) "/" (:id entry)))
-          (io/write-line os ""))))))
+          (io/write-line os ""))))
+    (context/trace context "finished")))
 
-(let [dataset-local-path ["Users" "vanja" "dataset-local"]]
+#_(let [dataset-local-path ["Users" "vanja" "dataset-local"]]
   (create-name-lookup-md
    (context/create-stdout-context
     {

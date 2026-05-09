@@ -25,6 +25,7 @@
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.location :as location]
+   [clj-geo.import.overpass :as overpass]
    [clj-geo.math.tile :as tile-math]
    [clj-cloudkit.client :as ck-client]
    [clj-cloudkit.model :as ck-model]
@@ -36,7 +37,6 @@
    [trek-mate.integration.geocaching :as geocaching]
    [trek-mate.integration.wikidata :as wikidata]
    [trek-mate.integration.osm :as osm]
-   [trek-mate.integration.overpass :as overpass]
    [trek-mate.osmeditor :as osmeditor]
    [trek-mate.storage :as storage]
    [trek-mate.render :as render]
@@ -47,7 +47,7 @@
 
 (def dataset (atom {}))
 
-(defn dataset-add [location]
+#_(defn dataset-add [location]
   (let [id (util/create-location-id (:longitude location) (:latitude location))]
     (swap!
      dataset
@@ -55,7 +55,7 @@
      id
      location)))
 
-(defn n [n & tags]
+#_(defn n [n & tags]
   (let [location (update-in
                   (dot/enrich-tags
                    (osm/extract-tags
@@ -73,7 +73,7 @@
     (dataset-add location)
     (dot/dot->name location)))
 
-(defn w [w & tags]
+#_(defn w [w & tags]
   (let [location (update-in
                   (dot/enrich-tags
                    (osm/extract-tags
@@ -91,7 +91,7 @@
     (dataset-add location)
     (dot/dot->name location)))
 
-(defn r [r & tags]
+#_(defn r [r & tags]
   (let [location (dot/enrich-tags
                   (update-in
                    (osm/extract-tags
@@ -109,7 +109,7 @@
     (dataset-add location)
     (dot/dot->name location)))
 
-(defn q [q & tags]
+#_(defn q [q & tags]
   (let [location (update-in
                   (dot/enrich-tags
                    (osm/extract-tags
@@ -129,12 +129,12 @@
     (dataset-add location)
     (dot/dot->name location)))
 
-(defn l [longitude latitude & tags]
+#_(defn l [longitude latitude & tags]
   (let [location {:longitude longitude :latitude latitude :tags (into #{}  tags)}]
     (dataset-add location)
     location))
 
-(defn t
+#_(defn t
   [location & tag-seq]
   (update-in
    location
@@ -142,7 +142,7 @@
    clojure.set/union
    (into #{} (map as/as-string tag-seq))))
 
-(defn d
+#_(defn d
   "To be used to remove location once finished"
   [location-word])
 
