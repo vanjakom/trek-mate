@@ -1,4 +1,4 @@
-(ns trek-mate.jobs.app
+(ns trek-mate.job.app
   (:require
    [hiccup.core :as hiccup]
 
@@ -18,28 +18,30 @@
        (hiccup/html
         [:html
          [:head
-          [:title "Trek-Mate Tags"]]
+          [:title "trek-mate tags"]
+          [:meta {:charset "UTF-8"}]]
          [:body
-          [:h1 "Trek-Mate Tags"]
-          [:p "List of tags and OSM tags that produce them."]
+          [:h3 "trek-mate tags"]
           (map
            (fn [[tm-tag mappings]]
              [:div
-              [:h3 tm-tag]
-              [:ul
-               (map
-                (fn [mapping]
-                  (let [[_ & osm-pairs] mapping]
-                    [:li
-                     (interpose
-                      " AND "
+              [:b tm-tag]
+              [:div
+               (clojure.string/join
+                "<br><br>"
+                (map
+                 (fn [mapping]
+                   (let [[_ & osm-pairs] mapping]
+                     (clojure.string/join
+                      "<br>"
                       (map
                        (fn [[key value]]
                          (if value
-                           (str key "=" value)
+                           (str key " = " value)
                            key))
-                       osm-pairs))]))
-                mappings)]])
+                       osm-pairs))))
+                 mappings))]
+              [:br]])
            (sort-by first grouped-mapping))]])))))
 
 #_(prepare-tm-web-tags-html

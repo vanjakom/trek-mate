@@ -69,11 +69,13 @@
 ;;;(def tag-prefix-dataset "dataset:")
 
 ;;; will be used by user to mark locations visited ( without time notion )
-(def tag-check-in-personal "@check-in")
+;;; 20260527 moved to @checkin from @check-in
+(def tag-check-in-personal "@checkin")
 ;;; used to mark locations on which check-in is possible, currently all locations are
 ;;; supporting check in but this should be used to emphasize that location is intended
 ;;; for check in
-(def tag-check-in "#check-in")
+;;; 20260527 moved to #checkin from #check-in
+(def tag-check-in "#checkin")
 
 ;;; used on device to mark locations and tracks that are not shared
 ;;; automatically removed after track or location is shared
@@ -480,6 +482,9 @@
    ;; https://www.openstreetmap.org/node/4361362068
    ["#dm" ["shop" "chemist"] ["brand" "dm"]]
    ["#dm" ["shop" "chemist"] ["name" "dm"]]
+   ;; https://www.openstreetmap.org/node/4405923189
+   ["#decathlon" ["name" "Decathlon"]]
+   ["#decathlon" ["brand" "Decathlon"]]
    ;; https://www.openstreetmap.org/node/12484342877
    ["#lidl" ["shop" "supermarket"] ["name" "Lidl"]]
    ["#lidl" ["shop" "supermarket"] ["brand" "Lidl"]]
@@ -512,12 +517,7 @@
    ["#costa" ["amenity" "cafe"] ["brand" "Costa"]]
    ["#smyths" ["shop" "toys"] ["brand" "Smyths"]]
    ["#applestore" ["shop" "electronics"] ["brand" "Apple Store"]]
-   ["#clarks" ["shop" "shoes"] ["brand" "Clarks"]]
-
-   ;; london specific
-   ;;["#tube" ["railway" "stop"] ["operator" "Transport for London"]]
-   ["#tube" ["public_transport" "station"] ["operator" "London Underground"]]
-   ])
+   ["#clarks" ["shop" "shoes"] ["brand" "Clarks"]]])
 
 (def simple-mapping
   ;; sequence of mappings
@@ -627,6 +627,7 @@
     ["#mojkiosk" ["shop" "kiosk"] ["brand" "Мој киоск"]]
     
     ;; general poi
+    ["#city" ["place"]]
     ["#crkva" ["amenity" "place_of_worship"]]
     ["#crkva" ["building" "church"]]
     ["#pravoslavnacrkva" ["amenity" "place_of_worship"] ["religion" "christian"] ["denomination" "serbian_orthodox"]]
@@ -649,7 +650,8 @@
     ;;["#igraonica" ["leisure" "playground"] ["access" "customers"]]
     ["#igraonica" ["leisure" "playground"] ["indoor" "yes"]]
     ["#igraonica" ["leisure" "indoor_play"]]
-
+    ["#igracke" ["shop" "toys"]]
+    
     ["#sankaliste" ["piste:type" "sled"]]
     
     ["#playground" ["leisure" "playground"]] ;; todo hvata i igraonice
@@ -671,10 +673,9 @@
     ["poljoapoteka" ["shop" "agrarian"]]
     ["#shoppingmall" ["shop" "mall"]]
     
-    
-    
     ["#winery" ["craft" "winery"]]
-    
+    ["#vinarija" ["craft" "winery"]]
+    ["#vinoteka" ["shop" "wine"]]
     
     ["#pumpa" ["amenity" "fuel"]]
 
@@ -719,6 +720,7 @@
     ["#plaza" ["natural" "beach"]]
     ["#drvo" ["natural" "tree"]]
 
+    ["#minigolf" ["leisure" "miniature_golf"]]
     
     ["#zoo" ["tourism" "zoo"]]
     
@@ -739,9 +741,18 @@
     ["#visit" ["tourism" "museum"]]
     ["#view" ["tourism" "viewpoint"]]
 
+    ["#attraction" ["tourism" "attraction"]]
+    
     ;; wikipedia / wikidata, add tag when it has them
     ["#wikipedia" ["wikipedia"]]
     ["#wikidata" ["wikidata"]]
+
+    
+    ;; london specific
+    ;;["#tube" ["railway" "stop"] ["operator" "Transport for London"]]
+    ["#tube" ["public_transport" "station"] ["operator" "London Underground"]]
+   
+    
     ;; checkin
     ["#checkin" ["amenity"]]
     ["#checkin" ["aeroway" "aerodrome"]]
@@ -759,7 +770,8 @@
     ["#checkin" ["natural" "beach"]]
     ["#checkin" ["natural"] ["tree"]]
     ["#checkin" ["natural"] ["name"]]
-    ["#checkin" ["place"]]]))
+    ["#checkin" ["place"]]
+    ["#checkin" ["man_made"]]]))
 
 #_(defn simple-mapping->overpass [mapping]
     (cond

@@ -52,3 +52,7 @@ track-root-path which have entry in track index create GPX file in
 extract-root-path. File should be named in YYYYMMDD HHmmSS.gpx format.
 Track is simple JSON line file where each line has longitude, latitude and
 updated ( timestamp ). Use clj-geo.import.gpx/write-gpx for GPX writing.
+
+CLAUDE-7 - DONE
+Find where in code I'm using index.tsv inside gpx directory ( garmin tracks ),
+file contains tags for tracks.

@@ -155,7 +155,7 @@
          index
          (let [[track-file-name description] (clojure.string/split line #"\|" 2)
                words (clojure.string/split description #"\s+")
-               tags (filter #(.startsWith % "#") words)
+               tags (filter #(or (.startsWith % "#") (.startsWith % "@")) words)
                rest-words (clojure.string/join " " (filter #(not (.startsWith % "#")) words))
                value (vec (concat tags [rest-words]))]
            (assoc index track-file-name value))))
