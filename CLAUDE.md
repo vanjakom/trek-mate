@@ -56,3 +56,7 @@ updated ( timestamp ). Use clj-geo.import.gpx/write-gpx for GPX writing.
 CLAUDE-7 - DONE
 Find where in code I'm using index.tsv inside gpx directory ( garmin tracks ),
 file contains tags for tracks.
+
+CLAUDE-8 - DONE
+clj-geo.dotstore.humandot is moved to clj-geo.dot.store.humandot fix require
+statements in repo

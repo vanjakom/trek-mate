@@ -7,7 +7,7 @@
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
-   [clj-geo.dotstore.humandot :as humandot]))
+   [clj-geo.dot.store.humandot :as humandot]))
 
 ;; 20260306 deprecated
 ;; trek-mate app is now able to read human dot on its' own

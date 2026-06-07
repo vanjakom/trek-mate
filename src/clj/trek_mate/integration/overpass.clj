@@ -10,7 +10,7 @@
    [clj-common.localfs :as fs]
    [clj-geo.import.osm :as osm]
    [clj-geo.import.osmapi :as osmapi]
-   [clj-geo.dotstore.humandot :as humandot]
+   [clj-geo.dot.store.humandot :as humandot]
 
    [trek-mate.tag :as tag]
    

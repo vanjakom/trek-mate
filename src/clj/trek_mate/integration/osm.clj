@@ -14,7 +14,7 @@
    [clj-geo.math.core :as geo]
    [clj-common.pipeline :as pipeline]
    [trek-mate.tag :as tag]
-   [clj-geo.dotstore.humandot :as humandot]
+   [clj-geo.dot.store.humandot :as humandot]
    [clj-geo.import.osm :as import]
    [clj-geo.import.osmapi :as osmapi]
    [clj-geo.math.tile :as tile-math]

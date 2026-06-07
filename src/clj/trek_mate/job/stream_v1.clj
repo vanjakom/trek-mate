@@ -10,7 +10,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-common.pipeline :as pipeline]
-   [clj-geo.dotstore.humandot :as humandot]
+   [clj-geo.dot.store.humandot :as humandot]
    [clj-geo.import.gpx :as gpx]))
 
 ;; 20250121 #starbucks #vitara #servis initial work

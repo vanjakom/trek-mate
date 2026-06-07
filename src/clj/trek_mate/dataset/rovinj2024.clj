@@ -8,7 +8,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
    [clj-geo.import.geojson :as geojson]
-   [clj-geo.dotstore.humandot :as humandot]
+   [clj-geo.dot.store.humandot :as humandot]
    [trek-mate.map :as map]
    [clj-geo.visualization.map :as mapcore]))
 
