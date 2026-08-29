@@ -1524,7 +1524,9 @@
                      (fn [waypoint]
                        [:tr
                         [:td {:style "border: 1px solid black; padding: 5px;"}
-                         (:name waypoint)]
+                         ;; 20260729 for easier index.tsv writing
+                         (str
+                          (.replace file "Waypoints_" "") "|" (:name waypoint))]
                         [:td {:style "border: 1px solid black; padding: 5px;"}
                          (str (:longitude waypoint) ", " (:latitude waypoint))]
                         [:td {:style "border: 1px solid black; padding: 5px;"}

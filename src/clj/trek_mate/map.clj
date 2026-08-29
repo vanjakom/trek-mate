@@ -85,30 +85,33 @@
 (defn pin-green-url [pin]
   (str "https://vanjakom.github.io/trek-mate-pins/blue_and_grey/" pin ".green.png"))
 
+;; should this be moved to clj-geo.visualization.map
 (defn build-description
   ([location]
    (build-description location false))
   ([location remove-private]
-   (clojure.string/join
-   "</br>"
-   (map
-    (fn [tag]
-      (if (or
-           (.startsWith tag "http://")
-           (.startsWith tag "https://"))
-        (str "<a href='" tag "' target='blank'>" tag "</a>")
-        tag))
-    (second
-     (reduce
-      (fn [[skip tags] tag]
-        ;; private tags section start with ===
-        (if (and (= tag "===") remove-private)
-          [true tags]
-          (if skip
-            [skip tags]
-            [skip (conj tags tag)])))
-      [false []]
-      (:tags location)))))))
+   (str
+    (:longitude location) ", " (:latitude location) "<br>"
+    (clojure.string/join
+     "<br>"
+     (map
+      (fn [tag]
+        (if (or
+             (.startsWith tag "http://")
+             (.startsWith tag "https://"))
+          (str "<a href='" tag "' target='blank'>" tag "</a>")
+          tag))
+      (second
+       (reduce
+        (fn [[skip tags] tag]
+          ;; private tags section start with ===
+          (if (and (= tag "===") remove-private)
+            [true tags]
+            (if skip
+              [skip tags]
+              [skip (conj tags tag)])))
+        [false []]
+        (:tags location))))))))
 
 (defn extract-pin-name
   "DEPRECATED, use pin/calculate-pins instead"
