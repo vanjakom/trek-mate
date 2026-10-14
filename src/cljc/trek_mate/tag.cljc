@@ -596,7 +596,8 @@
     ["#cuvaonica" ["amenity" "childcare"]]
     ["#deozadecu" ["kids_area" "yes"]]
     ["#deozadecu" ["kids_area:indoor" "yes"]]
-    
+    ["#vodenica" ["man_made" "watermill"]]
+
     ;; serbia
     ;; https://www.openstreetmap.org/node/6959796644
     ["#walter" ["amenity" "restaurant"] ["name" "Walter"]]

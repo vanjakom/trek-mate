@@ -10,6 +10,12 @@
    #{
      "#inbox" ;; to further investigate, process
      "#mymap" ;; my poi list
+     ;; #dot is a wildcard filter tag understood by trek-mate-app-v2: every
+     ;; location is treated as implicitly carrying it ( it's never actually
+     ;; stored on a location ), so filtering by #dot, or by no tags at all,
+     ;; shows every location. it's listed here only so it shows up as a
+     ;; suggested tag when building a filter
+     "#dot"
      }
    (map first tag/simple-mapping)))
 
